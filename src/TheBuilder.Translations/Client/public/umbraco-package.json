@@ -1,0 +1,14 @@
+{
+  "id": "TheBuilder.Translations",
+  "name": "Translations",
+  "version": "0.1.0",
+  "allowTelemetry": false,
+  "extensions": [
+    {
+      "name": "Translations Bundle",
+      "alias": "TheBuilder.Translations.Bundle",
+      "type": "bundle",
+      "js": "/App_Plugins/TheBuilder.Translations/translations.js"
+    }
+  ]
+}

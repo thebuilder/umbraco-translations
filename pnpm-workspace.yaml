@@ -1,0 +1,7 @@
+packages:
+  - src/TheBuilder.Translations/Client
+
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

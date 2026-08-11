@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/TheBuilder.Translations.Core/TheBuilder.Translations.Core.csproj" />
+  <Project Path="src/TheBuilder.Translations/TheBuilder.Translations.csproj" />
+  <Project Path="samples/TheBuilder.Translations.Example/TheBuilder.Translations.Example.csproj" />
+  <Project Path="tests/TheBuilder.Translations.Core.Tests/TheBuilder.Translations.Core.Tests.csproj" />
+  <Project Path="tests/TheBuilder.Translations.Tests/TheBuilder.Translations.Tests.csproj" />
+</Solution>

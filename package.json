@@ -1,0 +1,10 @@
+{
+  "name": "thebuilder-translations-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.13.0",
+  "scripts": {
+    "build": "pnpm --dir src/TheBuilder.Translations/Client build",
+    "check": "pnpm --dir src/TheBuilder.Translations/Client check",
+    "test": "pnpm --dir src/TheBuilder.Translations/Client test"
+  }
+}

@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+    <PackageId>TheBuilder.Translations</PackageId>
+    <Product>Translations</Product>
+    <Title>Translations</Title>
+    <Version>0.1.0</Version>
+    <Authors>Daniel Schmidt</Authors>
+    <Description>Manage application translation overrides from the Umbraco backoffice.</Description>
+    <PackageTags>umbraco;translations;localization;next-intl;i18next;icu</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <BackofficeClientDirectory>$(MSBuildProjectDirectory)/Client</BackofficeClientDirectory>
+    <BackofficeAssetsPattern>wwwroot/App_Plugins/TheBuilder.Translations/**/*</BackofficeAssetsPattern>
+    <BackofficeAssetsDirectory>$(MSBuildProjectDirectory)/wwwroot/App_Plugins/TheBuilder.Translations</BackofficeAssetsDirectory>
+    <BackofficeManifest>$(BackofficeAssetsDirectory)/umbraco-package.json</BackofficeManifest>
+    <BackofficeEntryPoint>$(BackofficeAssetsDirectory)/translations.js</BackofficeEntryPoint>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../TheBuilder.Translations.Core/TheBuilder.Translations.Core.csproj" />
+    <PackageReference Include="Umbraco.Cms.Web.Website" />
+    <PackageReference Include="Umbraco.Cms.Web.Common" />
+    <PackageReference Include="Umbraco.Cms.Api.Common" />
+    <PackageReference Include="Umbraco.Cms.Api.Management" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="MimeKit" />
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Remove="Client\**" />
+    <Content Remove="wwwroot/App_Plugins/TheBuilder.Translations/**/*" />
+    <None Include="Client\public\umbraco-package.json" Pack="false" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="wwwroot/App_Plugins/TheBuilder.Translations/" />
+    <InternalsVisibleTo Include="TheBuilder.Translations.Tests" />
+  </ItemGroup>
+  <Target Name="BuildBackofficeAssetsForPack" Condition="'$(_IsPacking)' == 'true' and '$(NoBuild)' != 'true'">
+    <Exec Command="corepack pnpm build" WorkingDirectory="$(BackofficeClientDirectory)" />
+  </Target>
+  <Target Name="RefreshBackofficeStaticWebAssets" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="BuildBackofficeAssetsForPack">
+    <ItemGroup><Content Include="$(BackofficeAssetsPattern)" /></ItemGroup>
+  </Target>
+  <Target Name="ValidateBackofficeAssetsForPack" BeforeTargets="IncludeStaticWebAssetsPackItems" Condition="'$(_IsPacking)' == 'true'">
+    <Error Condition="!Exists('$(BackofficeManifest)')" Text="Cannot pack TheBuilder.Translations because the backoffice manifest is missing." />
+    <Error Condition="!Exists('$(BackofficeEntryPoint)')" Text="Cannot pack TheBuilder.Translations because the backoffice entry point is missing." />
+  </Target>
+</Project>

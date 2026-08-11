@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vite/
+.pnpm-store/
+/umbraco/
+src/TheBuilder.Translations/wwwroot/App_Plugins/TheBuilder.Translations/*
+!src/TheBuilder.Translations/wwwroot/App_Plugins/TheBuilder.Translations/.gitkeep
+samples/**/umbraco/Data/
+samples/**/umbraco/Logs/
+samples/**/appsettings-schema*.json
+samples/**/umbraco-package-schema.json
+.DS_Store
