@@ -1,4 +1,4 @@
-import type { MessageStatus } from "../../api/generated/models.js";
+import type { MessageKeyStatus } from "../../api/generated/models.js";
 
 /**
  * The editor's filter state, normalised. Every field is present and uses `null` rather than
@@ -15,7 +15,7 @@ export interface EditorFilters {
   namespace: string | null;
   keyPrefix: string | null;
   query: string;
-  status: MessageStatus;
+  status: MessageKeyStatus;
   sort: SortField;
   direction: SortDirection;
 }
@@ -23,7 +23,9 @@ export interface EditorFilters {
 export type SortField = "key" | "updatedAt" | "status";
 export type SortDirection = "asc" | "desc";
 
-const STATUSES: readonly MessageStatus[] = ["All", "Default", "Overridden", "NeedsReview", "Missing"];
+// The key view's statuses, not the flat endpoint's: "Absent" (this locale never had the key) and
+// "Removed" (the source deleted it) are different questions, and only the key view can ask the first.
+const STATUSES: readonly MessageKeyStatus[] = ["All", "Absent", "Default", "Overridden", "NeedsReview", "Removed"];
 const SORT_FIELDS: readonly SortField[] = ["key", "updatedAt", "status"];
 const DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
 
@@ -85,7 +87,7 @@ export const parseFilters = (search: string): EditorFilters => {
     namespace: params.get("namespace"),
     keyPrefix: params.get("prefix"),
     query: params.get("q") ?? "",
-    status: (params.get("status") ?? undefined) as MessageStatus | undefined,
+    status: (params.get("status") ?? undefined) as MessageKeyStatus | undefined,
     sort: (params.get("sort") ?? undefined) as SortField | undefined,
     direction: (params.get("dir") ?? undefined) as SortDirection | undefined,
   });

@@ -23,9 +23,9 @@ export const configureApi = (configuration: ApiConfiguration): void => {
 
 export const api = {
   health: () => unwrap(TranslationsService.healthGetHealth(requestOptions)),
-  facets: () => unwrap(TranslationsService.messagesGetMessageFacets(requestOptions)),
-  permissions: () => unwrap(TranslationsService.permissionsGetPermissions(requestOptions)),
-  sources: () => unwrap(TranslationsService.sourcesListSources(requestOptions)),
+  facets: (signal?: AbortSignal) => unwrap(TranslationsService.messagesGetMessageFacets({ ...requestOptions, signal })),
+  permissions: (signal?: AbortSignal) => unwrap(TranslationsService.permissionsGetPermissions({ ...requestOptions, signal })),
+  sources: (signal?: AbortSignal) => unwrap(TranslationsService.sourcesListSources({ ...requestOptions, signal })),
   source: (id: string) => unwrap(TranslationsService.sourcesGetSource({ ...requestOptions, path: { id } })),
   createSource: (source: SourceRequest) => unwrap(TranslationsService.sourcesCreateSource({ ...requestOptions, body: source })),
   updateSource: (id: string, source: SourceRequest) => unwrap(TranslationsService.sourcesUpdateSource({ ...requestOptions, body: source, path: { id } })),
@@ -36,13 +36,13 @@ export const api = {
   syncHistory: (id: string) => unwrap(TranslationsService.sourcesListSourceSyncs({ ...requestOptions, path: { id } })),
   messages: (filters: { locale?: string; namespace?: string; query?: string; status: MessageStatus; page: number; pageSize: number }) =>
     unwrap(TranslationsService.messagesListMessages({ ...requestOptions, query: filters })),
-  message: (id: string) => unwrap(TranslationsService.messagesGetMessage({ ...requestOptions, path: { id } })),
+  message: (id: string, signal?: AbortSignal) => unwrap(TranslationsService.messagesGetMessage({ ...requestOptions, path: { id }, signal })),
   /** The editor's list: one row per key, with a cell per requested locale. */
-  messageKeys: (query: MessageKeyQuery) =>
-    unwrap(TranslationsService.messageKeysListMessageKeys({ ...requestOptions, query })),
+  messageKeys: (query: MessageKeyQuery, signal?: AbortSignal) =>
+    unwrap(TranslationsService.messageKeysListMessageKeys({ ...requestOptions, query, signal })),
   /** Target-locale ids for a filter, so "select all matching" can be materialised for a bulk write. */
-  messageKeyIds: (query: Omit<MessageKeyQuery, "compare" | "sort" | "direction" | "page" | "pageSize">) =>
-    unwrap(TranslationsService.messageKeysListMessageKeyIds({ ...requestOptions, query })),
+  messageKeyIds: (query: Omit<MessageKeyQuery, "compare" | "sort" | "direction" | "page" | "pageSize">, signal?: AbortSignal) =>
+    unwrap(TranslationsService.messageKeysListMessageKeyIds({ ...requestOptions, query, signal })),
   saveOverride: (id: string, value: string, expectedVersion?: number) =>
     unwrap(TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } })),
   resetOverride: (id: string, expectedVersion?: number) =>
