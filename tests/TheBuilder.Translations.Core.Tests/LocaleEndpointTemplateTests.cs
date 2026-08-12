@@ -40,11 +40,11 @@ public sealed class LocaleEndpointTemplateTests
     }
 
     [Fact]
-    public void Escapes_each_token_when_an_escaper_is_supplied()
+    public void Escapes_each_token()
     {
         Assert.Equal(
             "https://app/pt%2FBR.json",
-            LocaleEndpointTemplate.Expand("https://app/{locale}.json", "pt/BR", Uri.EscapeDataString));
+            LocaleEndpointTemplate.Expand("https://app/{locale}.json", "pt/BR"));
     }
 
     [Theory]

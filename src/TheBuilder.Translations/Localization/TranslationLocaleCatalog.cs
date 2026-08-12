@@ -20,17 +20,33 @@ public interface ITranslationLocaleCatalog
     Task<IReadOnlyList<TranslationLocale>> GetLocalesAsync(CancellationToken cancellationToken);
 
     Task<string?> GetDefaultLocaleAsync(CancellationToken cancellationToken);
+}
 
+/// <summary>
+/// Chooses the locale an editor treats as authoritative. A pure function rather than a catalog
+/// method, because it is a policy decision rather than a lookup: every input is already in hand at
+/// the call site, and keeping it separate makes it testable without stubbing Umbraco.
+/// </summary>
+public static class ReferenceLocale
+{
     /// <summary>
-    /// Resolves the locale an editor should see as authoritative: an explicit request wins, then
-    /// Umbraco's default language, then whichever locale the messages actually use. Matching is
-    /// case-insensitive but the stored casing is returned, so callers can compare against message
-    /// rows directly.
+    /// An explicit request wins, then the site's default language, then whichever locale the
+    /// messages actually use. Matching is case-insensitive but the stored casing is returned, so
+    /// callers can compare the result against message rows directly.
     /// </summary>
-    Task<string?> ResolveReferenceLocaleAsync(
+    public static string? Resolve(
         string? requested,
         IReadOnlyCollection<string> availableLocales,
-        CancellationToken cancellationToken);
+        string? defaultLocale) =>
+        Match(requested, availableLocales)
+        ?? Match(defaultLocale, availableLocales)
+        ?? availableLocales.OrderBy(locale => locale, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+
+    private static string? Match(string? candidate, IReadOnlyCollection<string> availableLocales) =>
+        string.IsNullOrWhiteSpace(candidate)
+            ? null
+            : availableLocales.FirstOrDefault(locale =>
+                string.Equals(locale, candidate.Trim(), StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class UmbracoTranslationLocaleCatalog(ILanguageService languages) : ITranslationLocaleCatalog
@@ -54,21 +70,4 @@ internal sealed class UmbracoTranslationLocaleCatalog(ILanguageService languages
         cancellationToken.ThrowIfCancellationRequested();
         return await languages.GetDefaultIsoCodeAsync();
     }
-
-    public async Task<string?> ResolveReferenceLocaleAsync(
-        string? requested,
-        IReadOnlyCollection<string> availableLocales,
-        CancellationToken cancellationToken)
-    {
-        if (Match(requested, availableLocales) is { } explicitLocale)
-            return explicitLocale;
-        if (Match(await GetDefaultLocaleAsync(cancellationToken), availableLocales) is { } defaultLocale)
-            return defaultLocale;
-        return availableLocales.OrderBy(locale => locale, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
-    }
-
-    private static string? Match(string? candidate, IReadOnlyCollection<string> availableLocales) =>
-        string.IsNullOrWhiteSpace(candidate)
-            ? null
-            : availableLocales.FirstOrDefault(locale => string.Equals(locale, candidate.Trim(), StringComparison.OrdinalIgnoreCase));
 }

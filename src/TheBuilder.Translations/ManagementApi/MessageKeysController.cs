@@ -148,11 +148,8 @@ public sealed class MessageKeysController(
         }
         catch (TranslationConcurrencyException exception)
         {
-            var current = await messages.GetMessageAsync(message.Message.Id, cancellationToken);
-            return Conflict(new MessageConflictResponse(
-                MessageConflictResponse.VersionConflict, exception.Message,
-                current?.Override?.Version, current?.Override?.Value,
-                current?.Override?.UpdatedAt, current?.Override?.UpdatedBy));
+            return Conflict(MessageConflictResponse.From(
+                exception, await messages.GetMessageAsync(message.Message.Id, cancellationToken)));
         }
     }
 
@@ -180,7 +177,8 @@ public sealed class MessageKeysController(
         var translated = await editor.GetLocalesAsync(cancellationToken);
         if (translated.Count == 0) return null;
 
-        var reference = await locales.ResolveReferenceLocaleAsync(referenceLocale, translated, cancellationToken);
+        var reference = ReferenceLocale.Resolve(
+            referenceLocale, translated, await locales.GetDefaultLocaleAsync(cancellationToken));
         if (reference is null) return null;
 
         var configured = await locales.GetLocalesAsync(cancellationToken);

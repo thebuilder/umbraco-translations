@@ -3,7 +3,8 @@ using TheBuilder.Translations.Core.Messages;
 namespace TheBuilder.Translations.Core.Persistence;
 
 /// <summary>
-/// Key-centric reads for the backoffice editor.
+/// Key-centric data access for the backoffice editor. Mostly reads; EnsureMessageAsync writes,
+/// because a locale with no row cannot be addressed by id until one exists.
 ///
 /// Separate from <see cref="ITranslationMessageRepository"/> on purpose: that interface is public
 /// API of a shipped package and describes single messages, while these queries are a distinct

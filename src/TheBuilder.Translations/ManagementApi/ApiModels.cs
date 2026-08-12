@@ -69,6 +69,21 @@ public sealed record MessageConflictResponse(
     string? UpdatedBy)
 {
     public const string VersionConflict = "version_conflict";
+
+    /// <summary>
+    /// Built from the message as it now stands, so the client can show "yours" beside "theirs"
+    /// without a follow-up request. <paramref name="current"/> is null when the row was deleted
+    /// between the failed write and this read.
+    /// </summary>
+    public static MessageConflictResponse From(
+        TranslationConcurrencyException exception,
+        TranslationMessageView? current) => new(
+        VersionConflict,
+        exception.Message,
+        current?.Override?.Version,
+        current?.Override?.Value,
+        current?.Override?.UpdatedAt,
+        current?.Override?.UpdatedBy);
 }
 
 public sealed record OutputEndpointResponse(string Locale, string Namespace, TranslationOutputFormat Format);

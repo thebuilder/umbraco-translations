@@ -52,7 +52,7 @@ public sealed class MessagesController(
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(await DescribeConflictAsync(id, exception, cancellationToken));
+            return Conflict(MessageConflictResponse.From(exception, await store.GetMessageAsync(id, cancellationToken)));
         }
     }
 
@@ -66,7 +66,7 @@ public sealed class MessagesController(
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(await DescribeConflictAsync(id, exception, cancellationToken));
+            return Conflict(MessageConflictResponse.From(exception, await store.GetMessageAsync(id, cancellationToken)));
         }
         return NoContent();
     }
@@ -76,35 +76,13 @@ public sealed class MessagesController(
     {
         var facets = TranslationOutputFormats.CreateFacets(await store.GetFacetDataAsync(cancellationToken));
         var configured = await locales.GetLocalesAsync(cancellationToken);
-        var usageByCode = facets.Locales.ToDictionary(usage => usage.Locale, StringComparer.OrdinalIgnoreCase);
-        var defaultLocale = await locales.ResolveReferenceLocaleAsync(
-            null, facets.Locales.Select(locale => locale.Locale).ToArray(), cancellationToken);
-
-        // Every Umbraco language, whether or not any source ships it. A source commonly covers one
-        // language while the site has several; the rest are legitimately empty until an editor
-        // fills them in, and hiding them would make them unreachable rather than merely empty.
-        // Message locales that are no longer Umbraco languages are appended as unconfigured.
-        var orphaned = facets.Locales
-            .Where(usage => !configured.Any(language =>
-                string.Equals(language.Code, usage.Locale, StringComparison.OrdinalIgnoreCase)))
-            .Select(usage => new TranslationLocale(usage.Locale, usage.Locale, false, false, null));
+        var defaultLocale = ReferenceLocale.Resolve(
+            requested: null,
+            facets.Locales.Select(locale => locale.Locale).ToArray(),
+            await locales.GetDefaultLocaleAsync(cancellationToken));
 
         return new(
-            configured.Concat(orphaned).Select(language =>
-            {
-                var usage = usageByCode.GetValueOrDefault(language.Code)
-                    ?? new TranslationLocaleUsage(language.Code, 0, 0, 0);
-                return new LocaleFacetResponse(
-                    language.Code,
-                    language.Name,
-                    string.Equals(language.Code, defaultLocale, StringComparison.OrdinalIgnoreCase),
-                    // False only for a locale that has messages but is no longer a site language.
-                    IsConfigured: !orphaned.Any(item => item.Code == language.Code),
-                    usage.MessageCount,
-                    usage.OverriddenCount,
-                    usage.NeedsReviewCount,
-                    usage.AbsentKeyCount(facets.TotalKeys));
-            }).ToArray(),
+            DescribeLocales(facets, configured, defaultLocale),
             defaultLocale,
             facets.Namespaces,
             facets.TotalKeys,
@@ -113,18 +91,43 @@ public sealed class MessagesController(
             facets.StatusCounts.ToDictionary(item => item.Key.ToString(), item => item.Value));
     }
 
-    // Re-reads the message so the client can reconcile without a second round trip. A conflict is
-    // rare, so the extra read costs nothing on the happy path.
-    private async Task<MessageConflictResponse> DescribeConflictAsync(
-        Guid id, TranslationConcurrencyException exception, CancellationToken cancellationToken)
+    /// <summary>
+    /// Every locale an editor can work in: each site language, whether or not a source ships it,
+    /// followed by any locale that still has messages but is no longer a site language.
+    ///
+    /// A source commonly covers one language while the site has several. The rest are legitimately
+    /// empty until an editor fills them in, so omitting them would make them unreachable rather
+    /// than merely untranslated.
+    /// </summary>
+    private static IReadOnlyList<LocaleFacetResponse> DescribeLocales(
+        TranslationFacets facets,
+        IReadOnlyList<TranslationLocale> configured,
+        string? defaultLocale)
     {
-        var current = await store.GetMessageAsync(id, cancellationToken);
-        return new MessageConflictResponse(
-            MessageConflictResponse.VersionConflict,
-            exception.Message,
-            current?.Override?.Version,
-            current?.Override?.Value,
-            current?.Override?.UpdatedAt,
-            current?.Override?.UpdatedBy);
+        var usageByCode = facets.Locales.ToDictionary(usage => usage.Locale, StringComparer.OrdinalIgnoreCase);
+        var configuredCodes = configured.Select(language => language.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        LocaleFacetResponse Describe(string code, string? name, bool isConfigured)
+        {
+            var usage = usageByCode.GetValueOrDefault(code) ?? new TranslationLocaleUsage(code, 0, 0, 0);
+            return new LocaleFacetResponse(
+                code,
+                name,
+                string.Equals(code, defaultLocale, StringComparison.OrdinalIgnoreCase),
+                isConfigured,
+                usage.MessageCount,
+                usage.OverriddenCount,
+                usage.NeedsReviewCount,
+                usage.AbsentKeyCount(facets.TotalKeys));
+        }
+
+        return
+        [
+            .. configured.Select(language => Describe(language.Code, language.Name, isConfigured: true)),
+            // No name: it is not a site language any more, so there is no name to report.
+            .. facets.Locales
+                .Where(usage => !configuredCodes.Contains(usage.Locale))
+                .Select(usage => Describe(usage.Locale, null, isConfigured: false)),
+        ];
     }
 }
