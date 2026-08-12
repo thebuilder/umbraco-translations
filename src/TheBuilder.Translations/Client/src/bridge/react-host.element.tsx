@@ -21,7 +21,11 @@ styleSheet.replaceSync(styles);
 
 export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
   readonly #bridge: BackofficeBridge = {
-    notify: (type, headline, message) => this.#notification?.peek(type, { data: { headline, message: message ?? headline } }),
+    // Umbraco requires a message and treats the headline as an optional bold line above it, so a
+    // single-argument call becomes the message alone. Defaulting the message to the headline
+    // printed the same sentence twice.
+    notify: (type, headline, message) =>
+      this.#notification?.peek(type, { data: message ? { headline, message } : { message: headline } }),
   };
   #notification?: typeof UMB_NOTIFICATION_CONTEXT.TYPE;
   #root?: Root;

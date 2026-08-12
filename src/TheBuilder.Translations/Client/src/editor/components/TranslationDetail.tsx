@@ -52,14 +52,17 @@ export const TranslationDetail = ({ id, bridge, close }: {
   const save = useMutation({
     mutationFn: (value: string) =>
       api.saveOverride({ ...identity(detail.data!), value, expectedVersion: detail.data?.version ?? undefined }),
-    onSuccess: async () => { bridge.notify("positive", "Translation saved"); await refresh(); },
+    // No toast on success. The row behind the drawer updates and its status changes, so a banner
+    // adds nothing except a panel landing on top of the button that was just pressed. Failures
+    // still notify, because nothing else would say so.
+    onSuccess: async () => { await refresh(); },
     onError: (error) => bridge.notify("danger", "Translation could not be saved", error.message),
   });
 
   const reset = useMutation({
     mutationFn: () =>
       api.resetOverride({ ...identity(detail.data!), expectedVersion: detail.data?.version ?? undefined }),
-    onSuccess: async () => { bridge.notify("positive", "Reverted to the application text"); await refresh(); close(); },
+    onSuccess: async () => { await refresh(); close(); },
     onError: (error) => bridge.notify("danger", "Translation could not be reset", error.message),
   });
 
