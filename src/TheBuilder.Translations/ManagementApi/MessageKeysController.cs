@@ -10,7 +10,6 @@ namespace TheBuilder.Translations.ManagementApi;
 [ApiExplorerSettings(GroupName = Constants.PackageName)]
 public sealed class MessageKeysController(
     ITranslationEditorRepository editor,
-    ITranslationMessageRepository messages,
     ITranslationLocaleCatalog locales) : TranslationsApiControllerBase
 {
     /// <summary>Ids only, so "select all matching" cannot be used to pull the whole table.</summary>
@@ -36,17 +35,27 @@ public sealed class MessageKeysController(
         int pageSize = 100,
         CancellationToken cancellationToken = default)
     {
-        if (Validate(page, pageSize, keyPrefix) is { } error) return BadRequest(error);
+        if (MessageQueryValidation.Describe(page, pageSize) is { } paging) return BadRequest(paging);
+        if (DescribeKeyPrefix(keyPrefix) is { } prefix) return BadRequest(prefix);
 
         var resolved = await ResolveLocalesAsync(locale, referenceLocale, cancellationToken);
         if (resolved is null)
-            // No messages have been synchronised yet, so there is no locale to be authoritative.
-            return new MessageKeyListResponse([], page, pageSize, 0, string.Empty, string.Empty, []);
+            // Nothing has been synchronised, so there is no locale to be authoritative.
+            return MessageKeyListResponse.Empty(page, pageSize);
 
-        var (reference, target) = resolved.Value;
-        var keyQuery = new MessageKeyQuery(
-            reference, target, compareLocales ?? [], sourceId, @namespace, keyPrefix, query,
-            status, sort, direction, page, pageSize);
+        var keyQuery = resolved with
+        {
+            CompareLocales = compareLocales ?? [],
+            SourceId = sourceId,
+            Namespace = @namespace,
+            KeyPrefix = keyPrefix,
+            Query = query,
+            Status = status,
+            Sort = sort,
+            Direction = direction,
+            Page = page,
+            PageSize = pageSize,
+        };
         var result = await editor.QueryKeysAsync(keyQuery, cancellationToken);
 
         return new MessageKeyListResponse(
@@ -54,11 +63,9 @@ public sealed class MessageKeysController(
             result.PageNumber,
             result.PageSize,
             result.Total,
-            reference,
-            target,
-            keyQuery.DetailLocales.Where(item =>
-                !string.Equals(item, reference, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(item, target, StringComparison.OrdinalIgnoreCase)).ToArray());
+            keyQuery.ReferenceLocale,
+            keyQuery.TargetLocale,
+            keyQuery.AdditionalCompareLocales);
     }
 
     [HttpGet("messages/keys/ids")]
@@ -75,16 +82,21 @@ public sealed class MessageKeysController(
         int limit = MaximumReferences,
         CancellationToken cancellationToken = default)
     {
-        if (Validate(1, TranslationKeyPageSize, keyPrefix) is { } error) return BadRequest(error);
+        if (DescribeKeyPrefix(keyPrefix) is { } prefix) return BadRequest(prefix);
         if (limit is < 1 or > MaximumReferences)
             return BadRequest($"Limit must be between 1 and {MaximumReferences}.");
 
         var resolved = await ResolveLocalesAsync(locale, referenceLocale, cancellationToken);
         if (resolved is null) return new MessageKeyReferenceResponse([], limit, false);
 
-        var (reference, target) = resolved.Value;
-        var keyQuery = new MessageKeyQuery(
-            reference, target, [], sourceId, @namespace, keyPrefix, query, status);
+        var keyQuery = resolved with
+        {
+            SourceId = sourceId,
+            Namespace = @namespace,
+            KeyPrefix = keyPrefix,
+            Query = query,
+            Status = status,
+        };
         // One more than asked for, so a caller can tell "exactly at the limit" from "truncated".
         var references = await editor.QueryKeyReferencesAsync(keyQuery, limit + 1, cancellationToken);
 
@@ -93,35 +105,30 @@ public sealed class MessageKeysController(
             : new MessageKeyReferenceResponse(references, limit, false);
     }
 
-    private const int TranslationKeyPageSize = 100;
-
-    private static string? Validate(int page, int pageSize, string? keyPrefix)
-    {
-        if (MessageQueryValidation.Describe(page, pageSize) is { } error) return error;
-        if (keyPrefix is not null && keyPrefix.Length > MaximumKeyPrefixLength)
-            return $"Key prefix must be {MaximumKeyPrefixLength} characters or fewer.";
-        return null;
-    }
+    private static string? DescribeKeyPrefix(string? keyPrefix) =>
+        keyPrefix is not null && keyPrefix.Length > MaximumKeyPrefixLength
+            ? $"Key prefix must be {MaximumKeyPrefixLength} characters or fewer."
+            : null;
 
     /// <summary>
-    /// Resolves the pair of locales the view is built from. The reference locale defaults to
-    /// Umbraco's default language; the target defaults to the reference, which renders a single
-    /// column rather than guessing which locale the editor meant to work in.
+    /// Builds the query already carrying the pair of locales the view is based on, or null when no
+    /// messages exist to have a locale at all. The reference defaults to Umbraco's default language;
+    /// the target defaults to the reference, which renders a single column rather than guessing
+    /// which locale the editor meant to work in.
     /// </summary>
-    private async Task<(string Reference, string Target)?> ResolveLocalesAsync(
+    private async Task<MessageKeyQuery?> ResolveLocalesAsync(
         string? locale,
         string? referenceLocale,
         CancellationToken cancellationToken)
     {
-        var facets = await messages.GetFacetDataAsync(cancellationToken);
-        var available = facets.Locales.Select(usage => usage.Locale).ToArray();
-        if (available.Length == 0) return null;
+        var available = await editor.GetLocalesAsync(cancellationToken);
+        if (available.Count == 0) return null;
 
         var reference = await locales.ResolveReferenceLocaleAsync(referenceLocale, available, cancellationToken);
         if (reference is null) return null;
 
-        var target = available.FirstOrDefault(item => string.Equals(item, locale?.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? reference;
-        return (reference, target);
+        var target = available.FirstOrDefault(item =>
+            string.Equals(item, locale?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? reference;
+        return new MessageKeyQuery(reference, target);
     }
 }

@@ -9,6 +9,13 @@ namespace TheBuilder.Translations.Core.Persistence;
 /// </summary>
 public interface ITranslationEditorRepository
 {
+    /// <summary>
+    /// The locales that actually have messages, ordered. Separate from the facet data because
+    /// resolving which locale to show is a per-request question and the facets carry four
+    /// aggregates the answer does not need.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetLocalesAsync(CancellationToken cancellationToken);
+
     Task<Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken);
 
     /// <summary>

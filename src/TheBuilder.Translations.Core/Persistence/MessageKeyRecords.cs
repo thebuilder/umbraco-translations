@@ -76,6 +76,15 @@ public sealed record MessageKeyQuery(
     int Page = 1,
     int PageSize = 100)
 {
+    // Both locales are required, which is what lets every consumer treat KeySetLocales and
+    // DetailLocales as non-empty. Callers with no locales at all (an unsynchronised site) have
+    // nothing to query and should not build a query in the first place.
+    public string ReferenceLocale { get; } =
+        NotBlank(ReferenceLocale, nameof(ReferenceLocale));
+
+    public string TargetLocale { get; } =
+        NotBlank(TargetLocale, nameof(TargetLocale));
+
     // Computed, not initialised auto-properties: a `with` expression copies backing fields without
     // re-running initialisers, so `query with { CompareLocales = [...] }` would silently keep the
     // original locale set.
@@ -89,6 +98,19 @@ public sealed record MessageKeyQuery(
     /// <summary>Locales whose text is actually returned. Everything else contributes only a state.</summary>
     public IReadOnlyList<string> DetailLocales =>
         Distinct([ReferenceLocale, TargetLocale, .. CompareLocales ?? []]);
+
+    /// <summary>
+    /// The compare locales that actually add a column, with the two already shown removed. The
+    /// response reports these rather than the raw request, so a caller asking to compare against
+    /// the locale it is already editing gets an honest answer.
+    /// </summary>
+    public IReadOnlyList<string> AdditionalCompareLocales =>
+        DetailLocales.Skip(KeySetLocales.Count).ToArray();
+
+    private static string NotBlank(string value, string name) =>
+        string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("A locale is required.", name)
+            : value;
 
     private static IReadOnlyList<string> Distinct(IEnumerable<string> locales) =>
         locales.Where(locale => !string.IsNullOrWhiteSpace(locale))

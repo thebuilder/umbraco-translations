@@ -114,13 +114,15 @@ internal static class TranslationKeyQueries
         foreach (var locale in query.DetailLocales)
             coverage.TryAdd(locale, MessageLocaleState.Absent);
 
-        // Arguments describe the key, so the reference locale is the authority; fall back to any
-        // locale that has them, because the reference row may itself be absent.
-        var arguments = ArgumentsOf(rows, query.ReferenceLocale);
-        var format = FormatOf(rows, query.ReferenceLocale);
-
+        var shape = ShapeOf(rows, query.ReferenceLocale);
         return new TranslationMessageKeyView(
-            key.SourceId, key.Namespace, key.Key, format, arguments, locales, coverage);
+            key.SourceId,
+            key.Namespace,
+            key.Key,
+            shape is null ? MessageFormat.PlainText : Enum.Parse<MessageFormat>(shape.Format),
+            shape is null ? new Dictionary<string, string>() : TranslationRowMapper.DeserializeArguments(shape.ArgumentSignature!),
+            locales,
+            coverage);
     }
 
     private static MessageLocaleState StateOf(MessageLocaleRow row)
@@ -130,35 +132,21 @@ internal static class TranslationKeyQueries
         return row.NeedsReview == 1 ? MessageLocaleState.NeedsReview : MessageLocaleState.Overridden;
     }
 
-    private static IReadOnlyDictionary<string, string> ArgumentsOf(
-        IReadOnlyList<MessageLocaleRow> rows,
-        string referenceLocale)
-    {
-        var signature = Preferred(rows, referenceLocale, row => row.ArgumentSignature);
-        return signature is null
-            ? new Dictionary<string, string>()
-            : TranslationRowMapper.DeserializeArguments(signature);
-    }
-
-    private static MessageFormat FormatOf(IReadOnlyList<MessageLocaleRow> rows, string referenceLocale)
-    {
-        var format = Preferred(rows, referenceLocale, row => row.Format);
-        return format is null ? MessageFormat.PlainText : Enum.Parse<MessageFormat>(format);
-    }
-
-    private static string? Preferred(
-        IReadOnlyList<MessageLocaleRow> rows,
-        string referenceLocale,
-        Func<MessageLocaleRow, string?> select)
+    /// <summary>
+    /// The row that defines the key's shape. Format and arguments must come from the same row or
+    /// they can describe different messages: Format is selected for every locale, while the
+    /// argument signature is nulled for locales that only contribute a coverage state.
+    ///
+    /// The reference locale is authoritative, falling back to any locale carrying a signature,
+    /// because the reference may have no row for this key at all.
+    /// </summary>
+    private static MessageLocaleRow? ShapeOf(IReadOnlyList<MessageLocaleRow> rows, string referenceLocale)
     {
         var reference = rows.FirstOrDefault(row =>
             string.Equals(row.Locale, referenceLocale, StringComparison.OrdinalIgnoreCase));
-        if (reference is not null && select(reference) is { Length: > 0 } fromReference)
-            return fromReference;
-
-        // The reference locale may have no row for this key, and the text columns are nulled for
-        // locales that only contribute coverage, so fall back to the first row that carries a value.
-        return rows.Select(select).FirstOrDefault(value => value is { Length: > 0 });
+        return reference?.ArgumentSignature is { Length: > 0 }
+            ? reference
+            : rows.FirstOrDefault(row => row.ArgumentSignature is { Length: > 0 });
     }
 
     /// <summary>

@@ -48,7 +48,12 @@ public sealed record MessageKeyListResponse(
     int Total,
     string ReferenceLocale,
     string TargetLocale,
-    IReadOnlyList<string> CompareLocales);
+    IReadOnlyList<string> CompareLocales)
+{
+    /// <summary>No messages have been synchronised, so there is not even a locale to report.</summary>
+    public static MessageKeyListResponse Empty(int page, int pageSize) =>
+        new([], page, pageSize, 0, string.Empty, string.Empty, []);
+}
 
 /// <summary>
 /// Target-locale message ids for a filter, with no text. Backs "select all N matching".

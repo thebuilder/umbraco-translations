@@ -14,6 +14,15 @@ internal sealed class UmbracoTranslationStore(
     TimeProvider timeProvider)
     : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository, ITranslationEditorRepository
 {
+    public Task<IReadOnlyList<string>> GetLocalesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        return Task.FromResult<IReadOnlyList<string>>(scope.Database.Fetch<string>(
+            $"SELECT DISTINCT Locale FROM {Constants.Tables.Messages} WHERE State <> @0 ORDER BY Locale",
+            TranslationMessageState.Missing.ToString()));
+    }
+
     public Task<Core.Persistence.Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
