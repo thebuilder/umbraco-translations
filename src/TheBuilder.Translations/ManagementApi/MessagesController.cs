@@ -14,12 +14,15 @@ namespace TheBuilder.Translations.ManagementApi;
 public sealed class MessagesController(ITranslationMessageRepository store, IMessageFormatValidator validator) : TranslationsApiControllerBase
 {
     [HttpGet("messages")]
-    public async Task<MessageListResponse> ListMessages(
+    public async Task<ActionResult<MessageListResponse>> ListMessages(
         string? locale, string? @namespace, string? query, MessageStatusFilter status = MessageStatusFilter.All,
         int page = 1, int pageSize = 100, CancellationToken cancellationToken = default)
     {
+        if (MessageQueryValidation.Describe(page, pageSize) is { } error)
+            return BadRequest(error);
+
         var result = await store.QueryMessagesAsync(new(locale, @namespace, query, status, page, pageSize), cancellationToken);
-        return new(result.Items.Select(item => item.ToListItem()).ToArray(), result.PageNumber, result.PageSize, result.Total);
+        return new MessageListResponse(result.Items.Select(item => item.ToListItem()).ToArray(), result.PageNumber, result.PageSize, result.Total);
     }
 
     [HttpGet("messages/{id:guid}")]
@@ -35,10 +38,8 @@ public sealed class MessagesController(ITranslationMessageRepository store, IMes
     {
         var message = await store.GetMessageAsync(id, cancellationToken);
         if (message is null) return NotFound();
-        var validation = validator.Validate(request.Value, message.Message.Format);
-        if (!validation.IsValid) return BadRequest(validation.Error);
-        if (!SameArguments(message.Message.Arguments, validation.Arguments))
-            return BadRequest("The override must use the same argument names and kinds as the source message.");
+        if (MessageOverrideValidation.Describe(request.Value, message.Message, validator) is { } error)
+            return BadRequest(error);
 
         try
         {
@@ -47,7 +48,7 @@ public sealed class MessagesController(ITranslationMessageRepository store, IMes
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(exception.Message);
+            return Conflict(await DescribeConflictAsync(id, exception, cancellationToken));
         }
     }
 
@@ -61,7 +62,7 @@ public sealed class MessagesController(ITranslationMessageRepository store, IMes
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(exception.Message);
+            return Conflict(await DescribeConflictAsync(id, exception, cancellationToken));
         }
         return NoContent();
     }
@@ -78,7 +79,18 @@ public sealed class MessagesController(ITranslationMessageRepository store, IMes
             facets.StatusCounts.ToDictionary(item => item.Key.ToString(), item => item.Value));
     }
 
-    private static bool SameArguments(IReadOnlyDictionary<string, string> expected, IReadOnlyDictionary<string, string> actual) =>
-        expected.Count == actual.Count && expected.All(item => actual.TryGetValue(item.Key, out var kind) && kind == item.Value);
-
+    // Re-reads the message so the client can reconcile without a second round trip. A conflict is
+    // rare, so the extra read costs nothing on the happy path.
+    private async Task<MessageConflictResponse> DescribeConflictAsync(
+        Guid id, TranslationConcurrencyException exception, CancellationToken cancellationToken)
+    {
+        var current = await store.GetMessageAsync(id, cancellationToken);
+        return new MessageConflictResponse(
+            MessageConflictResponse.VersionConflict,
+            exception.Message,
+            current?.Override?.Version,
+            current?.Override?.Value,
+            current?.Override?.UpdatedAt,
+            current?.Override?.UpdatedBy);
+    }
 }
