@@ -57,9 +57,34 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .scope__item:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: -2px; }
 .scope__item--current { background: var(--uui-color-surface-emphasis); font-weight: 700; }
 
-/* The grid body is the only thing that scrolls. */
-.key-list { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: auto; background: var(--uui-color-surface); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); }
-.key-list thead th { position: sticky; top: 0; background: var(--uui-color-surface); z-index: 1; }
+/* The grid body is the only thing that scrolls: the virtualizer measures it. */
+.grid-frame { display: flex; flex-direction: column; min-height: 0; flex: 1; background: var(--uui-color-surface); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); }
+.grid { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.grid__body { overflow: auto; flex: 1; min-height: 0; }
+.grid__row { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(0, 1.4fr) minmax(0, 1.6fr) auto; align-items: center; gap: var(--uui-size-space-3); inline-size: 100%; padding-inline: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+.grid__row:not(.grid__row--head) { position: absolute; inset-inline: 0; top: 0; }
+.grid__row--head { position: sticky; top: 0; z-index: 1; background: var(--uui-color-surface); font-size: var(--uui-type-small-size); text-transform: uppercase; letter-spacing: .04em; block-size: 36px; }
+.grid__cell { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid__cell:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: -2px; border-radius: 2px; }
+.grid__cell--key { display: flex; gap: var(--uui-size-space-1); }
+.grid__cell--target { display: flex; align-items: center; gap: var(--uui-size-space-2); }
+.grid__cell--target .value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid__cell--coverage { justify-self: end; }
+
+/* A rail rather than a chip: it marks every row without adding a badge to every row. */
+.grid__row--absent { box-shadow: inset 3px 0 0 var(--uui-color-danger); }
+.grid__row--needsreview { box-shadow: inset 3px 0 0 var(--uui-color-warning); }
+.grid__row--removed { box-shadow: inset 3px 0 0 var(--uui-color-danger-emphasis, var(--uui-color-danger)); }
+
+.dots { display: inline-flex; gap: 1px; align-items: center; font-size: 11px; line-height: 1; }
+.dot { border: 0; padding: 0 1px; background: none; color: var(--uui-color-text-alt); cursor: pointer; font: inherit; }
+.dot--overridden, .dot--default { color: var(--uui-color-positive); }
+.dot--needsreview { color: var(--uui-color-warning); }
+.dot--absent { color: var(--uui-color-border-emphasis); }
+.dot--removed { color: var(--uui-color-danger); }
+.dot--more { padding-inline-start: 2px; }
+
+.visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* An untranslated cell and an inherited one must not read as the same thing, or as blank. */
 .absent { color: var(--uui-color-text-alt); font-style: italic; }

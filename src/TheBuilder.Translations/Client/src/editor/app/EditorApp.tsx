@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
-import { KeyList } from "../components/KeyList.js";
+import { KeyGrid } from "../components/KeyGrid.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { LocaleProgress, Toolbar } from "./Toolbar.js";
@@ -51,9 +51,10 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
       <div className="layout">
         <ScopeList namespaces={facets.data?.namespaces ?? []} filters={shown} update={update} />
 
-        <KeyList
+        <KeyGrid
           keys={rows.keys}
           filters={shown}
+          locales={locales}
           total={rows.total}
           loading={rows.query.isLoading}
           error={rows.query.error ?? undefined}
@@ -62,6 +63,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           onLoadMore={() => void rows.query.fetchNextPage()}
           hasMore={rows.query.hasNextPage}
           loadingMore={rows.query.isFetchingNextPage}
+          onLocaleChange={(locale) => update({ locale })}
         />
 
         {selectedId && (
