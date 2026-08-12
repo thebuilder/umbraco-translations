@@ -8,6 +8,7 @@ using TheBuilder.Translations.Core.Persistence;
 using TheBuilder.Translations.Core.Sources;
 using TheBuilder.Translations.Core.Synchronization;
 using TheBuilder.Translations.Core.Validation;
+using TheBuilder.Translations.Localization;
 using TheBuilder.Translations.Migrations;
 using TheBuilder.Translations.Persistence;
 using Umbraco.Cms.Core.Composing;
@@ -47,6 +48,9 @@ public sealed class TranslationsComposer : IComposer
         builder.Services.AddScoped<ITranslationMessageRepository>(services => services.GetRequiredService<UmbracoTranslationStore>());
         builder.Services.AddScoped<TranslationSyncEngine>();
         builder.Services.AddSingleton<ITranslationOutputSerializer, NestedJsonOutputSerializer>();
+        // No caching wrapper: ILanguageService is already cached inside Umbraco, and a second layer
+        // would only introduce staleness after a language is added or the default one changes.
+        builder.Services.AddScoped<ITranslationLocaleCatalog, UmbracoTranslationLocaleCatalog>();
     }
 
     private static void ConfigurePolicies(AuthorizationOptions options)

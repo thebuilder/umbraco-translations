@@ -15,7 +15,9 @@ public sealed class TranslationOutputFormatsTests
             new("en", "app", [MessageFormat.I18NextV4, MessageFormat.PlainText]),
             new("en", "mixed", [MessageFormat.Icu, MessageFormat.I18NextV4]),
         ],
-        new Dictionary<MessageStatusFilter, int>());
+        new Dictionary<MessageStatusFilter, int>(),
+        [new TranslationLocaleUsage("da", 2, 1, 0), new TranslationLocaleUsage("en", 3, 0, 0)],
+        TotalKeys: 4);
 
         var facets = TranslationOutputFormats.CreateFacets(data);
 

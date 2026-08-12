@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetMessageOverrideData, MessagesResetMessageOverrideErrors, MessagesResetMessageOverrideResponses, MessagesSaveMessageOverrideData, MessagesSaveMessageOverrideErrors, MessagesSaveMessageOverrideResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
+import type { HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetMessageOverrideData, MessagesResetMessageOverrideErrors, MessagesResetMessageOverrideResponses, MessagesSaveMessageOverrideData, MessagesSaveMessageOverrideErrors, MessagesSaveMessageOverrideResponses, PermissionsGetPermissionsData, PermissionsGetPermissionsErrors, PermissionsGetPermissionsResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -30,7 +30,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static healthGetHealth<ThrowOnError extends boolean = false>(options?: Options<HealthGetHealthData, ThrowOnError>): RequestResult<HealthGetHealthResponses, HealthGetHealthErrors, ThrowOnError> {
         return (options?.client ?? client).get<HealthGetHealthResponses, HealthGetHealthErrors, ThrowOnError>({
             security: [{
@@ -42,7 +42,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static messagesListMessages<ThrowOnError extends boolean = false>(options?: Options<MessagesListMessagesData, ThrowOnError>): RequestResult<MessagesListMessagesResponses, MessagesListMessagesErrors, ThrowOnError> {
         return (options?.client ?? client).get<MessagesListMessagesResponses, MessagesListMessagesErrors, ThrowOnError>({
             security: [{
@@ -54,7 +54,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static messagesGetMessage<ThrowOnError extends boolean = false>(options: Options<MessagesGetMessageData, ThrowOnError>): RequestResult<MessagesGetMessageResponses, MessagesGetMessageErrors, ThrowOnError> {
         return (options.client ?? client).get<MessagesGetMessageResponses, MessagesGetMessageErrors, ThrowOnError>({
             security: [{
@@ -66,7 +66,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static messagesResetMessageOverride<ThrowOnError extends boolean = false>(options: Options<MessagesResetMessageOverrideData, ThrowOnError>): RequestResult<MessagesResetMessageOverrideResponses, MessagesResetMessageOverrideErrors, ThrowOnError> {
         return (options.client ?? client).delete<MessagesResetMessageOverrideResponses, MessagesResetMessageOverrideErrors, ThrowOnError>({
             security: [{
@@ -78,7 +78,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static messagesSaveMessageOverride<ThrowOnError extends boolean = false>(options: Options<MessagesSaveMessageOverrideData, ThrowOnError>): RequestResult<MessagesSaveMessageOverrideResponses, MessagesSaveMessageOverrideErrors, ThrowOnError> {
         return (options.client ?? client).put<MessagesSaveMessageOverrideResponses, MessagesSaveMessageOverrideErrors, ThrowOnError>({
             security: [{
@@ -94,7 +94,19 @@ export class TranslationsService {
             }
         });
     }
-
+    
+    public static permissionsGetPermissions<ThrowOnError extends boolean = false>(options?: Options<PermissionsGetPermissionsData, ThrowOnError>): RequestResult<PermissionsGetPermissionsResponses, PermissionsGetPermissionsErrors, ThrowOnError> {
+        return (options?.client ?? client).get<PermissionsGetPermissionsResponses, PermissionsGetPermissionsErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/permissions',
+            ...options
+        });
+    }
+    
     public static sourcesListSources<ThrowOnError extends boolean = false>(options?: Options<SourcesListSourcesData, ThrowOnError>): RequestResult<SourcesListSourcesResponses, SourcesListSourcesErrors, ThrowOnError> {
         return (options?.client ?? client).get<SourcesListSourcesResponses, SourcesListSourcesErrors, ThrowOnError>({
             security: [{
@@ -106,7 +118,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesCreateSource<ThrowOnError extends boolean = false>(options?: Options<SourcesCreateSourceData, ThrowOnError>): RequestResult<SourcesCreateSourceResponses, SourcesCreateSourceErrors, ThrowOnError> {
         return (options?.client ?? client).post<SourcesCreateSourceResponses, SourcesCreateSourceErrors, ThrowOnError>({
             security: [{
@@ -122,7 +134,7 @@ export class TranslationsService {
             }
         });
     }
-
+    
     public static sourcesDeleteSource<ThrowOnError extends boolean = false>(options: Options<SourcesDeleteSourceData, ThrowOnError>): RequestResult<SourcesDeleteSourceResponses, SourcesDeleteSourceErrors, ThrowOnError> {
         return (options.client ?? client).delete<SourcesDeleteSourceResponses, SourcesDeleteSourceErrors, ThrowOnError>({
             security: [{
@@ -134,7 +146,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesGetSource<ThrowOnError extends boolean = false>(options: Options<SourcesGetSourceData, ThrowOnError>): RequestResult<SourcesGetSourceResponses, SourcesGetSourceErrors, ThrowOnError> {
         return (options.client ?? client).get<SourcesGetSourceResponses, SourcesGetSourceErrors, ThrowOnError>({
             security: [{
@@ -146,7 +158,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesUpdateSource<ThrowOnError extends boolean = false>(options: Options<SourcesUpdateSourceData, ThrowOnError>): RequestResult<SourcesUpdateSourceResponses, SourcesUpdateSourceErrors, ThrowOnError> {
         return (options.client ?? client).put<SourcesUpdateSourceResponses, SourcesUpdateSourceErrors, ThrowOnError>({
             security: [{
@@ -162,7 +174,7 @@ export class TranslationsService {
             }
         });
     }
-
+    
     public static sourcesSyncSource<ThrowOnError extends boolean = false>(options: Options<SourcesSyncSourceData, ThrowOnError>): RequestResult<SourcesSyncSourceResponses, SourcesSyncSourceErrors, ThrowOnError> {
         return (options.client ?? client).post<SourcesSyncSourceResponses, SourcesSyncSourceErrors, ThrowOnError>({
             security: [{
@@ -174,7 +186,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesListSourceSyncs<ThrowOnError extends boolean = false>(options: Options<SourcesListSourceSyncsData, ThrowOnError>): RequestResult<SourcesListSourceSyncsResponses, SourcesListSourceSyncsErrors, ThrowOnError> {
         return (options.client ?? client).get<SourcesListSourceSyncsResponses, SourcesListSourceSyncsErrors, ThrowOnError>({
             security: [{
@@ -186,7 +198,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesTestSource<ThrowOnError extends boolean = false>(options: Options<SourcesTestSourceData, ThrowOnError>): RequestResult<SourcesTestSourceResponses, SourcesTestSourceErrors, ThrowOnError> {
         return (options.client ?? client).post<SourcesTestSourceResponses, SourcesTestSourceErrors, ThrowOnError>({
             security: [{
@@ -198,7 +210,7 @@ export class TranslationsService {
             ...options
         });
     }
-
+    
     public static sourcesTestSourceConfiguration<ThrowOnError extends boolean = false>(options?: Options<SourcesTestSourceConfigurationData, ThrowOnError>): RequestResult<SourcesTestSourceConfigurationResponses, SourcesTestSourceConfigurationErrors, ThrowOnError> {
         return (options?.client ?? client).post<SourcesTestSourceConfigurationResponses, SourcesTestSourceConfigurationErrors, ThrowOnError>({
             security: [{

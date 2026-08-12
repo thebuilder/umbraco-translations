@@ -34,11 +34,13 @@ public sealed record SourceRequest(
 public sealed record SourceResponse(
     Guid Id, string Alias, string DisplayName, bool Enabled,
     HttpTranslationTransportOptions Transport, NestedJsonParserOptions Parser,
-    string? LastSuccessfulRevision, DateTimeOffset? LastSuccessfulSync)
+    string? LastSuccessfulRevision, DateTimeOffset? LastSuccessfulSync,
+    bool SyncInProgress, DateTimeOffset? SyncLeaseExpiresAt, TranslationSyncResult? LastSync)
 {
-    public static SourceResponse From(TranslationSourceDefinition source) => new(
+    public static SourceResponse From(TranslationSourceDefinition source, TranslationSourceStatus? status = null) => new(
         source.Id, source.Alias, source.DisplayName, source.Enabled, source.Transport, source.Parser,
-        source.LastSuccessfulRevision, source.LastSuccessfulSync);
+        source.LastSuccessfulRevision, source.LastSuccessfulSync,
+        status?.SyncInProgress ?? false, status?.SyncLeaseExpiresAt, status?.LastSync);
 }
 
 public sealed record MessageListItem(
@@ -68,11 +70,30 @@ public sealed record MessageConflictResponse(
 {
     public const string VersionConflict = "version_conflict";
 }
+
 public sealed record OutputEndpointResponse(string Locale, string Namespace, TranslationOutputFormat Format);
 public sealed record OutputConflictResponse(string Locale, string Namespace, IReadOnlyList<MessageFormat> MessageFormats);
+
+/// <summary>
+/// A locale the editor can work in, joined from the message data and Umbraco's languages.
+/// <paramref name="IsConfigured"/> is false when messages still exist for a locale that is no
+/// longer an Umbraco language, which is otherwise invisible and produces unreachable translations.
+/// </summary>
+public sealed record LocaleFacetResponse(
+    string Code,
+    string? Name,
+    bool IsDefault,
+    bool IsConfigured,
+    int MessageCount,
+    int OverriddenCount,
+    int NeedsReviewCount,
+    int AbsentKeyCount);
+
 public sealed record FacetResponse(
-    IReadOnlyList<string> Locales,
+    IReadOnlyList<LocaleFacetResponse> Locales,
+    string? DefaultLocale,
     IReadOnlyList<string> Namespaces,
+    int TotalKeys,
     IReadOnlyList<OutputEndpointResponse> OutputEndpoints,
     IReadOnlyList<OutputConflictResponse> OutputConflicts,
     IReadOnlyDictionary<string, int> StatusCounts);

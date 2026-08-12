@@ -57,6 +57,7 @@ describe("translation source form", () => {
       alias: "website",
       displayName: "Website",
       enabled: true,
+      syncInProgress: false,
       transport: {
         endpointTemplate: "https://translations.example/{locale}.json",
         secretName: "Translations:LegacyBearerToken",
