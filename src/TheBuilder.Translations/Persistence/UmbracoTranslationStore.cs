@@ -11,8 +11,24 @@ namespace TheBuilder.Translations.Persistence;
 internal sealed class UmbracoTranslationStore(
     IScopeProvider scopeProvider,
     ITranslationSnapshotChangePublisher snapshotChanges,
-    TimeProvider timeProvider) : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository
+    TimeProvider timeProvider)
+    : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository, ITranslationEditorRepository
 {
+    public Task<Core.Persistence.Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        MessageQueryValidation.Ensure(query.Page, query.PageSize);
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        return Task.FromResult(TranslationKeyQueries.QueryKeys(scope.Database, query));
+    }
+
+    public Task<IReadOnlyList<MessageKeyReference>> QueryKeyReferencesAsync(MessageKeyQuery query, int limit, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        return Task.FromResult(TranslationKeyQueries.QueryKeyReferences(scope.Database, query, limit));
+    }
+
     public Task<TranslationSynchronizationLease?> TryAcquireSynchronizationLeaseAsync(
         TranslationSourceDefinition source,
         TimeSpan duration,

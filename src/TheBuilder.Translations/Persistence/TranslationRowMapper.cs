@@ -13,6 +13,9 @@ internal static class TranslationRowMapper
     public static string SerializeArguments(IReadOnlyDictionary<string, string> arguments) =>
         JsonSerializer.Serialize(arguments, JsonOptions);
 
+    public static IReadOnlyDictionary<string, string> DeserializeArguments(string json) =>
+        Deserialize<Dictionary<string, string>>(json, "message argument signature");
+
     public static SourceRow ToRow(TranslationSourceDefinition source, DateTime createdAt, DateTime updatedAt) => new()
     {
         Id = source.Id,

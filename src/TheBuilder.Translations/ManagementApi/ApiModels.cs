@@ -117,5 +117,18 @@ internal static class ApiModelMapping
         view.Message.State.ToString(), view.Message.SourceRevision, view.Message.DefaultChecksum,
         view.Override?.Version, view.Override?.UpdatedAt, view.Override?.UpdatedBy);
 
-    private static string Preview(string value) => value.Length <= 180 ? value : $"{value[..177]}...";
+    private static string Preview(string value) => MessagePreview.Of(value).Text;
+}
+
+/// <summary>
+/// List endpoints return a preview rather than the whole message. A grid cell shows a line or two,
+/// and an unbounded value multiplied by a page of keys and several locales is the difference
+/// between a few kilobytes and a few megabytes. The full text comes from the detail endpoint.
+/// </summary>
+internal static class MessagePreview
+{
+    public const int MaximumLength = 180;
+
+    public static (string Text, bool Truncated) Of(string value) =>
+        value.Length <= MaximumLength ? (value, false) : ($"{value[..(MaximumLength - 3)]}...", true);
 }

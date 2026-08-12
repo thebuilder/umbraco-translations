@@ -28,9 +28,11 @@ public static class MessageQueryValidation
 
     public static string? Describe(MessageQuery query) => Describe(query.Page, query.PageSize);
 
-    public static void Ensure(MessageQuery query)
+    public static void Ensure(MessageQuery query) => Ensure(query.Page, query.PageSize);
+
+    public static void Ensure(int page, int pageSize)
     {
-        if (Describe(query) is { } error)
-            throw new ArgumentOutOfRangeException(nameof(query), error);
+        if (Describe(page, pageSize) is { } error)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), error);
     }
 }
