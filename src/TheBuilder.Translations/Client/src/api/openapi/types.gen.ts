@@ -29,6 +29,15 @@ export type HttpTranslationTransportOptions = {
     headers: Array<HttpTranslationHeaderOptions>;
 };
 
+export type KeyOverrideRequest = {
+    sourceId: string;
+    namespace: string;
+    key: string;
+    locale: string;
+    value: string;
+    expectedVersion?: number | null;
+};
+
 export type LocaleFacetResponse = {
     code: string;
     name?: string | null;
@@ -50,6 +59,15 @@ export type MessageCellResponse = {
     truncated: boolean;
     state: MessageLocaleState;
     version?: number | null;
+    updatedAt?: string | null;
+    updatedBy?: string | null;
+};
+
+export type MessageConflictResponse = {
+    code: string;
+    message: string;
+    currentVersion?: number | null;
+    currentValue?: string | null;
     updatedAt?: string | null;
     updatedBy?: string | null;
 };
@@ -476,6 +494,47 @@ export type MessageKeysListMessageKeyIdsResponses = {
 };
 
 export type MessageKeysListMessageKeyIdsResponse = MessageKeysListMessageKeyIdsResponses[keyof MessageKeysListMessageKeyIdsResponses];
+
+export type MessageKeysSaveKeyOverrideData = {
+    body?: KeyOverrideRequest;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/messages/keys/override';
+};
+
+export type MessageKeysSaveKeyOverrideErrors = {
+    /**
+     * Bad Request
+     */
+    400: unknown;
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+    /**
+     * The authenticated user does not have access to this resource
+     */
+    403: unknown;
+    /**
+     * Not Found
+     */
+    404: unknown;
+    /**
+     * Conflict
+     */
+    409: MessageConflictResponse;
+};
+
+export type MessageKeysSaveKeyOverrideError = MessageKeysSaveKeyOverrideErrors[keyof MessageKeysSaveKeyOverrideErrors];
+
+export type MessageKeysSaveKeyOverrideResponses = {
+    /**
+     * OK
+     */
+    200: MessageDetailResponse;
+};
+
+export type MessageKeysSaveKeyOverrideResponse = MessageKeysSaveKeyOverrideResponses[keyof MessageKeysSaveKeyOverrideResponses];
 
 export type PermissionsGetPermissionsData = {
     body?: never;

@@ -1,3 +1,5 @@
+using TheBuilder.Translations.Core.Messages;
+
 namespace TheBuilder.Translations.Core.Persistence;
 
 /// <summary>
@@ -15,6 +17,17 @@ public interface ITranslationEditorRepository
     /// aggregates the answer does not need.
     /// </summary>
     Task<IReadOnlyList<string>> GetLocalesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The message for an identity, creating it when the key exists but this locale does not.
+    ///
+    /// A site can have more languages than its applications ship. Overrides attach to a message
+    /// row, so without this a locale nobody shipped would be permanently unwritable. The new row
+    /// inherits its format and argument signature from a shipped locale and carries an empty
+    /// default, because for that locale the override is the whole text.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">The key exists in no locale of that source.</exception>
+    Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
 
     Task<Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken);
 

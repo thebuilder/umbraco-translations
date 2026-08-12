@@ -14,6 +14,64 @@ internal sealed class UmbracoTranslationStore(
     TimeProvider timeProvider)
     : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository, ITranslationEditorRepository
 {
+    public Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var scope = scopeProvider.CreateScope();
+        var existing = scope.Database.SingleOrDefault<MessageRow>(
+            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND Locale = @3",
+            identity.SourceId, identity.Namespace, identity.Key, identity.Locale);
+        if (existing is not null)
+        {
+            var current = scope.Database.SingleOrDefaultById<OverrideRow>(existing.Id);
+            scope.Complete();
+            return Task.FromResult(new TranslationMessageView(
+                TranslationRowMapper.ToDomain(existing),
+                current is null ? null : TranslationRowMapper.ToDomain(current)));
+        }
+
+        // The key has to exist in some locale: an editor translates a key the application defined,
+        // not one they invented. Any shipped locale carries the same format and argument signature,
+        // so the new row inherits its shape rather than starting with none -- otherwise argument
+        // validation would reject the very placeholders the message requires.
+        var shape = scope.Database.FirstOrDefault<MessageRow>(
+            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND State <> @3 ORDER BY Locale",
+            identity.SourceId, identity.Namespace, identity.Key, TranslationMessageState.Authored.ToString())
+            ?? throw new KeyNotFoundException(
+                $"Translation key '{identity.Namespace}.{identity.Key}' was not found for source '{identity.SourceId}'.");
+
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var row = new MessageRow
+        {
+            Id = Guid.NewGuid(),
+            SourceId = identity.SourceId,
+            Namespace = identity.Namespace,
+            Key = identity.Key,
+            Locale = identity.Locale,
+            // No application default exists for this locale; the override carries the whole text.
+            DefaultValue = string.Empty,
+            // Format and arguments are properties of the key, so they come from a shipped locale.
+            Format = shape.Format,
+            ArgumentSignature = shape.ArgumentSignature,
+            SourceRevision = shape.SourceRevision,
+            // Deliberately the checksum of this row's own empty default, not the shipped locale's.
+            // Review state is per locale: an override is stale when the default it was written
+            // against changes. There is no default here, so it never goes stale, whereas inheriting
+            // another locale's checksum would leave the two permanently mismatched and flag every
+            // authored translation for review the moment it was saved.
+            DefaultChecksum = TranslationMessageFingerprint.Compute(
+                string.Empty,
+                Enum.Parse<MessageFormat>(shape.Format),
+                TranslationRowMapper.DeserializeArguments(shape.ArgumentSignature)),
+            FirstSeenAt = now,
+            LastSeenAt = now,
+            State = TranslationMessageState.Authored.ToString(),
+        };
+        scope.Database.Insert(row);
+        scope.Complete();
+        return Task.FromResult(new TranslationMessageView(TranslationRowMapper.ToDomain(row), null));
+    }
+
     public Task<IReadOnlyList<string>> GetLocalesAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

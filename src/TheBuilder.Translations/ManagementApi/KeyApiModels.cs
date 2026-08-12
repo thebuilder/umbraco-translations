@@ -102,3 +102,15 @@ internal static class KeyApiMapping
             locale.UpdatedBy);
     }
 }
+
+/// <summary>
+/// Addresses a translation by identity rather than by message id, so a locale with no row yet can
+/// still be written to.
+/// </summary>
+public sealed record KeyOverrideRequest(
+    Guid SourceId,
+    string Namespace,
+    string Key,
+    string Locale,
+    string Value,
+    long? ExpectedVersion);
