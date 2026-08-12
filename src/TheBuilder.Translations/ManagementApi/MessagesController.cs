@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TheBuilder.Translations.Authorization;
 using TheBuilder.Translations.Core.Messages;
@@ -14,6 +15,7 @@ namespace TheBuilder.Translations.ManagementApi;
 [ApiExplorerSettings(GroupName = Constants.PackageName)]
 public sealed class MessagesController(
     ITranslationMessageRepository store,
+    ITranslationEditorRepository editor,
     IMessageFormatValidator validator,
     ITranslationLocaleCatalog locales) : TranslationsApiControllerBase
 {
@@ -36,37 +38,69 @@ public sealed class MessagesController(
         return message is null ? NotFound() : message.ToDetail();
     }
 
-    [HttpPut("messages/{id:guid}/override")]
+    /// <summary>
+    /// Writes are addressed by identity rather than by message id. A locale the application does
+    /// not ship has no row until someone writes to it, so there is no id to address, and having a
+    /// second id-based write path alongside this one only gave the two a way to disagree.
+    /// </summary>
+    [HttpPut("messages/override")]
     [Authorize(Policy = TranslationPolicies.Edit)]
-    public async Task<ActionResult<MessageDetailResponse>> SaveMessageOverride(Guid id, OverrideRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(MessageDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(MessageConflictResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<MessageDetailResponse>> SaveOverride(
+        OverrideRequest request,
+        CancellationToken cancellationToken)
     {
-        var message = await store.GetMessageAsync(id, cancellationToken);
-        if (message is null) return NotFound();
+        TranslationMessageView message;
+        try
+        {
+            message = await editor.EnsureMessageAsync(request.ToIdentity(), cancellationToken);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(exception.Message);
+        }
+
         if (MessageOverrideValidation.Describe(request.Value, message.Message, validator) is { } error)
             return BadRequest(error);
 
         try
         {
-            var saved = await store.SaveOverrideAsync(id, request.Value, request.ExpectedVersion, User.Identity?.Name ?? "backoffice", cancellationToken);
+            var saved = await store.SaveOverrideAsync(
+                message.Message.Id, request.Value, request.ExpectedVersion, User.Identity?.Name ?? "backoffice", cancellationToken);
             return new TranslationMessageView(message.Message, saved).ToDetail();
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(MessageConflictResponse.From(exception, await store.GetMessageAsync(id, cancellationToken)));
+            return Conflict(MessageConflictResponse.From(
+                exception, await store.GetMessageAsync(message.Message.Id, cancellationToken)));
         }
     }
 
-    [HttpDelete("messages/{id:guid}/override")]
+    /// <summary>
+    /// Removes an override, returning the message to its application default. Resetting a locale
+    /// that has no row succeeds: there is nothing to remove, and creating a row in order to empty
+    /// it would be perverse.
+    /// </summary>
+    [HttpPost("messages/override/reset")]
     [Authorize(Policy = TranslationPolicies.Edit)]
-    public async Task<IActionResult> ResetMessageOverride(Guid id, long? expectedVersion, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(MessageConflictResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResetOverride(ResetOverrideRequest request, CancellationToken cancellationToken)
     {
+        var message = await editor.FindMessageAsync(request.ToIdentity(), cancellationToken);
+        if (message is null) return NoContent();
+
         try
         {
-            await store.DeleteOverrideAsync(id, expectedVersion, cancellationToken);
+            await store.DeleteOverrideAsync(message.Message.Id, request.ExpectedVersion, cancellationToken);
         }
         catch (TranslationConcurrencyException exception)
         {
-            return Conflict(MessageConflictResponse.From(exception, await store.GetMessageAsync(id, cancellationToken)));
+            return Conflict(MessageConflictResponse.From(
+                exception, await store.GetMessageAsync(message.Message.Id, cancellationToken)));
         }
         return NoContent();
     }

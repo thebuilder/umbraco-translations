@@ -1,7 +1,8 @@
 import type { MessageKeysListMessageKeysData, OutputEndpointResponse } from "../openapi/types.gen.js";
 
 export type {
-  KeyOverrideRequest,
+  OverrideRequest,
+  ResetOverrideRequest,
   MessageCellResponse as MessageCell,
   MessageKeyListResponse as MessageKeyList,
   MessageKeyReference,

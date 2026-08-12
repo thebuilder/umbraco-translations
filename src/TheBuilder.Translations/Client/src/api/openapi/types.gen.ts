@@ -29,15 +29,6 @@ export type HttpTranslationTransportOptions = {
     headers: Array<HttpTranslationHeaderOptions>;
 };
 
-export type KeyOverrideRequest = {
-    sourceId: string;
-    namespace: string;
-    key: string;
-    locale: string;
-    value: string;
-    expectedVersion?: number | null;
-};
-
 export type LocaleFacetResponse = {
     code: string;
     name?: string | null;
@@ -74,6 +65,7 @@ export type MessageConflictResponse = {
 
 export type MessageDetailResponse = {
     id: string;
+    sourceId: string;
     namespace: string;
     key: string;
     locale: string;
@@ -137,6 +129,7 @@ export type MessageKeyStatusFilter = 'All' | 'Absent' | 'Default' | 'Overridden'
 
 export type MessageListItem = {
     id: string;
+    sourceId: string;
     namespace: string;
     key: string;
     locale: string;
@@ -181,6 +174,10 @@ export type OutputEndpointResponse = {
 };
 
 export type OverrideRequest = {
+    sourceId: string;
+    namespace: string;
+    key: string;
+    locale: string;
     value: string;
     expectedVersion?: number | null;
 };
@@ -190,6 +187,14 @@ export type PermissionsResponse = {
     canEdit: boolean;
     canManageSources: boolean;
     canSync: boolean;
+};
+
+export type ResetOverrideRequest = {
+    sourceId: string;
+    namespace: string;
+    key: string;
+    locale: string;
+    expectedVersion?: number | null;
 };
 
 export type SortDirection = 'Ascending' | 'Descending';
@@ -361,64 +366,6 @@ export type MessagesGetMessageResponses = {
 
 export type MessagesGetMessageResponse = MessagesGetMessageResponses[keyof MessagesGetMessageResponses];
 
-export type MessagesResetMessageOverrideData = {
-    body?: never;
-    path: {
-        id: string;
-    };
-    query?: {
-        expectedVersion?: number;
-    };
-    url: '/umbraco/management/api/v1/translations/messages/{id}/override';
-};
-
-export type MessagesResetMessageOverrideErrors = {
-    /**
-     * The resource is protected and requires an authentication token
-     */
-    401: unknown;
-    /**
-     * The authenticated user does not have access to this resource
-     */
-    403: unknown;
-};
-
-export type MessagesResetMessageOverrideResponses = {
-    /**
-     * OK
-     */
-    200: unknown;
-};
-
-export type MessagesSaveMessageOverrideData = {
-    body?: OverrideRequest;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/umbraco/management/api/v1/translations/messages/{id}/override';
-};
-
-export type MessagesSaveMessageOverrideErrors = {
-    /**
-     * The resource is protected and requires an authentication token
-     */
-    401: unknown;
-    /**
-     * The authenticated user does not have access to this resource
-     */
-    403: unknown;
-};
-
-export type MessagesSaveMessageOverrideResponses = {
-    /**
-     * OK
-     */
-    200: MessageDetailResponse;
-};
-
-export type MessagesSaveMessageOverrideResponse = MessagesSaveMessageOverrideResponses[keyof MessagesSaveMessageOverrideResponses];
-
 export type MessageKeysListMessageKeysData = {
     body?: never;
     path?: never;
@@ -495,14 +442,14 @@ export type MessageKeysListMessageKeyIdsResponses = {
 
 export type MessageKeysListMessageKeyIdsResponse = MessageKeysListMessageKeyIdsResponses[keyof MessageKeysListMessageKeyIdsResponses];
 
-export type MessageKeysSaveKeyOverrideData = {
-    body?: KeyOverrideRequest;
+export type MessagesSaveOverrideData = {
+    body?: OverrideRequest;
     path?: never;
     query?: never;
-    url: '/umbraco/management/api/v1/translations/messages/keys/override';
+    url: '/umbraco/management/api/v1/translations/messages/override';
 };
 
-export type MessageKeysSaveKeyOverrideErrors = {
+export type MessagesSaveOverrideErrors = {
     /**
      * Bad Request
      */
@@ -525,16 +472,49 @@ export type MessageKeysSaveKeyOverrideErrors = {
     409: MessageConflictResponse;
 };
 
-export type MessageKeysSaveKeyOverrideError = MessageKeysSaveKeyOverrideErrors[keyof MessageKeysSaveKeyOverrideErrors];
+export type MessagesSaveOverrideError = MessagesSaveOverrideErrors[keyof MessagesSaveOverrideErrors];
 
-export type MessageKeysSaveKeyOverrideResponses = {
+export type MessagesSaveOverrideResponses = {
     /**
      * OK
      */
     200: MessageDetailResponse;
 };
 
-export type MessageKeysSaveKeyOverrideResponse = MessageKeysSaveKeyOverrideResponses[keyof MessageKeysSaveKeyOverrideResponses];
+export type MessagesSaveOverrideResponse = MessagesSaveOverrideResponses[keyof MessagesSaveOverrideResponses];
+
+export type MessagesResetOverrideData = {
+    body?: ResetOverrideRequest;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/messages/override/reset';
+};
+
+export type MessagesResetOverrideErrors = {
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+    /**
+     * The authenticated user does not have access to this resource
+     */
+    403: unknown;
+    /**
+     * Conflict
+     */
+    409: MessageConflictResponse;
+};
+
+export type MessagesResetOverrideError = MessagesResetOverrideErrors[keyof MessagesResetOverrideErrors];
+
+export type MessagesResetOverrideResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type MessagesResetOverrideResponse = MessagesResetOverrideResponses[keyof MessagesResetOverrideResponses];
 
 export type PermissionsGetPermissionsData = {
     body?: never;

@@ -1,7 +1,7 @@
 import { client } from "../openapi/client.gen.js";
 import { TranslationsService } from "../openapi/sdk.gen.js";
 import { unwrap } from "../errors.js";
-import type { KeyOverrideRequest, MessageKeyQuery, MessageStatus, SourceRequest } from "./models.js";
+import type { MessageKeyQuery, MessageStatus, OverrideRequest, ResetOverrideRequest, SourceRequest } from "./models.js";
 
 interface ApiConfiguration {
   token?: string | (() => Promise<string | undefined>);
@@ -44,13 +44,11 @@ export const api = {
   messageKeyIds: (query: Omit<MessageKeyQuery, "compare" | "sort" | "direction" | "page" | "pageSize">, signal?: AbortSignal) =>
     unwrap(TranslationsService.messageKeysListMessageKeyIds({ ...requestOptions, query, signal })),
   /**
-   * Saves by identity rather than message id, which is the only way to write a locale no source
-   * ships: there is no id to address until the row exists.
+   * Writes address a translation by identity, not by message id: a locale the application never
+   * shipped has no row, and therefore no id, until it is written to.
    */
-  saveKeyOverride: (body: KeyOverrideRequest) =>
-    unwrap(TranslationsService.messageKeysSaveKeyOverride({ ...requestOptions, body })),
-  saveOverride: (id: string, value: string, expectedVersion?: number) =>
-    unwrap(TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } })),
-  resetOverride: (id: string, expectedVersion?: number) =>
-    unwrap(TranslationsService.messagesResetMessageOverride({ ...requestOptions, path: { id }, query: { expectedVersion } })),
+  saveOverride: (body: OverrideRequest) =>
+    unwrap(TranslationsService.messagesSaveOverride({ ...requestOptions, body })),
+  resetOverride: (body: ResetOverrideRequest) =>
+    unwrap(TranslationsService.messagesResetOverride({ ...requestOptions, body })),
 };

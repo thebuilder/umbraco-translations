@@ -1,11 +1,7 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using TheBuilder.Translations.Authorization;
-using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
-using TheBuilder.Translations.Core.Validation;
 using TheBuilder.Translations.Localization;
 
 namespace TheBuilder.Translations.ManagementApi;
@@ -14,8 +10,6 @@ namespace TheBuilder.Translations.ManagementApi;
 [ApiExplorerSettings(GroupName = Constants.PackageName)]
 public sealed class MessageKeysController(
     ITranslationEditorRepository editor,
-    ITranslationMessageRepository messages,
-    IMessageFormatValidator validator,
     ITranslationLocaleCatalog locales) : TranslationsApiControllerBase
 {
     /// <summary>Ids only, so "select all matching" cannot be used to pull the whole table.</summary>
@@ -111,47 +105,6 @@ public sealed class MessageKeysController(
             : new MessageKeyReferenceResponse(references, limit, false);
     }
 
-    /// <summary>
-    /// Saves an override by identity rather than by message id, which is what lets an editor write
-    /// a locale no source ships: there is no id to address until the row exists.
-    /// </summary>
-    [HttpPut("messages/keys/override")]
-    [Authorize(Policy = TranslationPolicies.Edit)]
-    [ProducesResponseType(typeof(MessageDetailResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(MessageConflictResponse), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<MessageDetailResponse>> SaveKeyOverride(
-        KeyOverrideRequest request,
-        CancellationToken cancellationToken)
-    {
-        TranslationMessageView message;
-        try
-        {
-            message = await editor.EnsureMessageAsync(
-                new MessageIdentity(request.SourceId, request.Namespace, request.Key, request.Locale),
-                cancellationToken);
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(exception.Message);
-        }
-
-        if (MessageOverrideValidation.Describe(request.Value, message.Message, validator) is { } error)
-            return BadRequest(error);
-
-        try
-        {
-            var saved = await messages.SaveOverrideAsync(
-                message.Message.Id, request.Value, request.ExpectedVersion, User.Identity?.Name ?? "backoffice", cancellationToken);
-            return new TranslationMessageView(message.Message, saved).ToDetail();
-        }
-        catch (TranslationConcurrencyException exception)
-        {
-            return Conflict(MessageConflictResponse.From(
-                exception, await messages.GetMessageAsync(message.Message.Id, cancellationToken)));
-        }
-    }
 
     private static string? DescribeKeyPrefix(string? keyPrefix) =>
         keyPrefix is not null && keyPrefix.Length > MaximumKeyPrefixLength

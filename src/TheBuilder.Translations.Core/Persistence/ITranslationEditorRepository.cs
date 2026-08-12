@@ -30,6 +30,12 @@ public interface ITranslationEditorRepository
     /// <exception cref="KeyNotFoundException">The key exists in no locale of that source.</exception>
     Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The message for an identity, or null. Distinct from <see cref="EnsureMessageAsync"/> because
+    /// resetting an override must not conjure the row it is about to empty.
+    /// </summary>
+    Task<TranslationMessageView?> FindMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
+
     Task<Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken);
 
     /// <summary>

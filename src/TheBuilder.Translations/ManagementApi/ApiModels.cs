@@ -44,17 +44,40 @@ public sealed record SourceResponse(
 }
 
 public sealed record MessageListItem(
-    Guid Id, string Namespace, string Key, string Locale, string DefaultPreview,
+    Guid Id, Guid SourceId, string Namespace, string Key, string Locale, string DefaultPreview,
     string? OverridePreview, bool HasOverride, bool NeedsReview, string State, long? Version);
 
 public sealed record MessageListResponse(IReadOnlyList<MessageListItem> Items, int Page, int PageSize, int Total);
 
 public sealed record MessageDetailResponse(
-    Guid Id, string Namespace, string Key, string Locale, string DefaultValue, string? OverrideValue,
+    Guid Id, Guid SourceId, string Namespace, string Key, string Locale, string DefaultValue, string? OverrideValue,
     MessageFormat Format, IReadOnlyDictionary<string, string> Arguments, bool NeedsReview,
     string State, string SourceRevision, string DefaultChecksum, long? Version, DateTimeOffset? UpdatedAt, string? UpdatedBy);
 
-public sealed record OverrideRequest(string Value, long? ExpectedVersion);
+/// <summary>
+/// Addresses a translation by identity rather than by message id, which is what lets a locale the
+/// application never shipped be written to: it has no row, and therefore no id, until it is.
+/// </summary>
+public sealed record OverrideRequest(
+    Guid SourceId,
+    string Namespace,
+    string Key,
+    string Locale,
+    string Value,
+    long? ExpectedVersion)
+{
+    public MessageIdentity ToIdentity() => new(SourceId, Namespace, Key, Locale);
+}
+
+public sealed record ResetOverrideRequest(
+    Guid SourceId,
+    string Namespace,
+    string Key,
+    string Locale,
+    long? ExpectedVersion)
+{
+    public MessageIdentity ToIdentity() => new(SourceId, Namespace, Key, Locale);
+}
 
 /// <summary>
 /// The body of a 409. Carries the value that actually landed so the editor can show "yours" beside
@@ -116,6 +139,7 @@ internal static class ApiModelMapping
 {
     public static MessageListItem ToListItem(this TranslationMessageView view) => new(
         view.Message.Id,
+        view.Message.Identity.SourceId,
         view.Message.Identity.Namespace,
         view.Message.Identity.Key,
         view.Message.Identity.Locale,
@@ -127,7 +151,8 @@ internal static class ApiModelMapping
         view.Override?.Version);
 
     public static MessageDetailResponse ToDetail(this TranslationMessageView view) => new(
-        view.Message.Id, view.Message.Identity.Namespace, view.Message.Identity.Key, view.Message.Identity.Locale,
+        view.Message.Id, view.Message.Identity.SourceId, view.Message.Identity.Namespace,
+        view.Message.Identity.Key, view.Message.Identity.Locale,
         view.Message.DefaultValue, view.Override?.Value, view.Message.Format, view.Message.Arguments, view.NeedsReview,
         view.Message.State.ToString(), view.Message.SourceRevision, view.Message.DefaultChecksum,
         view.Override?.Version, view.Override?.UpdatedAt, view.Override?.UpdatedBy);
