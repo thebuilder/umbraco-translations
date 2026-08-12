@@ -121,7 +121,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
             <uui-label slot="label" for="endpoint" required>Messages endpoint</uui-label>
             <div class="field-control">
               <uui-input id="endpoint" label="Messages endpoint" required .value=${this.value.endpointTemplate} @input=${(event: Event) => this.#text("endpointTemplate", event)}></uui-input>
-              <span class="help">Use <code>{locale}</code> where the Umbraco language code belongs, for example <code>messages/en-US.json</code>.</span>
+              <span class="help">Use <code>{locale}</code> for the full Umbraco code (<code>messages/en-US.json</code>), or <code>{language}</code> when the app drops the region (<code>messages/en.json</code>).</span>
             </div>
           </uui-form-layout-item>
 

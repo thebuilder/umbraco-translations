@@ -16,7 +16,7 @@ public sealed class HttpTranslationSourceTransport(HttpClient httpClient, IConfi
         CancellationToken cancellationToken)
     {
         TranslationSourceValidator.EnsureValid(source);
-        var endpoint = source.Transport.EndpointTemplate.Replace("{locale}", Uri.EscapeDataString(context.Locale), StringComparison.Ordinal);
+        var endpoint = LocaleEndpointTemplate.Expand(source.Transport.EndpointTemplate, context.Locale, Uri.EscapeDataString);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(source.Transport.TimeoutSeconds));
         using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
