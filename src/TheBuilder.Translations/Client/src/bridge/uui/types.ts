@@ -1,14 +1,9 @@
 import type React from "react";
 import type {
   UUIBoxElement,
-  UUIButtonElement,
-  UUICheckboxElement,
   UUIIconElement,
-  UUIInputElement,
   UUILoaderBarElement,
-  UUISelectElement,
   UUITagElement,
-  UUITextareaElement,
 } from "@umbraco-cms/backoffice/external/uui";
 
 /**
@@ -31,30 +26,23 @@ declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
       "uui-box": CustomElementProps<UUIBoxElement>;
-      "uui-button": CustomElementProps<UUIButtonElement>;
-      "uui-checkbox": CustomElementProps<UUICheckboxElement>;
       "uui-icon": CustomElementProps<UUIIconElement>;
-      "uui-input": CustomElementProps<UUIInputElement>;
       "uui-loader-bar": CustomElementProps<UUILoaderBarElement>;
-      "uui-select": CustomElementProps<UUISelectElement>;
       "uui-tag": CustomElementProps<UUITagElement>;
-      "uui-textarea": CustomElementProps<UUITextareaElement>;
     }
   }
 }
 
 /**
- * Every tag the React tree renders. The host waits for these to upgrade before mounting, so a
- * component can pass an object prop on first render without it silently becoming "[object Object]".
+ * The tags the React tree renders, all presentational. The host waits for these before mounting so
+ * a prop is never set on an element that has not upgraded.
+ *
+ * Form controls are deliberately absent: UUI's are form-associated custom elements, which do not
+ * upgrade inside this shadow root, so the editor uses native elements for those instead.
  */
 export const UUI_TAGS = [
   "uui-box",
-  "uui-button",
-  "uui-checkbox",
   "uui-icon",
-  "uui-input",
   "uui-loader-bar",
-  "uui-select",
   "uui-tag",
-  "uui-textarea",
 ] as const;

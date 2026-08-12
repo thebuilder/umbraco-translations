@@ -1,12 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode, type Ref } from "react";
-import type {
-  UUIButtonElement,
-  UUICheckboxElement,
-  UUIInputElement,
-  UUISelectElement,
-  UUITextareaElement,
-} from "@umbraco-cms/backoffice/external/uui";
-import { useCustomEvent, valueOf } from "./use-custom-event.js";
+import type { ChangeEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import "./types.js";
 
 export { UUI_TAGS } from "./types.js";
@@ -16,60 +8,75 @@ type Look = "default" | "primary" | "secondary" | "outline" | "placeholder";
 type Color = "default" | "positive" | "warning" | "danger" | "invalid";
 
 /**
- * Thin wrappers over the backoffice's own components.
+ * The editor's controls.
  *
- * Only the elements the editor actually uses are wrapped; anything else stays plain HTML styled
- * with the same tokens. Beyond consistency with the rest of the backoffice, this module is the seam
- * component tests mock: jsdom cannot upgrade a real custom element, so tests swap this for plain
- * HTML rather than trying to render Lit.
+ * Presentational UUI elements (tag, icon, box, loader) are used directly, so the editor looks like
+ * the rest of the backoffice. Form controls are native elements styled with the same tokens, and
+ * that is deliberate.
+ *
+ * UUI's form controls are form-associated custom elements, and inside this React-managed shadow
+ * root they do not upgrade: `customElements.get("uui-select")` returns the class, but
+ * `document.createElement("uui-select")` returns an HTMLUnknownElement, so the control renders at
+ * zero height with no error anywhere. The backoffice's own instances of the same elements upgrade
+ * normally, and `uui-tag`, which is not form-associated, upgrades here too -- the failure tracks
+ * form association exactly. Waiting on `customElements.whenDefined` does not help, because the
+ * definition exists; it is construction that fails.
+ *
+ * Rather than depend on behaviour that is this fragile for the controls an editor uses constantly,
+ * these are plain elements. They also need no property-assignment shim, since a native select takes
+ * its options as children, and they bring correct keyboard and screen-reader behaviour for free.
  */
 
-// React 19 accepts `ref` as an ordinary prop on function components, so no forwardRef is needed.
-export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, ref, ...rest }: {
+export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, disabled, compact, label, ref }: {
   children: ReactNode;
   look?: Look;
   color?: Color;
   disabled?: boolean;
   compact?: boolean;
   label?: string;
-  type?: UUIButtonElement["type"];
+  type?: "button" | "submit";
   onClick?: () => void;
   className?: string;
-  ref?: Ref<UUIButtonElement>;
+  ref?: Ref<HTMLButtonElement>;
 }) => (
-  <uui-button ref={ref} look={look} color={color} type={type} onClick={onClick} class={className} {...rest}>
+  <button
+    ref={ref}
+    type={type}
+    disabled={disabled}
+    aria-label={label}
+    onClick={onClick}
+    className={["button", `button--${look}`, `button--${color}`, compact ? "button--compact" : "", className ?? ""]
+      .filter(Boolean).join(" ")}
+  >
     {children}
-  </uui-button>
+  </button>
 );
 
-export const Input = ({ value, onValueChange, onEnter, className, ...rest }: {
+export const Input = ({ value, onValueChange, onEnter, className, label, placeholder, disabled, type = "text" }: {
   value: string;
   onValueChange: (value: string) => void;
   onEnter?: () => void;
   placeholder?: string;
   label?: string;
   disabled?: boolean;
-  type?: UUIInputElement["type"];
+  type?: string;
   className?: string;
-}) => {
-  const ref = useRef<UUIInputElement>(null);
-  // `input` rather than `change`: the editor filters as you type, and `change` only fires on blur.
-  useCustomEvent(ref, "input", (event: Event) => onValueChange(valueOf(event)));
+}) => (
+  <input
+    className={["control", className ?? ""].filter(Boolean).join(" ")}
+    type={type}
+    value={value}
+    aria-label={label}
+    placeholder={placeholder}
+    disabled={disabled}
+    onChange={(event: ChangeEvent<HTMLInputElement>) => onValueChange(event.target.value)}
+    onKeyDown={(event) => {
+      if (event.key === "Enter") onEnter?.();
+    }}
+  />
+);
 
-  return (
-    <uui-input
-      ref={ref}
-      value={value}
-      class={className}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") onEnter?.();
-      }}
-      {...rest}
-    />
-  );
-};
-
-export const Textarea = ({ value, onValueChange, className, ...rest }: {
+export const Textarea = ({ value, onValueChange, className, label, placeholder, disabled, rows = 5, onKeyDown, onBlur }: {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -77,44 +84,50 @@ export const Textarea = ({ value, onValueChange, className, ...rest }: {
   disabled?: boolean;
   rows?: number;
   className?: string;
-  onKeyDown?: (event: KeyboardEvent) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onBlur?: () => void;
-}) => {
-  const ref = useRef<UUITextareaElement>(null);
-  useCustomEvent(ref, "input", (event: Event) => onValueChange(valueOf(event)));
-
-  return <uui-textarea ref={ref} value={value} class={className} {...rest} />;
-};
+}) => (
+  <textarea
+    className={["control", className ?? ""].filter(Boolean).join(" ")}
+    value={value}
+    rows={rows}
+    aria-label={label}
+    placeholder={placeholder}
+    disabled={disabled}
+    onChange={(event) => onValueChange(event.target.value)}
+    onKeyDown={onKeyDown}
+    onBlur={onBlur}
+  />
+);
 
 export interface SelectOption {
   name: string;
   value: string;
-  selected?: boolean;
   disabled?: boolean;
 }
 
-export const Select = ({ options, value, onValueChange, className, ...rest }: {
+export const Select = ({ options, value, onValueChange, className, label, disabled }: {
   options: readonly SelectOption[];
   value: string;
   onValueChange: (value: string) => void;
   label: string;
   disabled?: boolean;
   className?: string;
-}) => {
-  const ref = useRef<UUISelectElement>(null);
-  useCustomEvent(ref, "change", (event: Event) => onValueChange(valueOf(event)));
-
-  // `options` is an array prop, so it is assigned as a property only once the element has upgraded.
-  // ReactHostElement waits for that before mounting.
-  return (
-    <uui-select
-      ref={ref}
-      options={options.map((option) => ({ ...option, selected: option.value === value }))}
-      class={className}
-      {...rest}
-    />
-  );
-};
+}) => (
+  <select
+    className={["control", className ?? ""].filter(Boolean).join(" ")}
+    value={value}
+    aria-label={label}
+    disabled={disabled}
+    onChange={(event) => onValueChange(event.target.value)}
+  >
+    {options.map((option) => (
+      <option key={option.value} value={option.value} disabled={option.disabled}>
+        {option.name}
+      </option>
+    ))}
+  </select>
+);
 
 export const Checkbox = ({ checked, onCheckedChange, label, disabled, className }: {
   checked: boolean;
@@ -122,12 +135,19 @@ export const Checkbox = ({ checked, onCheckedChange, label, disabled, className 
   label: string;
   disabled?: boolean;
   className?: string;
-}) => {
-  const ref = useRef<UUICheckboxElement>(null);
-  useCustomEvent(ref, "change", () => onCheckedChange(ref.current?.checked ?? false));
+}) => (
+  <label className={["checkbox", className ?? ""].filter(Boolean).join(" ")}>
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={(event) => onCheckedChange(event.target.checked)}
+    />
+    <span>{label}</span>
+  </label>
+);
 
-  return <uui-checkbox ref={ref} checked={checked} label={label} disabled={disabled} class={className} />;
-};
+// Presentational and not form-associated, so these upgrade here and are used as-is.
 
 export const Tag = ({ children, look = "secondary", color = "default", className }: {
   children: ReactNode;
@@ -157,4 +177,3 @@ export const Box = ({ children, headline, className }: {
     {children}
   </uui-box>
 );
-

@@ -48,4 +48,20 @@ describe("displayKey", () => {
     expect(shown.text).toBe("cart.empty");
     expect(shown.elided).toBe(false);
   });
+
+  it("shows the immediate parent and marks anything above it as elided", () => {
+    // The full path is context the tree already carries; the parent plus the leaf identifies the
+    // message, and computing it avoids the bidi reordering that CSS left-truncation causes.
+    const deep = displayKey(key("aeldrereformen.articles.lastUpdated"), scope(null, null), 1);
+    expect(deep.path).toBe("…articles.");
+    expect(deep.leaf).toBe("lastUpdated");
+
+    const shallow = displayKey(key("cart.empty"), scope(null, null), 1);
+    expect(shallow.path).toBe("cart.");
+    expect(shallow.leaf).toBe("empty");
+
+    const flat = displayKey(key("title"), scope(null, null), 1);
+    expect(flat.path).toBe("");
+    expect(flat.leaf).toBe("title");
+  });
 });

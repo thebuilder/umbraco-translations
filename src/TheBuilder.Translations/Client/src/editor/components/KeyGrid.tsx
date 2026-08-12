@@ -31,6 +31,8 @@ export const KeyGrid = ({
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
   const singleLocale = filters.locale === filters.referenceLocale;
+  const rowClass = (modifier: string) =>
+    `grid__row ${singleLocale ? "grid__row--single" : ""} ${modifier}`.replace(/\s+/g, " ").trim();
 
   const virtualizer = useVirtualizer({
     count: keys.length,
@@ -78,9 +80,13 @@ export const KeyGrid = ({
         className="grid"
         onKeyDown={onKeyDown}
       >
-        <div role="row" aria-rowindex={1} className="grid__row grid__row--head">
+        <div role="row" aria-rowindex={1} className={rowClass("grid__row--head")}>
           <span role="columnheader" className="grid__cell">Key</span>
-          <span role="columnheader" className="grid__cell">{filters.referenceLocale ?? "Reference"}</span>
+          {/* Nothing to compare against when the two are the same locale, and two identical
+              columns of prose is worse than one. */}
+          {!singleLocale && (
+            <span role="columnheader" className="grid__cell">{filters.referenceLocale}</span>
+          )}
           <span role="columnheader" className="grid__cell">
             {singleLocale ? "Text" : filters.locale ?? "Translation"}
           </span>
@@ -102,7 +108,7 @@ export const KeyGrid = ({
                   role="row"
                   // Offset by the header, which is row 1.
                   aria-rowindex={item.index + 2}
-                  className={`grid__row grid__row--${(target?.state ?? "Absent").toLowerCase()}`}
+                  className={rowClass(`grid__row--${(target?.state ?? "Absent").toLowerCase()}`)}
                   style={{ transform: `translateY(${item.start}px)`, height: item.size }}
                 >
                   <span
@@ -110,13 +116,16 @@ export const KeyGrid = ({
                     className="grid__cell grid__cell--key"
                     title={`${key.namespace}.${key.key}`}
                   >
-                    {shown.showNamespace && <span className="muted">{key.namespace} </span>}
-                    <span className="key">{shown.text}</span>
+                    {shown.showNamespace && <span className="key-path">{key.namespace}.</span>}
+                    <span className="key-path">{shown.path}</span>
+                    <span className="key-leaf">{shown.leaf}</span>
                   </span>
 
-                  <span {...cellProps(item.index, "reference")} className="grid__cell muted">
-                    <Value cell={reference} />
-                  </span>
+                  {!singleLocale && (
+                    <span {...cellProps(item.index, "reference")} className="grid__cell muted">
+                      <Value cell={reference} />
+                    </span>
+                  )}
 
                   <span
                     {...cellProps(item.index, "target")}
