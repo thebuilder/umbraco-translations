@@ -125,6 +125,18 @@ describe("applyOverride", () => {
     expect(patched.cells["da-DK"]?.truncated).toBe(true);
   });
 
+  it("keeps a row truncated when a short override lands on a cut-off default", () => {
+    // defaultValue is already the server's preview, so re-measuring it would call a truncated
+    // default complete and wrongly make the cell inline-editable.
+    const row = key("cart.empty", {
+      "da-DK": cell("m1", { defaultValue: "a".repeat(MAXIMUM_PREVIEW_LENGTH), truncated: true }),
+    }, { "da-DK": "Default" });
+
+    const patched = applyOverride(row, "da-DK", "Kort");
+
+    expect(patched.cells["da-DK"]?.truncated).toBe(true);
+  });
+
   it("leaves other locales alone", () => {
     const row = key("cart.empty", { "da-DK": cell("m1"), "en-US": cell("m2", { locale: "en-US" }) });
 
