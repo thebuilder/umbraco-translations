@@ -1,6 +1,9 @@
-:host { display: block; color: var(--uui-color-text, #1b264f); font-family: var(--uui-font-family, sans-serif); }
+/* Full height with a single bounded scroll container: the virtualized grid measures its own
+   scroller, so the shell must not be the thing that scrolls. */
+:host { display: flex; flex-direction: column; min-height: 0; height: 100%; color: var(--uui-color-text, #1b264f); font-family: var(--uui-font-family, sans-serif); }
+.mount { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 * { box-sizing: border-box; }
-.shell { padding: var(--uui-size-layout-1, 24px); max-width: 1500px; margin: 0 auto; }
+.shell { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: var(--uui-size-layout-1, 24px); }
 .header, .toolbar, .actions, .pagination, .source-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .header { justify-content: space-between; margin-bottom: 20px; }
 h1, h2, h3, p { margin-top: 0; }

@@ -1,5 +1,6 @@
 import { client } from "../openapi/client.gen.js";
 import { TranslationsService } from "../openapi/sdk.gen.js";
+import { unwrap } from "../errors.js";
 import type { MessageStatus, SourceRequest } from "./models.js";
 
 interface ApiConfiguration {
@@ -8,7 +9,9 @@ interface ApiConfiguration {
   credentials: RequestCredentials;
 }
 
-const requestOptions = { throwOnError: true } as const;
+// Deliberately not `throwOnError: true`: that discards the status code, and unwrap() needs it to
+// distinguish a version conflict from a validation failure. See ../errors.ts.
+const requestOptions = { throwOnError: false } as const;
 
 export const configureApi = (configuration: ApiConfiguration): void => {
   client.setConfig({
@@ -19,22 +22,23 @@ export const configureApi = (configuration: ApiConfiguration): void => {
 };
 
 export const api = {
-  health: () => TranslationsService.healthGetHealth(requestOptions).then(response => response.data),
-  facets: () => TranslationsService.messagesGetMessageFacets(requestOptions).then(response => response.data),
-  sources: () => TranslationsService.sourcesListSources(requestOptions).then(response => response.data),
-  source: (id: string) => TranslationsService.sourcesGetSource({ ...requestOptions, path: { id } }).then(response => response.data),
-  createSource: (source: SourceRequest) => TranslationsService.sourcesCreateSource({ ...requestOptions, body: source }).then(response => response.data),
-  updateSource: (id: string, source: SourceRequest) => TranslationsService.sourcesUpdateSource({ ...requestOptions, body: source, path: { id } }).then(response => response.data),
-  deleteSource: (id: string) => TranslationsService.sourcesDeleteSource({ ...requestOptions, path: { id } }).then(response => response.data),
-  testSource: (id: string) => TranslationsService.sourcesTestSource({ ...requestOptions, path: { id } }).then(response => response.data),
-  testSourceConfiguration: (source: SourceRequest) => TranslationsService.sourcesTestSourceConfiguration({ ...requestOptions, body: source }).then(response => response.data),
-  syncSource: (id: string) => TranslationsService.sourcesSyncSource({ ...requestOptions, path: { id } }).then(response => response.data),
-  syncHistory: (id: string) => TranslationsService.sourcesListSourceSyncs({ ...requestOptions, path: { id } }).then(response => response.data),
+  health: () => unwrap(TranslationsService.healthGetHealth(requestOptions)),
+  facets: () => unwrap(TranslationsService.messagesGetMessageFacets(requestOptions)),
+  permissions: () => unwrap(TranslationsService.permissionsGetPermissions(requestOptions)),
+  sources: () => unwrap(TranslationsService.sourcesListSources(requestOptions)),
+  source: (id: string) => unwrap(TranslationsService.sourcesGetSource({ ...requestOptions, path: { id } })),
+  createSource: (source: SourceRequest) => unwrap(TranslationsService.sourcesCreateSource({ ...requestOptions, body: source })),
+  updateSource: (id: string, source: SourceRequest) => unwrap(TranslationsService.sourcesUpdateSource({ ...requestOptions, body: source, path: { id } })),
+  deleteSource: (id: string) => unwrap(TranslationsService.sourcesDeleteSource({ ...requestOptions, path: { id } })),
+  testSource: (id: string) => unwrap(TranslationsService.sourcesTestSource({ ...requestOptions, path: { id } })),
+  testSourceConfiguration: (source: SourceRequest) => unwrap(TranslationsService.sourcesTestSourceConfiguration({ ...requestOptions, body: source })),
+  syncSource: (id: string) => unwrap(TranslationsService.sourcesSyncSource({ ...requestOptions, path: { id } })),
+  syncHistory: (id: string) => unwrap(TranslationsService.sourcesListSourceSyncs({ ...requestOptions, path: { id } })),
   messages: (filters: { locale?: string; namespace?: string; query?: string; status: MessageStatus; page: number; pageSize: number }) =>
-    TranslationsService.messagesListMessages({ ...requestOptions, query: filters }).then(response => response.data),
-  message: (id: string) => TranslationsService.messagesGetMessage({ ...requestOptions, path: { id } }).then(response => response.data),
+    unwrap(TranslationsService.messagesListMessages({ ...requestOptions, query: filters })),
+  message: (id: string) => unwrap(TranslationsService.messagesGetMessage({ ...requestOptions, path: { id } })),
   saveOverride: (id: string, value: string, expectedVersion?: number) =>
-    TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } }).then(response => response.data),
+    unwrap(TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } })),
   resetOverride: (id: string, expectedVersion?: number) =>
-    TranslationsService.messagesResetMessageOverride({ ...requestOptions, path: { id }, query: { expectedVersion } }).then(response => response.data),
+    unwrap(TranslationsService.messagesResetMessageOverride({ ...requestOptions, path: { id }, query: { expectedVersion } })),
 };
