@@ -111,23 +111,32 @@ public sealed class MessageKeysController(
             : null;
 
     /// <summary>
-    /// Builds the query already carrying the pair of locales the view is based on, or null when no
-    /// messages exist to have a locale at all. The reference defaults to Umbraco's default language;
-    /// the target defaults to the reference, which renders a single column rather than guessing
-    /// which locale the editor meant to work in.
+    /// Builds the query already carrying the pair of locales the view is based on, or null when
+    /// nothing has been synchronised.
+    ///
+    /// The two locales are eligible on different grounds. A reference locale must actually have
+    /// messages, because it is what an editor translates *from*; an empty reference would show a
+    /// page of blanks. A target may be any site language, including one no source ships: that is
+    /// precisely the case where the site has more languages than the application does, and those
+    /// locales are legitimately empty until an editor fills them in. Restricting the target to
+    /// locales that already have messages would make them permanently unreachable.
     /// </summary>
     private async Task<MessageKeyQuery?> ResolveLocalesAsync(
         string? locale,
         string? referenceLocale,
         CancellationToken cancellationToken)
     {
-        var available = await editor.GetLocalesAsync(cancellationToken);
-        if (available.Count == 0) return null;
+        var translated = await editor.GetLocalesAsync(cancellationToken);
+        if (translated.Count == 0) return null;
 
-        var reference = await locales.ResolveReferenceLocaleAsync(referenceLocale, available, cancellationToken);
+        var reference = await locales.ResolveReferenceLocaleAsync(referenceLocale, translated, cancellationToken);
         if (reference is null) return null;
 
-        var target = available.FirstOrDefault(item =>
+        var configured = await locales.GetLocalesAsync(cancellationToken);
+        var selectable = translated
+            .Concat(configured.Select(language => language.Code))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var target = selectable.FirstOrDefault(item =>
             string.Equals(item, locale?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? reference;
         return new MessageKeyQuery(reference, target);
     }
