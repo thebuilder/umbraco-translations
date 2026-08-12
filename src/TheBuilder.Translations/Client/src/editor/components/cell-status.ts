@@ -1,34 +1,32 @@
 import type { MessageCell } from "../../api/generated/models.js";
 
 export interface CellStatus {
-  /** A sentence under the value saying where the text comes from, or what is wrong with it. */
-  text: string;
+  /** A sentence under the value, or null when the row is unremarkable. */
+  text: string | null;
   /** True when it needs the editor to do something, rather than merely describing the state. */
   warning: boolean;
 }
 
 /**
- * What to say beneath a translation.
+ * What to say beneath a translation, and when to say nothing.
  *
- * A sentence rather than a chip. The states here are not severities to be colour-coded; they are
- * different facts about where a piece of text comes from, and "Using the application default" is
- * information an editor reads once and moves past, while "the default changed under your edit" is
- * a request to do something. Only the second earns emphasis.
+ * Only rows that differ from the plain case are annotated. A note on every row reads as decoration
+ * and hides the handful that actually need attention.
  */
-export const cellStatus = (cell: MessageCell | undefined, localeName: string): CellStatus => {
-  if (!cell) {
-    return { text: `Not provided by the application in ${localeName}`, warning: false };
-  }
+export const cellStatus = (cell: MessageCell | undefined): CellStatus => {
+  if (!cell) return { text: "Not translated", warning: false };
 
   switch (cell.state) {
     case "NeedsReview":
-      return { text: "Application default changed. Review this custom text.", warning: true };
+      return { text: "Application text changed since this was written", warning: true };
     case "Removed":
-      return { text: "Removed from the application. Kept only because it has custom text.", warning: true };
+      return { text: "No longer in the application", warning: true };
     case "Overridden":
-      return { text: `Custom text for ${localeName}`, warning: false };
+      return { text: "Customised", warning: false };
     default:
-      return { text: "Using the application default", warning: false };
+      // Most rows use the application text, and saying so on every one of them is noise that
+      // buries the few rows that differ. Silence is the unremarkable case.
+      return { text: null, warning: false };
   }
 };
 

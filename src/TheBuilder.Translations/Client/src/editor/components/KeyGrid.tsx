@@ -6,14 +6,14 @@ import { cellStatus } from "./cell-status.js";
 import { GRID_COLUMNS, useGridNavigation } from "./use-grid-navigation.js";
 
 /** Two lines of key and two of value, at a size that can actually be read. */
-export const ROW_HEIGHT = 82;
+export const ROW_HEIGHT = 64;
 
 /** Rows left below the fold before the next page is requested. */
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
   keys, filters, total, loading, error, namespaceCount,
-  selectedId, onSelect, onLoadMore, hasMore, loadingMore, localeName,
+  selectedId, onSelect, onLoadMore, hasMore, loadingMore,
 }: {
   keys: readonly MessageKey[];
   filters: EditorFilters;
@@ -26,19 +26,21 @@ export const KeyGrid = ({
   onLoadMore: () => void;
   hasMore: boolean;
   loadingMore: boolean;
-  localeName: string;
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
   const singleLocale = filters.locale === filters.referenceLocale;
 
   const virtualizer = useVirtualizer({
-    count: keys.length,
+    // The full result count, so the scrollbar is the right size from the first paint instead of
+    // shrinking under the cursor as each page arrives. Rows not loaded yet render as placeholders.
+    count: total,
     getScrollElement: () => scroller.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   });
   const items = virtualizer.getVirtualItems();
 
+  // Keeps pulling pages until everything matching is in hand, so scrolling never waits on a fetch.
   const last = items.at(-1)?.index ?? 0;
   useEffect(() => {
     if (hasMore && !loadingMore && last >= keys.length - PREFETCH_MARGIN) onLoadMore();
@@ -78,7 +80,7 @@ export const KeyGrid = ({
           <span role="columnheader" className="grid__cell">{filters.referenceLocale}</span>
         )}
         <span role="columnheader" className="grid__cell">
-          {singleLocale ? "Text" : `Text in ${localeName}`}
+          {singleLocale ? "Text" : filters.locale}
         </span>
         <span role="columnheader" className="grid__cell grid__cell--edit">Edit</span>
       </div>
@@ -86,10 +88,26 @@ export const KeyGrid = ({
       <div ref={scroller} className="grid__body">
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {items.map((item) => {
-            const key = keys[item.index]!;
+            const key = keys[item.index];
+            if (!key) {
+              return (
+                <div
+                  key={`pending-${item.index}`}
+                  role="row"
+                  aria-rowindex={item.index + 2}
+                  className={rowClass("grid__row--pending")}
+                  style={{ transform: `translateY(${item.start}px)`, height: item.size }}
+                >
+                  <span role="gridcell" className="grid__cell"><span className="skeleton" /></span>
+                  {!singleLocale && <span role="gridcell" className="grid__cell"><span className="skeleton" /></span>}
+                  <span role="gridcell" className="grid__cell"><span className="skeleton" /></span>
+                  <span role="gridcell" className="grid__cell" />
+                </div>
+              );
+            }
             const target = cellFor(key, filters.locale);
             const reference = cellFor(key, filters.referenceLocale);
-            const status = cellStatus(target, localeName);
+            const status = cellStatus(target);
             const selected = target !== undefined && target.id === selectedId;
 
             return (
@@ -119,10 +137,12 @@ export const KeyGrid = ({
 
                 <span {...cellProps(item.index, "target")} className="grid__cell grid__cell--value">
                   <Value cell={target} strong />
-                  <span className={status.warning ? "status status--warning" : "status"}>
-                    {status.warning && <span aria-hidden="true">⚠ </span>}
-                    {status.text}
-                  </span>
+                  {status.text && (
+                    <span className={status.warning ? "status status--warning" : "status"}>
+                      {status.warning && <span aria-hidden="true">⚠ </span>}
+                      {status.text}
+                    </span>
+                  )}
                 </span>
 
                 <span className="grid__cell grid__cell--edit">
@@ -147,12 +167,6 @@ export const KeyGrid = ({
         </div>
       </div>
 
-      <div className="grid__footer">
-        <span className="muted" role="status">
-          {keys.length === total ? `${total} keys` : `${keys.length} of ${total} keys`}
-          {loadingMore && " · loading more…"}
-        </span>
-      </div>
     </div>
   );
 };
