@@ -56,10 +56,11 @@ export const TranslationDetail = ({ id, bridge, close }: {
   const save = useMutation({
     mutationFn: (value: string) =>
       api.saveOverride({ ...identity(detail.data!), value, expectedVersion: detail.data?.version ?? undefined }),
-    // No toast on success. The row behind the drawer updates and its status changes, so a banner
-    // adds nothing except a panel landing on top of the button that was just pressed. Failures
-    // still notify, because nothing else would say so.
-    onSuccess: (saved) => settle(saved),
+    // Saving closes the drawer, the same as reverting does: the row behind it shows the new text
+    // and its status, which is the confirmation. Nothing is announced -- a toast would land on the
+    // button just pressed and repeat what the list already says. Failures still notify, because
+    // nothing else would say so, and the drawer stays open with the text intact to fix.
+    onSuccess: (saved) => { settle(saved); close(); },
     onError: (error) => bridge.notify("danger", "Translation could not be saved", error.message),
   });
 
