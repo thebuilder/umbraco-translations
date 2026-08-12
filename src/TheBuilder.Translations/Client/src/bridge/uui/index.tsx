@@ -42,7 +42,7 @@ export const Button = ({ children, look = "default", color = "default", type = "
   </uui-button>
 );
 
-export const Input = ({ value, onValueChange, onEnter, ...rest }: {
+export const Input = ({ value, onValueChange, onEnter, className, ...rest }: {
   value: string;
   onValueChange: (value: string) => void;
   onEnter?: () => void;
@@ -60,16 +60,16 @@ export const Input = ({ value, onValueChange, onEnter, ...rest }: {
     <uui-input
       ref={ref}
       value={value}
-      class={rest.className}
+      class={className}
       onKeyDown={(event) => {
         if (event.key === "Enter") onEnter?.();
       }}
-      {...withoutClassName(rest)}
+      {...rest}
     />
   );
 };
 
-export const Textarea = ({ value, onValueChange, ...rest }: {
+export const Textarea = ({ value, onValueChange, className, ...rest }: {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -83,7 +83,7 @@ export const Textarea = ({ value, onValueChange, ...rest }: {
   const ref = useRef<UUITextareaElement>(null);
   useCustomEvent(ref, "input", (event: Event) => onValueChange(valueOf(event)));
 
-  return <uui-textarea ref={ref} value={value} class={rest.className} {...withoutClassName(rest)} />;
+  return <uui-textarea ref={ref} value={value} class={className} {...rest} />;
 };
 
 export interface SelectOption {
@@ -93,7 +93,7 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export const Select = ({ options, value, onValueChange, ...rest }: {
+export const Select = ({ options, value, onValueChange, className, ...rest }: {
   options: readonly SelectOption[];
   value: string;
   onValueChange: (value: string) => void;
@@ -110,8 +110,8 @@ export const Select = ({ options, value, onValueChange, ...rest }: {
     <uui-select
       ref={ref}
       options={options.map((option) => ({ ...option, selected: option.value === value }))}
-      class={rest.className}
-      {...withoutClassName(rest)}
+      class={className}
+      {...rest}
     />
   );
 };
@@ -158,8 +158,3 @@ export const Box = ({ children, headline, className }: {
   </uui-box>
 );
 
-// `className` is React's name; custom elements want `class`. Passing both sets the attribute twice.
-const withoutClassName = <T extends { className?: string }>(props: T): Omit<T, "className"> => {
-  const { className: _ignored, ...rest } = props;
-  return rest;
-};
