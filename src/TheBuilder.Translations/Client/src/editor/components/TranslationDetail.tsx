@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/generated/client.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
-import { Button } from "../../bridge/uui/Button.js";
+import { Button } from "../../bridge/uui/index.js";
 
 export const TranslationDetail = ({ id, bridge, close }: { id: string; bridge: BackofficeBridge; close: () => void }) => {
   const queryClient = useQueryClient();

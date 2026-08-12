@@ -1,6 +1,6 @@
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import type { MessageListItem, MessageListResponse } from "../../api/generated/models.js";
-import { Button } from "../../bridge/uui/Button.js";
+import { Button } from "../../bridge/uui/index.js";
 import type { EditorFilters } from "../filter-state.js";
 
 const column = createColumnHelper<MessageListItem>();
