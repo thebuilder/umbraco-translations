@@ -33,13 +33,17 @@ export const TranslationDetail = ({ id, bridge, close }: {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [close]);
 
-  const refresh = async () => {
+  /**
+   * The list and the counts have to be refetched, but the message itself does not: the write
+   * returned its own result, so seeding the cache with that shows the saved text immediately.
+   * Invalidating instead left the field blank until the refetch landed, which reads as the save
+   * having wiped it.
+   */
+  const settle = (saved?: MessageDetail) => {
     setDraft(undefined);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.keys() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.message(id) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.facets() }),
-    ]);
+    if (saved) queryClient.setQueryData(queryKeys.message(id), saved);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.keys() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.facets() });
   };
 
   const identity = (message: MessageDetail) => ({
@@ -55,14 +59,14 @@ export const TranslationDetail = ({ id, bridge, close }: {
     // No toast on success. The row behind the drawer updates and its status changes, so a banner
     // adds nothing except a panel landing on top of the button that was just pressed. Failures
     // still notify, because nothing else would say so.
-    onSuccess: async () => { await refresh(); },
+    onSuccess: (saved) => settle(saved),
     onError: (error) => bridge.notify("danger", "Translation could not be saved", error.message),
   });
 
   const reset = useMutation({
     mutationFn: () =>
       api.resetOverride({ ...identity(detail.data!), expectedVersion: detail.data?.version ?? undefined }),
-    onSuccess: async () => { await refresh(); close(); },
+    onSuccess: () => { settle(); close(); },
     onError: (error) => bridge.notify("danger", "Translation could not be reset", error.message),
   });
 

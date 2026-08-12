@@ -33,7 +33,7 @@ h1, h2, h3, p { margin-top: 0; }
 .toolbar { display: grid; gap: var(--uui-size-space-3); }
 .toolbar__row { display: flex; gap: var(--uui-size-space-3); align-items: end; }
 .field { display: grid; gap: 4px; min-inline-size: 12rem; }
-.field > span { font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); text-transform: uppercase; letter-spacing: .05em; }
+.toolbar .field > span { font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); text-transform: uppercase; letter-spacing: .05em; }
 .field label { font-weight: 700; font-size: var(--uui-type-small-size); }
 
 /* Form controls are native elements on backoffice tokens, because UUI's are form-associated custom
@@ -71,6 +71,7 @@ textarea.control { min-block-size: 6rem; resize: vertical; font-family: inherit;
 .button--danger { border-color: var(--uui-color-danger); color: var(--uui-color-danger); }
 
 .checkbox { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); cursor: pointer; }
+.tag { display: inline-flex; align-items: center; padding: 2px var(--uui-size-space-2); border-radius: 999px; background: var(--uui-color-surface-alt); border: 1px solid var(--uui-color-divider); font-size: 11px; font-family: var(--uui-font-monospace, ui-monospace, monospace); }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: var(--uui-size-space-3) var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); text-align: left; vertical-align: top; }
 th { font-size: var(--uui-type-small-size); text-transform: uppercase; letter-spacing: .04em; }
