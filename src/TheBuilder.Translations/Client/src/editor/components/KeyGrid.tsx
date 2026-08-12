@@ -1,64 +1,56 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef } from "react";
-import type { LocaleFacet, MessageCell, MessageKey } from "../../api/generated/models.js";
-import { Tag } from "../../bridge/uui/index.js";
+import type { MessageCell, MessageKey } from "../../api/generated/models.js";
 import type { EditorFilters } from "../state/filters.js";
-import { coverageOf, dotGlyph } from "./coverage.js";
-import { displayKey } from "./row-metrics.js";
+import { cellStatus } from "./cell-status.js";
 import { GRID_COLUMNS, useGridNavigation } from "./use-grid-navigation.js";
 
-export const ROW_HEIGHT = 44;
+/** Two lines of key and two of value, at a size that can actually be read. */
+export const ROW_HEIGHT = 82;
 
 /** Rows left below the fold before the next page is requested. */
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
-  keys, filters, locales, total, loading, error, namespaceCount,
-  onSelect, onLoadMore, hasMore, loadingMore, onLocaleChange,
+  keys, filters, total, loading, error, namespaceCount,
+  selectedId, onSelect, onLoadMore, hasMore, loadingMore, localeName,
 }: {
   keys: readonly MessageKey[];
   filters: EditorFilters;
-  locales: readonly LocaleFacet[];
   total: number;
   loading: boolean;
   error?: Error;
   namespaceCount: number;
+  selectedId?: string;
   onSelect: (messageId: string) => void;
   onLoadMore: () => void;
   hasMore: boolean;
   loadingMore: boolean;
-  onLocaleChange: (locale: string) => void;
+  localeName: string;
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
   const singleLocale = filters.locale === filters.referenceLocale;
-  const rowClass = (modifier: string) =>
-    `grid__row ${singleLocale ? "grid__row--single" : ""} ${modifier}`.replace(/\s+/g, " ").trim();
 
   const virtualizer = useVirtualizer({
     count: keys.length,
     getScrollElement: () => scroller.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 12,
+    overscan: 10,
   });
-
   const items = virtualizer.getVirtualItems();
 
-  // Fetching before the user reaches the end keeps scrolling continuous rather than stalling at
-  // each page boundary.
   const last = items.at(-1)?.index ?? 0;
   useEffect(() => {
     if (hasMore && !loadingMore && last >= keys.length - PREFETCH_MARGIN) onLoadMore();
   }, [hasMore, loadingMore, last, keys.length, onLoadMore]);
 
   const scrollToRow = useCallback((row: number) => virtualizer.scrollToIndex(row), [virtualizer]);
-  const activate = useCallback(
-    ({ row }: { row: number }) => {
-      const cell = cellFor(keys[row], filters.locale);
-      if (cell) onSelect(cell.id);
-    },
-    [keys, filters.locale, onSelect],
-  );
-  const { focus, onKeyDown, cellProps } = useGridNavigation({
+  const activate = useCallback(({ row }: { row: number }) => {
+    const cell = cellFor(keys[row], filters.locale);
+    if (cell) onSelect(cell.id);
+  }, [keys, filters.locale, onSelect]);
+
+  const { onKeyDown, cellProps } = useGridNavigation({
     rowCount: keys.length,
     scrollToRow,
     onActivate: activate,
@@ -68,109 +60,100 @@ export const KeyGrid = ({
   if (loading) return <p className="panel">Loading translations…</p>;
   if (keys.length === 0) return <p className="panel">No translations match these filters.</p>;
 
+  const rowClass = (extra = "") =>
+    ["grid__row", singleLocale ? "grid__row--single" : "", extra].filter(Boolean).join(" ");
+
   return (
-    <section className="grid-frame">
-      <div
-        role="grid"
-        // The unloaded total, not the rendered count: it is what the list actually contains, and
-        // announcing the window would tell a screen reader the wrong size.
-        aria-rowcount={total}
-        aria-colcount={GRID_COLUMNS.length}
-        aria-label="Translations"
-        className="grid"
-        onKeyDown={onKeyDown}
-      >
-        <div role="row" aria-rowindex={1} className={rowClass("grid__row--head")}>
-          <span role="columnheader" className="grid__cell">Key</span>
-          {/* Nothing to compare against when the two are the same locale, and two identical
-              columns of prose is worse than one. */}
-          {!singleLocale && (
-            <span role="columnheader" className="grid__cell">{filters.referenceLocale}</span>
-          )}
-          <span role="columnheader" className="grid__cell">
-            {singleLocale ? "Text" : filters.locale ?? "Translation"}
-          </span>
-          <span role="columnheader" className="grid__cell grid__cell--coverage">Locales</span>
-        </div>
+    <div
+      role="grid"
+      aria-rowcount={total}
+      aria-colcount={GRID_COLUMNS.length}
+      aria-label="Translations"
+      className="grid"
+      onKeyDown={onKeyDown}
+    >
+      <div role="row" aria-rowindex={1} className={rowClass("grid__row--head")}>
+        <span role="columnheader" className="grid__cell">Key</span>
+        {!singleLocale && (
+          <span role="columnheader" className="grid__cell">{filters.referenceLocale}</span>
+        )}
+        <span role="columnheader" className="grid__cell">
+          {singleLocale ? "Text" : `Text in ${localeName}`}
+        </span>
+        <span role="columnheader" className="grid__cell grid__cell--edit">Edit</span>
+      </div>
 
-        <div ref={scroller} className="grid__body">
-          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-            {items.map((item) => {
-              const key = keys[item.index]!;
-              const target = cellFor(key, filters.locale);
-              const reference = cellFor(key, filters.referenceLocale);
-              const shown = displayKey(key, filters, namespaceCount);
-              const coverage = coverageOf(key, locales);
+      <div ref={scroller} className="grid__body">
+        <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+          {items.map((item) => {
+            const key = keys[item.index]!;
+            const target = cellFor(key, filters.locale);
+            const reference = cellFor(key, filters.referenceLocale);
+            const status = cellStatus(target, localeName);
+            const selected = target !== undefined && target.id === selectedId;
 
-              return (
-                <div
-                  key={`${key.sourceId}|${key.namespace}|${key.key}`}
-                  role="row"
-                  // Offset by the header, which is row 1.
-                  aria-rowindex={item.index + 2}
-                  className={rowClass(`grid__row--${(target?.state ?? "Absent").toLowerCase()}`)}
-                  style={{ transform: `translateY(${item.start}px)`, height: item.size }}
-                >
-                  <span
-                    {...cellProps(item.index, "key")}
-                    className="grid__cell grid__cell--key"
-                    title={`${key.namespace}.${key.key}`}
-                  >
-                    {shown.showNamespace && <span className="key-path">{key.namespace}.</span>}
-                    <span className="key-path">{shown.path}</span>
-                    <span className="key-leaf">{shown.leaf}</span>
-                  </span>
-
-                  {!singleLocale && (
-                    <span {...cellProps(item.index, "reference")} className="grid__cell muted">
-                      <Value cell={reference} />
-                    </span>
+            return (
+              <div
+                key={`${key.sourceId}|${key.namespace}|${key.key}`}
+                role="row"
+                aria-rowindex={item.index + 2}
+                aria-selected={selected}
+                className={rowClass(selected ? "grid__row--selected" : "")}
+                style={{ transform: `translateY(${item.start}px)`, height: item.size }}
+                onClick={() => target && onSelect(target.id)}
+              >
+                <span {...cellProps(item.index, "key")} className="grid__cell grid__cell--key">
+                  {/* The namespace is its own label, not part of the key: it is the grouping the
+                      sidebar drills into, and running the two together made both unreadable. */}
+                  {(namespaceCount > 1 || filters.namespace === null) && (
+                    <span className="namespace">{key.namespace}</span>
                   )}
+                  <span className="key" title={`${key.namespace}.${key.key}`}>{key.key}</span>
+                </span>
 
-                  <span
-                    {...cellProps(item.index, "target")}
-                    className="grid__cell grid__cell--target"
-                    onDoubleClick={() => target && onSelect(target.id)}
+                {!singleLocale && (
+                  <span {...cellProps(item.index, "reference")} className="grid__cell grid__cell--value">
+                    <Value cell={reference} />
+                  </span>
+                )}
+
+                <span {...cellProps(item.index, "target")} className="grid__cell grid__cell--value">
+                  <Value cell={target} strong />
+                  <span className={status.warning ? "status status--warning" : "status"}>
+                    {status.warning && <span aria-hidden="true">⚠ </span>}
+                    {status.text}
+                  </span>
+                </span>
+
+                <span className="grid__cell grid__cell--edit">
+                  {/* An explicit affordance. A row being clickable is not discoverable on its own,
+                      so the row stays clickable but this is what says so. */}
+                  <button
+                    type="button"
+                    className="edit"
+                    tabIndex={-1}
+                    aria-label={`Edit ${key.namespace}.${key.key}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (target) onSelect(target.id);
+                    }}
                   >
-                    <Value cell={target} />
-                    <Status cell={target} />
-                  </span>
-
-                  <span role="gridcell" className="grid__cell grid__cell--coverage">
-                    {/* The dots carry no meaning to a screen reader, so the summary is the content
-                        and they are decoration. Clicking one is a mouse shortcut for the toolbar. */}
-                    <span className="visually-hidden">{coverage.label}</span>
-                    <span aria-hidden="true" className="dots">
-                      {coverage.dots.map((dot) => (
-                        <button
-                          key={dot.locale}
-                          type="button"
-                          tabIndex={-1}
-                          className={`dot dot--${dot.state.toLowerCase()}`}
-                          title={`${dot.locale}: ${dot.state}`}
-                          onClick={() => onLocaleChange(dot.locale)}
-                        >
-                          {dotGlyph(dot.state)}
-                        </button>
-                      ))}
-                      {coverage.overflow > 0 && <span className="dot dot--more">+{coverage.overflow}</span>}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                    ✎
+                  </button>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="pagination">
+      <div className="grid__footer">
         <span className="muted" role="status">
           {keys.length === total ? `${total} keys` : `${keys.length} of ${total} keys`}
           {loadingMore && " · loading more…"}
         </span>
-        <span className="muted">Row {focus.row + 1}</span>
       </div>
-    </section>
+    </div>
   );
 };
 
@@ -178,28 +161,15 @@ const cellFor = (key: MessageKey | undefined, locale: string | null): MessageCel
   key && locale ? key.cells[locale] : undefined;
 
 /**
- * Three states that would otherwise all render as an empty cell: no row at all, a row using the
- * application's text, and an override that is deliberately the empty string.
+ * Three states that would otherwise read as an empty cell: no row at all, an override that is
+ * deliberately the empty string, and ordinary text. What distinguishes "using the application
+ * default" from "custom text" is said in words underneath, not with a symbol in front.
  */
-const Value = ({ cell }: { cell?: MessageCell }) => {
-  if (!cell) return <span className="absent">— not translated</span>;
+const Value = ({ cell, strong }: { cell?: MessageCell; strong?: boolean }) => {
+  if (!cell) return <span className="value value--empty">Not translated</span>;
 
   const text = cell.overrideValue ?? cell.defaultValue;
-  if (text === "") return <span className="absent">∅ empty string</span>;
+  if (text === "") return <span className="value value--empty">Empty</span>;
 
-  return (
-    <span className={cell.hasOverride ? "value" : "value inherited"}>
-      {cell.hasOverride ? "" : "↳ "}
-      {text}
-    </span>
-  );
-};
-
-/** Nothing for the ordinary case: a chip on every row is not a signal. */
-const Status = ({ cell }: { cell?: MessageCell }) => {
-  switch (cell?.state) {
-    case "NeedsReview": return <Tag color="warning">Review</Tag>;
-    case "Removed": return <Tag color="danger">Removed</Tag>;
-    default: return null;
-  }
+  return <span className={strong ? "value value--strong" : "value"}>{text}</span>;
 };

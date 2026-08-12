@@ -6,6 +6,7 @@ import { TranslationDetail } from "../components/TranslationDetail.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { LocaleProgress, Toolbar } from "./Toolbar.js";
 import { ScopeList } from "./ScopeList.js";
+import { Summary } from "./Summary.js";
 
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const [filters, update] = useUrlFilters();
@@ -26,6 +27,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
   };
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
+  const localeName = locales.find((locale) => locale.code === shown.locale)?.name ?? shown.locale ?? "";
 
   return (
     <main className="shell">
@@ -44,23 +46,26 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
 
       <Toolbar filters={shown} locales={locales} update={update} />
 
-      <div className={selectedId ? "layout layout--inspecting" : "layout"}>
+      <div className="layout">
         <ScopeList namespaces={facets.data?.namespaces ?? []} filters={shown} update={update} />
 
-        <KeyGrid
-          keys={rows.keys}
-          filters={shown}
-          locales={locales}
-          total={rows.total}
-          loading={rows.query.isLoading}
-          error={rows.query.error ?? undefined}
-          namespaceCount={facets.data?.namespaces.length ?? 0}
-          onSelect={setSelectedId}
-          onLoadMore={() => void rows.query.fetchNextPage()}
-          hasMore={rows.query.hasNextPage}
-          loadingMore={rows.query.isFetchingNextPage}
-          onLocaleChange={(locale) => update({ locale })}
-        />
+        <div className="grid-frame">
+          <Summary keys={rows.keys} locale={shown.locale} total={rows.total} />
+          <KeyGrid
+            keys={rows.keys}
+            filters={shown}
+            total={rows.total}
+            loading={rows.query.isLoading}
+            error={rows.query.error ?? undefined}
+            namespaceCount={facets.data?.namespaces.length ?? 0}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onLoadMore={() => void rows.query.fetchNextPage()}
+            hasMore={rows.query.hasNextPage}
+            loadingMore={rows.query.isFetchingNextPage}
+            localeName={localeName}
+          />
+        </div>
 
         {selectedId && (
           <TranslationDetail
