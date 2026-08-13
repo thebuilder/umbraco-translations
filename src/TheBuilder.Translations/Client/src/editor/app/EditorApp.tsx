@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/KeyGrid.js";
@@ -9,6 +9,24 @@ import { Toolbar } from "./Toolbar.js";
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const [filters, update] = useUrlFilters();
   const [selectedId, setSelectedId] = useState<string>();
+
+  /**
+   * Typed text that has not been saved lives only in the drawer, so anything that would unmount it
+   * has to ask first. A ref rather than state: this changes on every keystroke and re-rendering the
+   * whole editor for it would be absurd, and nothing on screen depends on the value.
+   */
+  const unsaved = useRef(false);
+  const onDirtyChange = useCallback((dirty: boolean) => { unsaved.current = dirty; }, []);
+  const mayLeave = () =>
+    !unsaved.current || confirm("This translation has changes you have not saved. Discard them?");
+
+  // Both routes out of an open translation: picking another row, and closing altogether.
+  const select = useCallback((messageId: string) => {
+    if (messageId === selectedId || mayLeave()) setSelectedId(messageId);
+  }, [selectedId]);
+  const close = useCallback(() => {
+    if (mayLeave()) setSelectedId(undefined);
+  }, []);
 
   const facets = useFacets();
   const permissions = usePermissions();
@@ -26,6 +44,29 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   };
   const current = locales.find((locale) => locale.code === shown.locale);
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
+
+  // Which row an open translation is, so the drawer can offer the one after it and show the
+  // comparison text the list already holds rather than fetching it a second time.
+  const rowOf = (messageId: string) =>
+    rows.keys.findIndex((key) => shown.locale !== null && key.cells[shown.locale]?.id === messageId);
+
+  const rowAfter = (messageId: string): string | undefined => {
+    const index = rowOf(messageId);
+    const following = index < 0 ? undefined : rows.keys[index + 1];
+    return shown.locale !== null && following ? following.cells[shown.locale]?.id : undefined;
+  };
+
+  const comparisonFor = (messageId: string) => {
+    const reference = shown.referenceLocale;
+    if (reference === null || reference === shown.locale) return undefined;
+    const key = rows.keys[rowOf(messageId)];
+    const cell = key?.cells[reference];
+    return {
+      locale: reference,
+      name: locales.find((locale) => locale.code === reference)?.name || reference,
+      value: cell ? cell.overrideValue ?? cell.defaultValue : null,
+    };
+  };
 
   return (
     <main className="shell">
@@ -46,7 +87,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           locales={locales}
           namespaceCount={facets.data?.namespaces.length ?? 0}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={select}
           onLoadMore={() => void rows.query.fetchNextPage()}
           hasMore={rows.query.hasNextPage}
           loadingMore={rows.query.isFetchingNextPage}
@@ -73,7 +114,11 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
             key={selectedId}
             id={selectedId}
             bridge={bridge}
-            close={() => setSelectedId(undefined)}
+            comparison={comparisonFor(selectedId)}
+            next={rowAfter(selectedId)}
+            onDirtyChange={onDirtyChange}
+            select={select}
+            close={close}
           />
         )}
       </div>

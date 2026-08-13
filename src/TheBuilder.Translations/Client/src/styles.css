@@ -52,7 +52,7 @@ h1, h2, h3, p { margin-top: 0; }
 .control:hover { border-color: var(--uui-color-border-emphasis); }
 .control:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 .control:disabled { opacity: .6; cursor: not-allowed; }
-textarea.control { min-block-size: 6rem; resize: vertical; font-family: inherit; }
+textarea.control { min-block-size: 3.5rem; resize: vertical; font-family: inherit; line-height: 1.45; }
 
 .button {
   display: inline-flex; align-items: center; gap: var(--uui-size-space-2);
@@ -164,16 +164,49 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .grid__row--pending { cursor: default; }
 
 /* Overlays the list rather than taking a column, so opening one does not resize the table. */
-.drawer { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: min(28rem, 100%); display: flex; flex-direction: column; background: var(--uui-color-surface); border-inline-start: 1px solid var(--uui-color-border); box-shadow: -10px 0 28px rgb(0 0 0 / .12); z-index: 2; }
-.drawer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-.drawer__head h2 { margin: 0; font-size: 13px; }
-.drawer__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: grid; gap: var(--uui-size-space-4); align-content: start; }
-.drawer__foot { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); }
-.drawer__foot--split { justify-content: space-between; }
+/* Overlays the list rather than taking a column, so opening one does not resize the table. */
+.drawer { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: min(30rem, 100%); display: flex; flex-direction: column; background: var(--uui-color-surface); border-inline-start: 1px solid var(--uui-color-border); box-shadow: -10px 0 28px rgb(0 0 0 / .12); z-index: 2; }
+
+/* Head and foot hold their place while the body scrolls: what is being edited and how to save it
+   both have to stay reachable once the content is longer than the drawer. */
+.drawer__head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+.drawer__title { min-inline-size: 0; }
+.drawer__head h2 { margin: 0 0 2px; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.drawer__head h2:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
+.drawer__id { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--uui-size-space-2); font-size: 11px; color: var(--uui-color-text-alt); }
+
+.drawer__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
+.drawer__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-2); padding: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); }
 .drawer__actions { display: flex; gap: var(--uui-size-space-2); }
-.readonly { padding: var(--uui-size-space-3); border: 1px solid var(--uui-color-divider); border-radius: var(--uui-border-radius); background: var(--uui-color-surface-alt); }
+
+/* One labelled section per thing being compared, so the reference, what the application ships and
+   what the editor writes are three separate readings rather than one wall. */
+.block { display: grid; gap: var(--uui-size-space-2); }
+.block h3 { margin: 0; font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); }
+.block label { font: inherit; color: inherit; }
+
+/* Text to read, not a field that happens to be switched off. A disabled input says "you could have
+   typed here but may not", which is the wrong idea about the application's own text. */
+.reading { margin: 0; padding-inline-start: var(--uui-size-space-3); border-inline-start: 2px solid var(--uui-color-divider); white-space: pre-wrap; overflow-wrap: anywhere; }
+.reading em { color: var(--uui-color-text-alt); }
+
 .hint { font-size: 11px; color: var(--uui-color-text-alt); }
-.arguments { display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2); }
+.notice { margin: 0; padding-inline-start: var(--uui-size-space-3); border-inline-start: 3px solid currentColor; font-size: var(--uui-type-small-size); }
+.notice--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
+.notice--error { color: var(--uui-color-danger); font-weight: 600; }
+
+.arguments { display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2); margin: 0; padding: 0; list-style: none; }
+.tag__kind { margin-inline-start: var(--uui-size-space-2); opacity: .65; font-family: var(--uui-font-family, inherit); }
+/* A placeholder the text has left out, marked where the editor is looking for what to put back. */
+.tag--missing { border-color: var(--uui-color-danger); color: var(--uui-color-danger); font-weight: 700; }
+
+.technical { border-top: 1px solid var(--uui-color-divider); padding-block-start: var(--uui-size-space-3); font-size: var(--uui-type-small-size); }
+.technical summary { cursor: pointer; color: var(--uui-color-text-alt); font-weight: 700; font-size: 11px; }
+.technical dl { display: grid; grid-template-columns: auto 1fr; gap: var(--uui-size-space-2) var(--uui-size-space-4); margin: var(--uui-size-space-3) 0 0; }
+.technical dt { color: var(--uui-color-text-alt); }
+.technical dd { margin: 0; display: flex; align-items: center; gap: var(--uui-size-space-2); min-inline-size: 0; }
+.technical code { font-family: var(--uui-font-monospace, ui-monospace, monospace); overflow-wrap: anywhere; }
+.technical .button { min-block-size: 22px; padding: 0 var(--uui-size-space-2); font-size: 11px; }
 
 .visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
