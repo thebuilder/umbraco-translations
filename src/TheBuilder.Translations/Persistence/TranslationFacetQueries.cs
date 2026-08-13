@@ -21,6 +21,27 @@ internal static class TranslationFacetQueries
             FROM {Constants.Tables.Messages} m
             LEFT JOIN {Constants.Tables.Overrides} o ON o.MessageId = m.Id
             """, missingState);
+        var localeRows = database.Fetch<LocaleUsageRow>($"""
+            SELECT m.Locale AS Locale,
+                   COUNT(*) AS MessageCount,
+                   COALESCE(SUM(CASE WHEN o.MessageId IS NOT NULL THEN 1 ELSE 0 END), 0) AS OverriddenCount,
+                   COALESCE(SUM(CASE WHEN o.MessageId IS NOT NULL AND o.SourceChecksumAtEdit <> m.DefaultChecksum THEN 1 ELSE 0 END), 0) AS NeedsReviewCount
+            FROM {Constants.Tables.Messages} m
+            LEFT JOIN {Constants.Tables.Overrides} o ON o.MessageId = m.Id
+            WHERE m.State <> @0
+            GROUP BY m.Locale
+            ORDER BY m.Locale
+            """, missingState);
+        // Distinct keys across every locale. A locale's own message count is already its distinct
+        // key count, so this is the only extra aggregate the "absent in this locale" figure needs.
+        var totalKeys = database.ExecuteScalar<int>($"""
+            SELECT COUNT(*) FROM (
+                SELECT m.SourceId, m.Namespace, m.[Key]
+                FROM {Constants.Tables.Messages} m
+                WHERE m.State <> @0
+                GROUP BY m.SourceId, m.Namespace, m.[Key]
+            ) keys
+            """, missingState);
         var outputGroups = outputRows
             .GroupBy(row => (row.Locale, row.Namespace))
             .Select(group => new TranslationOutputGroup(
@@ -35,6 +56,9 @@ internal static class TranslationFacetQueries
             [MessageStatusFilter.NeedsReview] = countRow.NeedsReviewCount,
             [MessageStatusFilter.Missing] = countRow.MissingCount,
         };
-        return new(outputGroups, counts);
+        var locales = localeRows
+            .Select(row => new TranslationLocaleUsage(row.Locale, row.MessageCount, row.OverriddenCount, row.NeedsReviewCount))
+            .ToArray();
+        return new(outputGroups, counts, locales, totalKeys);
     }
 }

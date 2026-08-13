@@ -57,12 +57,13 @@ public static class TranslationOutputFormats
             })
             .ToArray();
         return new(
-            data.OutputGroups.Select(group => group.Locale).Distinct().Order().ToArray(),
+            data.Locales,
             data.OutputGroups.Select(group => group.Namespace).Distinct().Order().ToArray(),
             classified.SelectMany(item => item.Formats.Select(format =>
                 new TranslationOutputEndpoint(item.Group.Locale, item.Group.Namespace, format))).ToArray(),
             classified.Where(item => item.Formats.Count == 0).Select(item =>
                 new TranslationOutputConflict(item.Group.Locale, item.Group.Namespace, item.Group.MessageFormats)).ToArray(),
-            data.StatusCounts);
+            data.StatusCounts,
+            data.TotalKeys);
     }
 }

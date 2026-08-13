@@ -49,6 +49,14 @@ internal sealed class OutputEndpointRow
     public string Format { get; set; } = string.Empty;
 }
 
+internal sealed class LocaleUsageRow
+{
+    public string Locale { get; set; } = string.Empty;
+    public int MessageCount { get; set; }
+    public int OverriddenCount { get; set; }
+    public int NeedsReviewCount { get; set; }
+}
+
 internal sealed class FacetCountRow
 {
     public int DefaultCount { get; set; }

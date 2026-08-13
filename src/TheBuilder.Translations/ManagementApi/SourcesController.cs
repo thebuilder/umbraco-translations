@@ -14,8 +14,12 @@ namespace TheBuilder.Translations.ManagementApi;
 public sealed class SourcesController(ITranslationSourceRepository store, TranslationSyncEngine syncEngine) : TranslationsApiControllerBase
 {
     [HttpGet("sources")]
-    public async Task<IReadOnlyList<SourceResponse>> ListSources(CancellationToken cancellationToken) =>
-        (await store.GetSourcesAsync(cancellationToken)).Select(SourceResponse.From).ToArray();
+    public async Task<IReadOnlyList<SourceResponse>> ListSources(CancellationToken cancellationToken)
+    {
+        var sources = await store.GetSourcesAsync(cancellationToken);
+        var statuses = (await store.GetSourceStatusesAsync(cancellationToken)).ToDictionary(status => status.SourceId);
+        return sources.Select(source => SourceResponse.From(source, statuses.GetValueOrDefault(source.Id))).ToArray();
+    }
 
     [HttpGet("sources/{id:guid}")]
     [ProducesResponseType(typeof(SourceResponse), StatusCodes.Status200OK)]
@@ -23,7 +27,9 @@ public sealed class SourcesController(ITranslationSourceRepository store, Transl
     public async Task<ActionResult<SourceResponse>> GetSource(Guid id, CancellationToken cancellationToken)
     {
         var source = await store.GetSourceAsync(id, cancellationToken);
-        return source is null ? NotFound() : SourceResponse.From(source);
+        if (source is null) return NotFound();
+        var status = (await store.GetSourceStatusesAsync(cancellationToken)).FirstOrDefault(item => item.SourceId == id);
+        return SourceResponse.From(source, status);
     }
 
     [HttpPost("sources")]

@@ -6,12 +6,16 @@ using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
 using TheBuilder.Translations.Core.Output;
 using TheBuilder.Translations.Core.Validation;
+using TheBuilder.Translations.Localization;
 
 namespace TheBuilder.Translations.ManagementApi;
 
 [ApiVersion("1.0")]
 [ApiExplorerSettings(GroupName = Constants.PackageName)]
-public sealed class MessagesController(ITranslationMessageRepository store, IMessageFormatValidator validator) : TranslationsApiControllerBase
+public sealed class MessagesController(
+    ITranslationMessageRepository store,
+    IMessageFormatValidator validator,
+    ITranslationLocaleCatalog locales) : TranslationsApiControllerBase
 {
     [HttpGet("messages")]
     public async Task<ActionResult<MessageListResponse>> ListMessages(
@@ -71,9 +75,28 @@ public sealed class MessagesController(ITranslationMessageRepository store, IMes
     public async Task<FacetResponse> GetMessageFacets(CancellationToken cancellationToken)
     {
         var facets = TranslationOutputFormats.CreateFacets(await store.GetFacetDataAsync(cancellationToken));
+        var configured = await locales.GetLocalesAsync(cancellationToken);
+        var byCode = configured.ToDictionary(locale => locale.Code, StringComparer.OrdinalIgnoreCase);
+        var defaultLocale = await locales.ResolveReferenceLocaleAsync(
+            null, facets.Locales.Select(locale => locale.Locale).ToArray(), cancellationToken);
+
         return new(
-            facets.Locales,
+            facets.Locales.Select(usage =>
+            {
+                var language = byCode.GetValueOrDefault(usage.Locale);
+                return new LocaleFacetResponse(
+                    usage.Locale,
+                    language?.Name,
+                    string.Equals(usage.Locale, defaultLocale, StringComparison.OrdinalIgnoreCase),
+                    language is not null,
+                    usage.MessageCount,
+                    usage.OverriddenCount,
+                    usage.NeedsReviewCount,
+                    usage.AbsentKeyCount(facets.TotalKeys));
+            }).ToArray(),
+            defaultLocale,
             facets.Namespaces,
+            facets.TotalKeys,
             facets.OutputEndpoints.Select(endpoint => new OutputEndpointResponse(endpoint.Locale, endpoint.Namespace, endpoint.Format)).ToArray(),
             facets.OutputConflicts.Select(conflict => new OutputConflictResponse(conflict.Locale, conflict.Namespace, conflict.MessageFormats)).ToArray(),
             facets.StatusCounts.ToDictionary(item => item.Key.ToString(), item => item.Value));

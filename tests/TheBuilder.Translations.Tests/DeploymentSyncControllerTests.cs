@@ -158,6 +158,9 @@ public sealed class DeploymentSyncControllerTests
         public Task<IReadOnlyList<TranslationSyncResult>> GetSyncHistoryAsync(Guid sourceId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<TranslationSyncResult>>([]);
 
+        public Task<IReadOnlyList<TranslationSourceStatus>> GetSourceStatusesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<TranslationSourceStatus>>([]);
+
         public Task<TranslationSyncResult> ApplySynchronizationAsync(
             TranslationSourceDefinition definition,
             TranslationSynchronizationLease lease,

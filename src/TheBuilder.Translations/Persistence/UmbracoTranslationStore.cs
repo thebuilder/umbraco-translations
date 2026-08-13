@@ -236,6 +236,29 @@ internal sealed class UmbracoTranslationStore(
         return Task.FromResult<IReadOnlyList<TranslationSyncResult>>(rows.Select(TranslationRowMapper.ToDomain).ToArray());
     }
 
+    public Task<IReadOnlyList<TranslationSourceStatus>> GetSourceStatusesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var now = timeProvider.GetUtcNow();
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        var sources = scope.Database.Fetch<SourceRow>($"SELECT * FROM {Constants.Tables.Sources}");
+        // Newest run per source. Sync history is small, so a single ordered fetch beats N queries.
+        var latest = scope.Database
+            .Fetch<SyncRow>($"SELECT * FROM {Constants.Tables.Syncs} ORDER BY StartedAt DESC")
+            .GroupBy(row => row.SourceId)
+            .ToDictionary(group => group.Key, group => TranslationRowMapper.ToDomain(group.First()));
+
+        return Task.FromResult<IReadOnlyList<TranslationSourceStatus>>(sources
+            .Select(source => new TranslationSourceStatus(
+                source.Id,
+                // An expired lease means the previous run died. Ignoring expiry here would pin the
+                // editor into a permanent "syncing" state that no user action could clear.
+                source.SyncLeaseId is not null && source.SyncLeaseExpiresAt > now.UtcDateTime,
+                source.SyncLeaseExpiresAt,
+                latest.GetValueOrDefault(source.Id)))
+            .ToArray());
+    }
+
     public Task<Core.Persistence.Page<TranslationMessageView>> QueryMessagesAsync(MessageQuery query, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

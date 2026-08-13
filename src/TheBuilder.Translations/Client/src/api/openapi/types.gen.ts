@@ -5,8 +5,10 @@ export type ClientOptions = {
 };
 
 export type FacetResponse = {
-    locales: Array<string>;
+    locales: Array<LocaleFacetResponse>;
+    defaultLocale?: string | null;
     namespaces: Array<string>;
+    totalKeys: number;
     outputEndpoints: Array<OutputEndpointResponse>;
     outputConflicts: Array<OutputConflictResponse>;
     statusCounts: {
@@ -25,6 +27,17 @@ export type HttpTranslationTransportOptions = {
     timeoutSeconds: number;
     maximumResponseBytes: number;
     headers: Array<HttpTranslationHeaderOptions>;
+};
+
+export type LocaleFacetResponse = {
+    code: string;
+    name?: string | null;
+    isDefault: boolean;
+    isConfigured: boolean;
+    messageCount: number;
+    overriddenCount: number;
+    needsReviewCount: number;
+    absentKeyCount: number;
 };
 
 export type MessageDetailResponse = {
@@ -97,6 +110,13 @@ export type OverrideRequest = {
     expectedVersion?: number | null;
 };
 
+export type PermissionsResponse = {
+    canView: boolean;
+    canEdit: boolean;
+    canManageSources: boolean;
+    canSync: boolean;
+};
+
 export type SourceRequest = {
     alias: string;
     displayName: string;
@@ -121,6 +141,9 @@ export type SourceResponse = {
     parser: NestedJsonParserOptions;
     lastSuccessfulRevision?: string | null;
     lastSuccessfulSync?: string | null;
+    syncInProgress: boolean;
+    syncLeaseExpiresAt?: string | null;
+    lastSync?: TranslationSyncResult;
 };
 
 export type TranslationOutputFormat = 'next-intl' | 'i18next-v4';
@@ -318,6 +341,29 @@ export type MessagesSaveMessageOverrideResponses = {
 };
 
 export type MessagesSaveMessageOverrideResponse = MessagesSaveMessageOverrideResponses[keyof MessagesSaveMessageOverrideResponses];
+
+export type PermissionsGetPermissionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/permissions';
+};
+
+export type PermissionsGetPermissionsErrors = {
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+};
+
+export type PermissionsGetPermissionsResponses = {
+    /**
+     * OK
+     */
+    200: PermissionsResponse;
+};
+
+export type PermissionsGetPermissionsResponse = PermissionsGetPermissionsResponses[keyof PermissionsGetPermissionsResponses];
 
 export type SourcesListSourcesData = {
     body?: never;
