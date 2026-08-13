@@ -11,4 +11,5 @@ samples/**/umbraco/Data/
 samples/**/umbraco/Logs/
 samples/**/appsettings-schema*.json
 samples/**/umbraco-package-schema.json
+/artifacts/
 .DS_Store
