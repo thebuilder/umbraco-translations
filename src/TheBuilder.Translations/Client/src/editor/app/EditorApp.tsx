@@ -30,10 +30,6 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   return (
     <main className="shell">
       <header className="header">
-        <div>
-          <h1>Translations</h1>
-          <p className="muted">Application text with the edits made here.</p>
-        </div>
         <div className="header__status">
           {syncing && <span className="muted" role="status">Synchronising…</span>}
           {permissions.data && !permissions.data.canEdit && (
@@ -48,7 +44,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
 
       <Toolbar filters={shown} locales={locales} update={update} />
 
-      <div className="layout">
+      <div className={selectedId ? "layout layout--inspecting" : "layout"}>
         <ScopeList namespaces={facets.data?.namespaces ?? []} filters={shown} update={update} />
 
         <KeyGrid
