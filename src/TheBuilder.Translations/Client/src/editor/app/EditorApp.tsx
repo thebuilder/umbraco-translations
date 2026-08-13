@@ -37,6 +37,20 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
       />
 
       <div className="board">
+        <KeyGrid
+          keys={rows.keys}
+          filters={shown}
+          total={rows.total}
+          loading={rows.query.isLoading}
+          error={rows.query.error ?? undefined}
+          namespaceCount={facets.data?.namespaces.length ?? 0}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onLoadMore={() => void rows.query.fetchNextPage()}
+          hasMore={rows.query.hasNextPage}
+          loadingMore={rows.query.isFetchingNextPage}
+        />
+
         <div className="board__bar">
           <span><strong>{rows.total.toLocaleString()}</strong> translations</span>
           {current && current.absentKeyCount > 0 && (
@@ -52,20 +66,6 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           {syncing && <span role="status">Synchronising…</span>}
           {permissions.data && !permissions.data.canEdit && <span>Read-only access</span>}
         </div>
-
-        <KeyGrid
-          keys={rows.keys}
-          filters={shown}
-          total={rows.total}
-          loading={rows.query.isLoading}
-          error={rows.query.error ?? undefined}
-          namespaceCount={facets.data?.namespaces.length ?? 0}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onLoadMore={() => void rows.query.fetchNextPage()}
-          hasMore={rows.query.hasNextPage}
-          loadingMore={rows.query.isFetchingNextPage}
-        />
 
         {selectedId && (
           <TranslationDetail

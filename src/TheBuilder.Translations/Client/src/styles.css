@@ -90,7 +90,7 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 
 /* One card holding the summary, the list and the drawer. The list body is the only scroller. */
 .board { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; background: var(--uui-color-surface); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); overflow: hidden; }
-.board__bar { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-3) var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
+.board__bar { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-3) var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
 .board__sep { inline-size: 1px; block-size: 12px; background: var(--uui-color-divider); margin-inline: var(--uui-size-space-2); }
 .board__spacer { flex: 1; }
 
