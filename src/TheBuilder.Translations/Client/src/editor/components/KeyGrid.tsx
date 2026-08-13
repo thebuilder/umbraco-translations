@@ -99,7 +99,7 @@ export const KeyGrid = ({
 
   /**
    * Focus follows the editor back out. It opens over the grid, and every way of dismissing it --
-   * Escape, Cancel, the close button, saving -- left focus on nothing at all, so the next Tab
+   * Escape, the close button, saving -- left focus on nothing at all, so the next Tab
    * started again from the top of the backoffice.
    *
    * Which row to return to is looked up from the message that was open rather than remembered as a

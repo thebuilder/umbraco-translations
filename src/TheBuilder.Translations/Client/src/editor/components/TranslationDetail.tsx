@@ -248,19 +248,21 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
         )}
       </div>
 
+      {/*
+        No Cancel button. Leaving without saving is the close control in the header and Escape,
+        both of which already ask about unsaved text, and a third way to do it was crowding the one
+        action anybody came here to press. Save sits last, where the eye ends up.
+      */}
       <div className="drawer__foot">
         <Button
           look="secondary"
+          label="Reset to application text"
           disabled={!message || message.overrideValue === null || reset.isPending}
           onClick={() => reset.mutate()}
         >
-          Reset to application text
+          Reset
         </Button>
         <span className="drawer__actions">
-          <Button onClick={close}>Cancel</Button>
-          <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
-            {save.isPending ? "Saving…" : "Save"}
-          </Button>
           {/* Not a second primary button: two of them side by side leave neither reading as the
               obvious one, and this is the shortcut for a long review rather than the usual exit. */}
           {next && (
@@ -268,6 +270,9 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
               Save &amp; next
             </Button>
           )}
+          <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
+            {save.isPending ? "Saving…" : "Save"}
+          </Button>
         </span>
       </div>
     </aside>
