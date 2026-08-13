@@ -6,8 +6,20 @@ import { createRoot, type Root } from "react-dom/client";
 import type { BackofficeBridge } from "./backoffice-bridge.js";
 import styles from "../styles.css?inline";
 
+/**
+ * Shared across mounts on purpose. The backoffice destroys and recreates the host element on every
+ * section-view switch, so a per-instance client would mean a cold cache and a full refetch every
+ * time an editor tabs away and back. The entry point clears it on unload and on auth change.
+ */
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } });
+
+export const resetQueryCache = (): void => queryClient.clear();
+
+// Parsed once for the lifetime of the bundle rather than on every remount.
+const styleSheet = new CSSStyleSheet();
+styleSheet.replaceSync(styles);
+
 export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
-  readonly #queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } });
   readonly #bridge: BackofficeBridge = {
     notify: (type, headline, message) => this.#notification?.peek(type, { data: { headline, message: message ?? headline } }),
   };
@@ -15,6 +27,9 @@ export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
   #root?: Root;
 
   protected abstract component: ComponentType<{ bridge: BackofficeBridge }>;
+
+  /** Custom elements React renders as props must be upgraded first, or object props become attributes. */
+  protected customElementTags: readonly string[] = [];
 
   constructor() {
     super();
@@ -25,18 +40,27 @@ export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
     super.connectedCallback();
     if (this.#root) return;
     const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" });
-    const style = document.createElement("style");
-    style.textContent = styles;
+    shadow.adoptedStyleSheets = [styleSheet];
     const mount = document.createElement("div");
-    shadow.append(style, mount);
+    mount.className = "mount";
+    shadow.append(mount);
     this.#root = createRoot(mount);
-    this.#root.render(createElement(QueryClientProvider, { client: this.#queryClient }, createElement(this.component, { bridge: this.#bridge })));
+    void this.#render();
+  }
+
+  async #render(): Promise<void> {
+    if (this.customElementTags.length > 0)
+      await Promise.all(this.customElementTags.map((tag) => customElements.whenDefined(tag)));
+    // The element can be torn down while waiting for upgrades.
+    if (!this.#root || !this.isConnected) return;
+    this.#root.render(
+      createElement(QueryClientProvider, { client: queryClient },
+        createElement(this.component, { bridge: this.#bridge })));
   }
 
   override disconnectedCallback(): void {
     this.#root?.unmount();
     this.#root = undefined;
-    this.#queryClient.clear();
     super.disconnectedCallback();
   }
 }
