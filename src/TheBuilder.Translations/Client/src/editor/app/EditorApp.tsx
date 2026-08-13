@@ -43,8 +43,8 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           total={rows.total}
           loading={rows.query.isLoading}
           error={rows.query.error ?? undefined}
+          locales={locales}
           namespaceCount={facets.data?.namespaces.length ?? 0}
-          update={update}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onLoadMore={() => void rows.query.fetchNextPage()}

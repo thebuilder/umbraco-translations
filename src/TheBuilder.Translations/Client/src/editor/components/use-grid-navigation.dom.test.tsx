@@ -4,8 +4,8 @@ import { useGridNavigation } from "./use-grid-navigation.js";
 
 afterEach(cleanup);
 
-/** What the grid renders when the reference locale differs from the one being edited. */
-const BOTH_LOCALES = ["key", "reference", "target"];
+/** What the grid renders when a comparison language is chosen: edited language first, then it. */
+const BOTH_LOCALES = ["editing", "comparison"];
 
 /** A grid small enough to assert on, rendering every row so focus can be observed directly. */
 const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, onActivate = () => {}, expose }: {
@@ -38,7 +38,7 @@ describe("useGridNavigation", () => {
   it("starts on the column being edited, which is where the work is", () => {
     const { container } = render(<Grid />);
 
-    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "0:target");
+    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "0:editing");
   });
 
   it("moves between rows and columns", () => {
@@ -46,10 +46,10 @@ describe("useGridNavigation", () => {
     const grid = container.querySelector("[role=grid]")!;
 
     press(grid as HTMLElement, "ArrowDown");
-    expect(grid).toHaveProperty("dataset.focus", "1:target");
+    expect(grid).toHaveProperty("dataset.focus", "1:editing");
 
-    press(grid as HTMLElement, "ArrowLeft");
-    expect(grid).toHaveProperty("dataset.focus", "1:reference");
+    press(grid as HTMLElement, "ArrowRight");
+    expect(grid).toHaveProperty("dataset.focus", "1:comparison");
   });
 
   it("stops at the edges rather than wrapping", () => {
@@ -57,24 +57,26 @@ describe("useGridNavigation", () => {
     const grid = container.querySelector("[role=grid]") as HTMLElement;
 
     press(grid, "ArrowUp");
-    expect(grid).toHaveProperty("dataset.focus", "0:target");
+    expect(grid).toHaveProperty("dataset.focus", "0:editing");
 
-    press(grid, "ArrowRight");
-    expect(grid).toHaveProperty("dataset.focus", "0:target");
+    // The edited language is the leftmost column, so there is nowhere further left to go.
+    press(grid, "ArrowLeft");
+    expect(grid).toHaveProperty("dataset.focus", "0:editing");
 
     for (let i = 0; i < 10; i++) press(grid, "ArrowDown");
-    expect(grid).toHaveProperty("dataset.focus", "2:target");
+    expect(grid).toHaveProperty("dataset.focus", "2:editing");
   });
 
   it("uses Home and End for the row, and with a modifier for the grid", () => {
     const { container } = render(<Grid rowCount={4} />);
     const grid = container.querySelector("[role=grid]") as HTMLElement;
 
+    press(grid, "ArrowRight");
     press(grid, "Home");
-    expect(grid).toHaveProperty("dataset.focus", "0:key");
+    expect(grid).toHaveProperty("dataset.focus", "0:editing");
 
     press(grid, "End", { ctrlKey: true });
-    expect(grid).toHaveProperty("dataset.focus", "3:target");
+    expect(grid).toHaveProperty("dataset.focus", "3:comparison");
   });
 
   it("keeps exactly one cell in the tab order", () => {
@@ -103,7 +105,7 @@ describe("useGridNavigation", () => {
     press(grid, "ArrowDown");
     press(grid, "Enter");
 
-    expect(onActivate).toHaveBeenCalledWith({ row: 1, column: "target" });
+    expect(onActivate).toHaveBeenCalledWith({ row: 1, column: "editing" });
   });
 
   it("pulls focus back inside when the list shrinks under it", () => {
@@ -113,35 +115,35 @@ describe("useGridNavigation", () => {
     press(grid, "ArrowDown");
     press(grid, "ArrowDown");
     press(grid, "ArrowDown");
-    expect(grid).toHaveProperty("dataset.focus", "3:target");
+    expect(grid).toHaveProperty("dataset.focus", "3:editing");
 
     // A filter change can leave focus pointing past the end of the new list.
     rerender(<Grid rowCount={2} />);
-    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "1:target");
+    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "1:editing");
   });
 
   it("pulls focus off a column that has just been hidden", () => {
     const { container, rerender } = render(<Grid />);
     const grid = container.querySelector("[role=grid]") as HTMLElement;
 
-    press(grid, "ArrowLeft");
-    expect(grid).toHaveProperty("dataset.focus", "0:reference");
+    press(grid, "ArrowRight");
+    expect(grid).toHaveProperty("dataset.focus", "0:comparison");
 
-    // Selecting the reference locale as the one being edited drops the reference column, and focus
-    // sitting on a column that is no longer rendered goes nowhere at all.
-    rerender(<Grid columns={["key", "target"]} />);
-    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "0:target");
+    // Choosing no comparison language drops that column, and focus sitting on a column that is no
+    // longer rendered goes nowhere at all.
+    rerender(<Grid columns={["editing"]} />);
+    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "0:editing");
   });
 
   it("arrows across only the columns it was given", () => {
-    const { container } = render(<Grid columns={["key", "target"]} />);
+    const { container } = render(<Grid columns={["editing"]} />);
     const grid = container.querySelector("[role=grid]") as HTMLElement;
 
     press(grid, "ArrowLeft");
-    expect(grid).toHaveProperty("dataset.focus", "0:key");
+    expect(grid).toHaveProperty("dataset.focus", "0:editing");
 
     press(grid, "ArrowRight");
-    expect(grid).toHaveProperty("dataset.focus", "0:target");
+    expect(grid).toHaveProperty("dataset.focus", "0:editing");
   });
 
   it("takes focus back to the cell after the editor closes over it", () => {
@@ -158,7 +160,7 @@ describe("useGridNavigation", () => {
 
     act(() => restore());
 
-    expect(document.activeElement).toBe(getByTestId("1:target"));
+    expect(document.activeElement).toBe(getByTestId("1:editing"));
     elsewhere.remove();
   });
 
@@ -171,14 +173,14 @@ describe("useGridNavigation", () => {
 
     // Scrolled first: the row may not have been rendered at the moment focus was asked for.
     expect(scrollToRow).toHaveBeenCalledWith(3);
-    expect(document.activeElement).toBe(getByTestId("3:target"));
+    expect(document.activeElement).toBe(getByTestId("3:editing"));
   });
 
   it("follows focus that the user moved by clicking", () => {
     const { container, getByTestId } = render(<Grid rowCount={4} />);
 
-    act(() => void fireEvent.focus(getByTestId("2:key")));
+    act(() => void fireEvent.focus(getByTestId("2:editing")));
 
-    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "2:key");
+    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "2:editing");
   });
 });

@@ -27,7 +27,8 @@ interface Options {
  * has actually been rendered.
  */
 export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }: Options) => {
-  const [focus, setFocus] = useState<GridFocus>({ row: 0, column: "target" });
+  // The first column is the language being edited, which is where the work is.
+  const [focus, setFocus] = useState<GridFocus>(() => ({ row: 0, column: columns[0] ?? "" }));
   // Set only while the grid is deliberately moving focus, so re-renders do not steal it back from
   // whatever the user clicked into.
   const claiming = useRef(false);
@@ -39,12 +40,12 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
   }, [rowCount]);
 
   useEffect(() => {
-    // Nor may a column that has just been hidden keep it. Falling back to the last column lands on
-    // the target locale, which is the one being edited.
+    // Nor may a column that has just been hidden keep it. Falling back to the first column lands on
+    // the language being edited, which is the one that is always there.
     setFocus((current) =>
       columns.length === 0 || columns.includes(current.column)
         ? current
-        : { ...current, column: columns.at(-1)! });
+        : { ...current, column: columns[0]! });
   }, [columns]);
 
   const moveTo = useCallback((next: GridFocus) => {

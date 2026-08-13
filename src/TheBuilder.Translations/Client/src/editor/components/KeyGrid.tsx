@@ -1,10 +1,9 @@
-import type { SortingState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { MessageKey } from "../../api/generated/models.js";
+import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { EditorFilters } from "../state/filters.js";
-import { SORT_FIELD_BY_COLUMN, cellOf, columnForSort, keyColumns, keyTableFeatures } from "./key-columns.js";
+import { cellOf, keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
 
 /** Two lines of key and two of value, at a size that can actually be read. */
@@ -14,16 +13,16 @@ export const ROW_HEIGHT = 64;
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
-  keys, filters, total, loading, error, namespaceCount, update,
+  keys, filters, locales, total, loading, error, namespaceCount,
   selectedId, onSelect, onLoadMore, hasMore, loadingMore,
 }: {
   keys: MessageKey[];
   filters: EditorFilters;
+  locales: readonly LocaleFacet[];
   total: number;
   loading: boolean;
   error?: Error;
   namespaceCount: number;
-  update: (changes: Partial<EditorFilters>) => void;
   selectedId?: string;
   onSelect: (messageId: string) => void;
   onLoadMore: () => void;
@@ -31,41 +30,28 @@ export const KeyGrid = ({
   loadingMore: boolean;
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
-  const singleLocale = filters.locale === filters.referenceLocale;
+  // Comparing a language with itself is how the toolbar expresses "no comparison", so that is also
+  // the condition for the column being absent.
+  const comparing = filters.referenceLocale !== null && filters.referenceLocale !== filters.locale;
+
+  const nameOf = useCallback((code: string | null) =>
+    locales.find((locale) => locale.code === code)?.name || code || "", [locales]);
 
   const columns = useMemo(() => keyColumns({
-    targetLocale: filters.locale,
-    referenceLocale: filters.referenceLocale,
+    editing: filters.locale,
+    comparison: filters.referenceLocale,
+    editingName: nameOf(filters.locale),
+    comparisonName: nameOf(filters.referenceLocale),
     showNamespace: namespaceCount > 1 || filters.namespace === null,
-    onSelect,
-  }), [filters.locale, filters.referenceLocale, filters.namespace, namespaceCount, onSelect]);
-
-  const sorting: SortingState = useMemo(
-    () => [{ id: columnForSort(filters.sort), desc: filters.direction === "desc" }],
-    [filters.sort, filters.direction]);
+  }), [filters.locale, filters.referenceLocale, filters.namespace, namespaceCount, nameOf]);
 
   const table = useTable({
     features: keyTableFeatures,
     columns,
     data: keys,
     getRowId: (key) => `${key.sourceId}|${key.namespace}|${key.key}`,
-    // The server sorts, filters and pages. The table owns the column model, the sort state and the
-    // header affordances; asking it to reorder would only shuffle the page currently in hand.
-    manualSorting: true,
-    // One column at a time, and never back to unsorted: the query always has an ORDER BY, so there
-    // is no state the grid could be in that "no sort" would describe.
-    enableMultiSort: false,
-    enableSortingRemoval: false,
-    state: {
-      sorting,
-      // One text column when both locales are the same, rather than the same prose printed twice.
-      columnVisibility: { reference: !singleLocale },
-    },
-    onSortingChange: (updater) => {
-      const next = typeof updater === "function" ? updater(sorting) : updater;
-      const sort = next[0] && SORT_FIELD_BY_COLUMN[next[0].id];
-      if (sort) update({ sort, direction: next[0]!.desc ? "desc" : "asc" });
-    },
+    // The server filters, orders and pages the whole result. The table owns the column model.
+    state: { columnVisibility: { comparison: comparing } },
   });
 
   const rows = table.getRowModel().rows;
@@ -161,28 +147,15 @@ export const KeyGrid = ({
           className="grid__row grid__row--head"
           style={{ gridTemplateColumns: template }}
         >
-          {group.headers.map((header) => {
-            const sorted = header.column.getIsSorted();
-            return (
-              <span
-                key={header.id}
-                role="columnheader"
-                aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : "none"}
-                className={`grid__cell grid__cell--${header.column.id}`}
-              >
-                {header.column.getCanSort() ? (
-                  <button type="button" className="sorter" onClick={header.column.getToggleSortingHandler()}>
-                    <table.FlexRender header={header} />
-                    <span className="sorter__mark" aria-hidden="true">
-                      {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : "↕"}
-                    </span>
-                  </button>
-                ) : (
-                  <table.FlexRender header={header} />
-                )}
-              </span>
-            );
-          })}
+          {group.headers.map((header) => (
+            <span
+              key={header.id}
+              role="columnheader"
+              className={`grid__cell grid__cell--${header.column.id}`}
+            >
+              <table.FlexRender header={header} />
+            </span>
+          ))}
         </div>
       ))}
 

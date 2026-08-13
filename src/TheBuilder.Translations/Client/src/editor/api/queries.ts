@@ -81,4 +81,4 @@ export const useSyncStatus = () =>
   });
 
 const sortOf = (sort: EditorFilters["sort"]) =>
-  sort === "updatedAt" ? "UpdatedAt" as const : "Key" as const;
+  sort === "updatedAt" ? "UpdatedAt" as const : sort === "status" ? "Status" as const : "Key" as const;
