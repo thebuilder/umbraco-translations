@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Stacked pull requests push all their branches at once, so without this a single
+# `gh stack push` starts a run for every layer and they queue behind each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from the root package.json's packageManager field, so CI
+      # and the csproj's `corepack pnpm` cannot end up on different majors.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The DOM suite runs in a real browser rather than jsdom, so the browser has to exist.
+      # --with-deps pulls the shared libraries the runner image does not ship.
+      #
+      # Conditional on the client actually depending on Playwright, because this workflow runs
+      # on every branch of a deep stack and the browser suite is introduced partway up it. A
+      # branch that has not reached that layer has no browser tests to run. Only presence is
+      # guarded: if Playwright is declared and the install then fails, the job fails.
+      - name: Install Playwright chromium
+        working-directory: src/TheBuilder.Translations/Client
+        run: |
+          if pnpm exec playwright --version >/dev/null 2>&1; then
+            pnpm exec playwright install --with-deps chromium
+          else
+            echo "::notice::Playwright is not a dependency on this branch; skipping browser install."
+          fi
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Central package management, so there is no lock file to key on: the versions all
+      # live in Directory.Packages.props and the projects decide which to reference.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - run: dotnet restore TheBuilder.Translations.slnx
+
+      # TreatWarningsAsErrors is on for every project, so this is the warning gate too.
+      - run: dotnet build TheBuilder.Translations.slnx -c Release --no-restore
+
+      - run: dotnet test TheBuilder.Translations.slnx -c Release --no-build
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    # Last, because it repeats both toolchains: no point paying for it while either half
+    # is still failing on its own.
+    needs: [client, dotnet]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The backoffice bundle is not committed. `dotnet pack` builds it by shelling out to
+      # `corepack pnpm build`, then refuses to pack if the manifest or entry point is
+      # missing -- which is the part worth testing, since a package without them installs
+      # into Umbraco and silently does nothing.
+      - name: Enable corepack
+        run: corepack enable
+
+      - run: corepack pnpm install --frozen-lockfile
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Pack
+        run: dotnet pack src/TheBuilder.Translations/TheBuilder.Translations.csproj -c Release -o artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/*.nupkg
+          if-no-files-found: error
