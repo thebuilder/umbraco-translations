@@ -99,8 +99,9 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .grid { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .grid__body { overflow: auto; flex: 1; min-height: 0; }
 
-.grid__row { display: grid; grid-template-columns: minmax(16rem, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.5fr) 2.5rem; align-items: center; gap: var(--uui-size-space-4); inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-.grid__row--single { grid-template-columns: minmax(16rem, 1.1fr) minmax(0, 2.6fr) 2.5rem; }
+/* grid-template-columns is set inline from the visible columns' widths: which columns exist is
+   decided at runtime, and a template written here would have to restate that rule and then drift. */
+.grid__row { display: grid; align-items: center; gap: var(--uui-size-space-4); inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
 .grid__row:not(.grid__row--head) { position: absolute; inset-inline: 0; top: 0; cursor: pointer; }
 .grid__row:not(.grid__row--head):hover { background: var(--uui-color-surface-alt); }
 .grid__row--selected { background: var(--uui-color-surface-alt); box-shadow: inset 3px 0 0 var(--uui-color-selected); }
@@ -119,6 +120,19 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .value--empty { color: var(--uui-color-text-alt); font-style: italic; font-weight: 400; }
 .status { font-size: 11px; color: var(--uui-color-text-alt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
+
+/* A sort control has to look like one before it is hovered, so the marker is always present and
+   only gains weight once the column is the one being sorted by. */
+.sorter { display: flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; min-inline-size: 0; }
+.sorter:hover { color: var(--uui-color-text); }
+.sorter:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
+.sorter__mark { font-size: 8px; opacity: .35; }
+[aria-sort="ascending"] .sorter, [aria-sort="descending"] .sorter { color: var(--uui-color-text); }
+[aria-sort="ascending"] .sorter__mark, [aria-sort="descending"] .sorter__mark { opacity: 1; color: var(--uui-color-selected); }
+
+/* Only customised rows carry a date, so this column is mostly empty by design. */
+.updated { font-size: 11px; color: var(--uui-color-text-alt); white-space: nowrap; }
+.grid__cell--updated { align-items: flex-end; }
 
 .grid__cell--edit { align-items: center; }
 .edit { border: 0; background: none; padding: 4px 6px; border-radius: var(--uui-border-radius); color: var(--uui-color-text-alt); cursor: pointer; font-size: 14px; line-height: 1; opacity: 0; }

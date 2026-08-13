@@ -1,21 +1,25 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GRID_COLUMNS, useGridNavigation } from "./use-grid-navigation.js";
+import { useGridNavigation } from "./use-grid-navigation.js";
 
 afterEach(cleanup);
 
+/** What the grid renders when the reference locale differs from the one being edited. */
+const BOTH_LOCALES = ["key", "reference", "target"];
+
 /** A grid small enough to assert on, rendering every row so focus can be observed directly. */
-const Grid = ({ rowCount = 5, scrollToRow = () => {}, onActivate = () => {} }: {
+const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, onActivate = () => {} }: {
   rowCount?: number;
+  columns?: string[];
   scrollToRow?: (row: number) => void;
   onActivate?: (focus: { row: number }) => void;
 }) => {
-  const { onKeyDown, cellProps, focus } = useGridNavigation({ rowCount, scrollToRow, onActivate });
+  const { onKeyDown, cellProps, focus } = useGridNavigation({ rowCount, columns, scrollToRow, onActivate });
   return (
     <div role="grid" onKeyDown={onKeyDown} data-focus={`${focus.row}:${focus.column}`}>
       {Array.from({ length: rowCount }, (_, row) => (
         <div role="row" key={row}>
-          {GRID_COLUMNS.map((column) => (
+          {columns.map((column) => (
             <span key={column} {...cellProps(row, column)} data-testid={`${row}:${column}`} />
           ))}
         </div>
@@ -111,6 +115,30 @@ describe("useGridNavigation", () => {
     // A filter change can leave focus pointing past the end of the new list.
     rerender(<Grid rowCount={2} />);
     expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "1:target");
+  });
+
+  it("pulls focus off a column that has just been hidden", () => {
+    const { container, rerender } = render(<Grid />);
+    const grid = container.querySelector("[role=grid]") as HTMLElement;
+
+    press(grid, "ArrowLeft");
+    expect(grid).toHaveProperty("dataset.focus", "0:reference");
+
+    // Selecting the reference locale as the one being edited drops the reference column, and focus
+    // sitting on a column that is no longer rendered goes nowhere at all.
+    rerender(<Grid columns={["key", "target"]} />);
+    expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "0:target");
+  });
+
+  it("arrows across only the columns it was given", () => {
+    const { container } = render(<Grid columns={["key", "target"]} />);
+    const grid = container.querySelector("[role=grid]") as HTMLElement;
+
+    press(grid, "ArrowLeft");
+    expect(grid).toHaveProperty("dataset.focus", "0:key");
+
+    press(grid, "ArrowRight");
+    expect(grid).toHaveProperty("dataset.focus", "0:target");
   });
 
   it("follows focus that the user moved by clicking", () => {

@@ -20,13 +20,19 @@ export interface EditorFilters {
   direction: SortDirection;
 }
 
-export type SortField = "key" | "updatedAt" | "status";
+/**
+ * The endpoint also sorts by status, which the editor deliberately does not offer: the only column
+ * it could hang off is headed with a locale, so the control would never say what it did, and the
+ * status filter answers "what still needs work" without reordering anything. A URL asking for it
+ * normalises back to the key order rather than leaving the grid sorted by something no header shows.
+ */
+export type SortField = "key" | "updatedAt";
 export type SortDirection = "asc" | "desc";
 
 // The key view's statuses, not the flat endpoint's: "Absent" (this locale never had the key) and
 // "Removed" (the source deleted it) are different questions, and only the key view can ask the first.
 const STATUSES: readonly MessageKeyStatus[] = ["All", "Absent", "Default", "Overridden", "NeedsReview", "Removed"];
-const SORT_FIELDS: readonly SortField[] = ["key", "updatedAt", "status"];
+const SORT_FIELDS: readonly SortField[] = ["key", "updatedAt"];
 const DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
 
 export const defaultFilters: EditorFilters = {

@@ -10,9 +10,11 @@ import { flattenKeys, nextPageParam, totalOf } from "./cache.js";
 export const PAGE_SIZE = 100;
 
 /**
- * Offset paging is safe under an infinite query here because the sort key is (namespace, key) and
- * neither changes when an override is saved. Only a source sync inserts rows, and that is an
- * explicit event the editor already reacts to.
+ * Offset paging under an infinite query relies on the order holding still between page fetches.
+ * Every sort ends in a (namespace, key) tiebreaker, so the order is deterministic for a given set of
+ * rows; what can move a row is a source sync inserting keys, or -- when sorting by status or by when
+ * a translation was last edited -- saving an override. Both invalidate this query, which refetches
+ * the loaded pages together rather than leaving a stale offset behind.
  */
 export interface KeyRows {
   keys: MessageKey[];
@@ -42,8 +44,9 @@ export const useKeyRows = (filters: EditorFilters): KeyRows => {
     // Keeps the previous filter's rows on screen while the next query runs, so changing a filter
     // does not blank the grid.
     placeholderData: keepPreviousData,
-    // A long scroll would otherwise retain every page for the session.
-    maxPages: 20,
+    // Deliberately no `maxPages`. The grid sizes its scrollbar to the total and treats list index N
+    // as `keys[N]`, which holds only while the loaded pages stay contiguous from the first. Evicting
+    // page 1 to cap memory would slide every later row into the wrong slot.
   });
 
   const keys = useMemo(() => flattenKeys(query.data), [query.data]);
@@ -78,4 +81,4 @@ export const useSyncStatus = () =>
   });
 
 const sortOf = (sort: EditorFilters["sort"]) =>
-  sort === "updatedAt" ? "UpdatedAt" as const : sort === "status" ? "Status" as const : "Key" as const;
+  sort === "updatedAt" ? "UpdatedAt" as const : "Key" as const;

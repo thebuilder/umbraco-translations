@@ -44,6 +44,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           loading={rows.query.isLoading}
           error={rows.query.error ?? undefined}
           namespaceCount={facets.data?.namespaces.length ?? 0}
+          update={update}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onLoadMore={() => void rows.query.fetchNextPage()}
