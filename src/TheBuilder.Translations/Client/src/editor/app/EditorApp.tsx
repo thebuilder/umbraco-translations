@@ -2,8 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/KeyGrid.js";
+import { ListState } from "../components/ListState.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
+import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { Toolbar } from "./Toolbar.js";
 
@@ -52,6 +54,13 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     locale: filters.locale ?? page?.targetLocale ?? null,
     referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
   };
+  const listState = describeListState({
+    error: rows.query.error ?? undefined,
+    loading: rows.query.isLoading,
+    rowCount: rows.keys.length,
+    totalKeys: facets.data?.totalKeys,
+  });
+
   const current = locales.find((locale) => locale.code === shown.locale);
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
 
@@ -89,20 +98,29 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
       />
 
       <div className="board">
-        <KeyGrid
-          keys={rows.keys}
-          filters={shown}
-          total={rows.total}
-          loading={rows.query.isLoading}
-          error={rows.query.error ?? undefined}
-          locales={locales}
-          namespaceCount={facets.data?.namespaces.length ?? 0}
-          selectedId={selectedId}
-          onSelect={select}
-          onLoadMore={() => void rows.query.fetchNextPage()}
-          hasMore={rows.query.hasNextPage}
-          loadingMore={rows.query.isFetchingNextPage}
-        />
+        {listState.kind === "rows" ? (
+          <KeyGrid
+            keys={rows.keys}
+            filters={shown}
+            total={rows.total}
+            locales={locales}
+            namespaceCount={facets.data?.namespaces.length ?? 0}
+            selectedId={selectedId}
+            onSelect={select}
+            onLoadMore={() => void rows.query.fetchNextPage()}
+            hasMore={rows.query.hasNextPage}
+            loadingMore={rows.query.isFetchingNextPage}
+          />
+        ) : (
+          <ListState
+            state={listState}
+            term={shown.query}
+            filtered={hasNarrowingFilters(shown)}
+            canManageSources={permissions.data?.canManageSources ?? false}
+            onClear={() => update(clearedFilters())}
+            onRetry={() => void rows.query.refetch()}
+          />
+        )}
 
         <div className="board__bar">
           <span><strong>{rows.total.toLocaleString()}</strong> translations</span>
