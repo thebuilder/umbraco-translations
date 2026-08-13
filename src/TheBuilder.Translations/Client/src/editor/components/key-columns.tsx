@@ -81,8 +81,8 @@ export const keyColumns = ({
             <span className="meta">
               {showNamespace && (
                 <>
-                  <span className="meta__namespace">{info.row.original.namespace}</span>
-                  <span aria-hidden="true">·</span>
+                  {/* Part of the key, written the way the key is written. */}
+                  <span className="meta__namespace">{info.row.original.namespace}.</span>
                 </>
               )}
               <span className="meta__key" title={`${info.row.original.namespace}.${info.row.original.key}`}>

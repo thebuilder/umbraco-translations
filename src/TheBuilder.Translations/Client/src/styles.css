@@ -134,7 +134,12 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 
 /* grid-template-columns is set inline from the visible columns' widths: which columns exist is
    decided at runtime, and a template written here would have to restate that rule and then drift. */
-.grid__row { display: grid; align-items: stretch; gap: var(--uui-size-space-4); inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+/* Two shared rows -- the translation, and the key beneath it -- which every cell takes part in
+   through subgrid. A cell holding only one line still occupies the first of them, so it lines up
+   with the translation beside it, and align-content centres the pair as a block. Centring each
+   cell on its own contents cannot do both: it either aligns the first lines or centres the cell,
+   never the two together. */
+.grid__row { display: grid; grid-template-rows: auto auto; align-content: center; column-gap: var(--uui-size-space-4); row-gap: 1px; inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
 .grid__row:not(.grid__row--head) { position: absolute; inset-inline: 0; top: 0; cursor: pointer; }
 .grid__row:not(.grid__row--head):hover { background: var(--uui-color-surface-alt); }
 .grid__row--selected { background: var(--uui-color-surface-alt); box-shadow: inset 3px 0 0 var(--uui-color-selected); }
@@ -142,9 +147,10 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 
 /* Every cell fills the row and starts its content at the same height, so the translation and the
    text it is being compared with sit on one line however many lines each cell goes on to use. */
-.grid__cell { min-inline-size: 0; display: flex; flex-direction: column; gap: 3px; justify-content: flex-start; padding-block-start: 13px; }
-.grid__row--head .grid__cell { flex-direction: row; align-items: center; gap: 4px; padding-block-start: 0; }
-.grid__cell--open { justify-content: center; align-items: center; padding-block-start: 0; }
+.grid__cell { min-inline-size: 0; display: grid; grid-template-rows: subgrid; grid-row: span 2; align-content: start; }
+.grid__row--head { grid-template-rows: auto; }
+.grid__row--head .grid__cell { display: flex; flex-direction: row; align-items: center; gap: 4px; grid-row: auto; }
+.grid__cell--open { display: flex; align-items: center; justify-content: center; grid-row: span 2; }
 .grid__cell:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: -2px; border-radius: 2px; }
 
 /* The heading names a language; what that language is for in this view is the quieter half. */
@@ -164,9 +170,9 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .mark { flex: none; font-size: 8px; color: var(--uui-color-selected); line-height: 1; }
 
 /* Identity, not content: the key belongs under the words it names, in a quieter voice. */
-.meta { display: flex; align-items: baseline; gap: .4em; font-size: 11px; font-family: var(--uui-font-monospace, ui-monospace, monospace); color: var(--uui-color-text-alt); min-inline-size: 0; }
+.meta { display: flex; align-items: baseline; gap: 0; font-size: 11px; font-family: var(--uui-font-monospace, ui-monospace, monospace); color: var(--uui-color-text-alt); min-inline-size: 0; }
 /* Dimmer than the key rather than louder: it is where the key lives, not what the row is. */
-.meta__namespace { flex: none; opacity: .6; }
+.meta__namespace { flex: none; opacity: .45; }
 .meta__key { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
