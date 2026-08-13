@@ -5,6 +5,7 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 import type { MessageCell, MessageKey } from "../../api/generated/models.js";
+import { Highlight } from "../search/Highlight.js";
 import { cellStatus } from "./cell-status.js";
 
 /**
@@ -37,7 +38,7 @@ export const cellOf = (key: MessageKey | undefined, locale: string | null): Mess
   key && locale ? key.cells[locale] : undefined;
 
 export const keyColumns = ({
-  editing, comparison, editingName, comparisonName, showNamespace,
+  editing, comparison, editingName, comparisonName, showNamespace, term,
 }: {
   editing: string | null;
   comparison: string | null;
@@ -46,6 +47,12 @@ export const keyColumns = ({
   comparisonName: string;
   /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
   showNamespace: boolean;
+  /**
+   * The active search, marked wherever it appears. The server matches on the key, the application
+   * text and the custom text, so those are the three places a row can be a hit for reasons that
+   * are otherwise invisible -- a match in the key explains a row whose text looks unrelated.
+   */
+  term: string;
 }) =>
   helper.columns([
     /*
@@ -63,7 +70,7 @@ export const keyColumns = ({
         return (
           <>
             <span className="line">
-              <Value cell={info.getValue()} />
+              <Value cell={info.getValue()} term={term} />
               {status.custom && (
                 <span className="mark" title="Custom text">
                   <span aria-hidden="true">●</span>
@@ -79,7 +86,7 @@ export const keyColumns = ({
                 </>
               )}
               <span className="meta__key" title={`${info.row.original.namespace}.${info.row.original.key}`}>
-                {info.row.original.key}
+                <Highlight text={info.row.original.key} term={term} />
               </span>
               {status.text && (
                 <span className={status.warning ? "flag flag--warning" : "flag"}>
@@ -97,7 +104,7 @@ export const keyColumns = ({
       id: "comparison",
       header: () => <Heading name={comparisonName} role="Reference" />,
       meta: { width: "minmax(0, 1.2fr)", navigable: true },
-      cell: (info) => <Value cell={info.getValue()} quiet />,
+      cell: (info) => <Value cell={info.getValue()} quiet term={term} />,
     }),
 
     helper.display({
@@ -124,11 +131,15 @@ const Heading = ({ name, role }: { name: string; role: string }) => (
  * otherwise. Three states would read as an empty cell without help -- no row in this language at
  * all, text deliberately set to nothing, and ordinary text -- so the first two say what they are.
  */
-const Value = ({ cell, quiet }: { cell?: MessageCell; quiet?: boolean }) => {
+const Value = ({ cell, quiet, term }: { cell?: MessageCell; quiet?: boolean; term: string }) => {
   if (!cell) return <span className="value value--absent">Not translated</span>;
 
   const text = cell.overrideValue ?? cell.defaultValue;
   if (text === "") return <span className="value value--absent">Empty</span>;
 
-  return <span className={quiet ? "value value--quiet" : "value"}>{text}</span>;
+  return (
+    <span className={quiet ? "value value--quiet" : "value"}>
+      <Highlight text={text} term={term} />
+    </span>
+  );
 };

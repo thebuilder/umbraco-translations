@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Ref } from "react";
 import type { LocaleFacet, MessageKeyStatus } from "../../api/generated/models.js";
 import { Input, Select } from "../../bridge/uui/index.js";
 import type { EditorFilters, SortDirection, SortField } from "../state/filters.js";
@@ -31,11 +32,13 @@ const NO_COMPARISON = "";
  * which of the results am I looking at. Namespaces are a filter here rather than a sidebar -- there
  * are usually a handful, and a permanent column for them dominated the view they were narrowing.
  */
-export const Toolbar = ({ filters, locales, namespaces, update }: {
+export const Toolbar = ({ filters, locales, namespaces, update, searchRef }: {
   filters: EditorFilters;
   locales: readonly LocaleFacet[];
   namespaces: readonly string[];
   update: (patch: Partial<EditorFilters>) => void;
+  /** So a keystroke from anywhere in the editor can put the cursor here. */
+  searchRef?: Ref<HTMLInputElement>;
 }) => {
   const [search, setSearch] = useState(filters.query);
   useEffect(() => setSearch(filters.query), [filters.query]);
@@ -93,6 +96,7 @@ export const Toolbar = ({ filters, locales, namespaces, update }: {
               <path d="M10.6 10.6 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <Input
+              ref={searchRef}
               className="search__input"
               label="Search text and keys"
               placeholder="Search text or keys…"

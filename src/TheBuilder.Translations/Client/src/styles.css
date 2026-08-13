@@ -151,6 +151,10 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .meta__namespace { flex: none; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; font-size: 10px; }
 .meta__key { font-family: var(--uui-font-monospace, ui-monospace, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
+   as a hit even to somebody who cannot tell the two backgrounds apart. */
+.hit { background: var(--uui-color-warning, #fdf3d2); color: inherit; border-radius: 2px; padding: 0 1px; }
+
 /* Reserved for states an editor has to decide something about. */
 .flag { flex: none; font-weight: 700; }
 .flag--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
