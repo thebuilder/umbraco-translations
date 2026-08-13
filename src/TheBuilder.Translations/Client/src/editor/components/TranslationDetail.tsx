@@ -17,13 +17,18 @@ import { describeOverride } from "../validation/override.js";
  * editor knows, then what the application ships in the language being edited, then the field where
  * they replace it. Anything the developer needs is at the bottom, folded away.
  */
-export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange, select, close }: {
+export const TranslationDetail = ({ id, bridge, comparison, next, canEdit, onDirtyChange, select, close }: {
   id: string;
   bridge: BackofficeBridge;
   /** The language being compared against, when one is chosen. Read-only context, shown first. */
   comparison?: { locale: string; name: string; value: string | null };
   /** The row after this one, so a reviewer can work down the list without returning to it. */
   next?: string;
+  /**
+   * Whether this user may write translations. The API enforces it either way; without it here the
+   * editor offers a field to type in and a Save button that can only ever fail.
+   */
+  canEdit: boolean;
   onDirtyChange: (dirty: boolean) => void;
   select: (messageId: string) => void;
   close: () => void;
@@ -52,12 +57,12 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
 
   // Focus goes to the field being filled in, not the heading: the drawer exists to be typed into.
   useEffect(() => {
-    const target = field.current ?? heading.current;
+    const target = canEdit ? field.current ?? heading.current : heading.current;
     target?.focus();
     // At the end of what is already there, rather than selecting it, so a keystroke does not wipe
     // an existing translation.
     if (target instanceof HTMLTextAreaElement) target.setSelectionRange(target.value.length, target.value.length);
-  }, [id, message !== undefined]);
+  }, [id, canEdit, message !== undefined]);
 
   // Grows with what is typed instead of scrolling inside a fixed box, up to a share of the drawer.
   useLayoutEffect(() => {
@@ -110,7 +115,7 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
     onError: (error) => bridge.notify("danger", "Translation could not be reset", error.message),
   });
 
-  const savable = dirty && !problem && !save.isPending;
+  const savable = canEdit && dirty && !problem && !save.isPending;
   const commit = (then: "close" | "next") => {
     if (savable && draft !== undefined) save.mutate({ value: draft, then });
   };
@@ -177,19 +182,29 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
             </section>
 
             <section className="block">
-              <h3><label htmlFor="override">Custom {language}</label></h3>
-              <textarea
-                id="override"
-                ref={field}
-                className="control"
-                rows={3}
-                aria-label={`Custom text in ${language}`}
-                aria-invalid={problem !== null}
-                aria-describedby={problem ? "override-problem" : "override-state"}
-                placeholder="Leave blank to use the application text"
-                value={value}
-                onChange={(event) => setDraft(event.target.value)}
-              />
+              <h3>
+                {canEdit ? <label htmlFor="override">Custom {language}</label> : `Custom ${language}`}
+              </h3>
+              {/* Without permission this is something to read, so it is presented as the other two
+                  readings are. A field that cannot be saved is an invitation to waste an hour. */}
+              {canEdit ? (
+                <textarea
+                  id="override"
+                  ref={field}
+                  className="control"
+                  rows={3}
+                  aria-label={`Custom text in ${language}`}
+                  aria-invalid={problem !== null}
+                  aria-describedby={problem ? "override-problem" : "override-state"}
+                  placeholder="Leave blank to use the application text"
+                  value={value}
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+              ) : (
+                <p className="reading">
+                  {message.overrideValue || <em>No custom text</em>}
+                </p>
+              )}
               {problem ? (
                 <p id="override-problem" className="notice notice--error" role="alert">{problem.message}</p>
               ) : (
@@ -252,28 +267,37 @@ export const TranslationDetail = ({ id, bridge, comparison, next, onDirtyChange,
         No Cancel button. Leaving without saving is the close control in the header and Escape,
         both of which already ask about unsaved text, and a third way to do it was crowding the one
         action anybody came here to press. Save sits last, where the eye ends up.
+
+        Without permission there are no actions at all, so the footer says why rather than showing
+        a row of buttons that are permanently dimmed and never explain themselves.
       */}
       <div className="drawer__foot">
-        <Button
-          look="secondary"
-          label="Reset to application text"
-          disabled={!message || message.overrideValue === null || reset.isPending}
-          onClick={() => reset.mutate()}
-        >
-          Reset
-        </Button>
-        <span className="drawer__actions">
-          {/* Not a second primary button: two of them side by side leave neither reading as the
-              obvious one, and this is the shortcut for a long review rather than the usual exit. */}
-          {next && (
-            <Button disabled={!savable} onClick={() => commit("next")}>
-              Save &amp; next
+        {canEdit ? (
+          <>
+            <Button
+              look="secondary"
+              label="Reset to application text"
+              disabled={!message || message.overrideValue === null || reset.isPending}
+              onClick={() => reset.mutate()}
+            >
+              Reset
             </Button>
-          )}
-          <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
-            {save.isPending ? "Saving…" : "Save"}
-          </Button>
-        </span>
+            <span className="drawer__actions">
+              {/* Not a second primary button: two of them side by side leave neither reading as the
+                  obvious one, and this is the shortcut for a long review rather than the usual exit. */}
+              {next && (
+                <Button disabled={!savable} onClick={() => commit("next")}>
+                  Save &amp; next
+                </Button>
+              )}
+              <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
+                {save.isPending ? "Saving…" : "Save"}
+              </Button>
+            </span>
+          </>
+        ) : (
+          <p className="hint">You have view-only access to translations.</p>
+        )}
       </div>
     </aside>
   );
