@@ -76,19 +76,30 @@ public sealed class MessagesController(
     {
         var facets = TranslationOutputFormats.CreateFacets(await store.GetFacetDataAsync(cancellationToken));
         var configured = await locales.GetLocalesAsync(cancellationToken);
-        var byCode = configured.ToDictionary(locale => locale.Code, StringComparer.OrdinalIgnoreCase);
+        var usageByCode = facets.Locales.ToDictionary(usage => usage.Locale, StringComparer.OrdinalIgnoreCase);
         var defaultLocale = await locales.ResolveReferenceLocaleAsync(
             null, facets.Locales.Select(locale => locale.Locale).ToArray(), cancellationToken);
 
+        // Every Umbraco language, whether or not any source ships it. A source commonly covers one
+        // language while the site has several; the rest are legitimately empty until an editor
+        // fills them in, and hiding them would make them unreachable rather than merely empty.
+        // Message locales that are no longer Umbraco languages are appended as unconfigured.
+        var orphaned = facets.Locales
+            .Where(usage => !configured.Any(language =>
+                string.Equals(language.Code, usage.Locale, StringComparison.OrdinalIgnoreCase)))
+            .Select(usage => new TranslationLocale(usage.Locale, usage.Locale, false, false, null));
+
         return new(
-            facets.Locales.Select(usage =>
+            configured.Concat(orphaned).Select(language =>
             {
-                var language = byCode.GetValueOrDefault(usage.Locale);
+                var usage = usageByCode.GetValueOrDefault(language.Code)
+                    ?? new TranslationLocaleUsage(language.Code, 0, 0, 0);
                 return new LocaleFacetResponse(
-                    usage.Locale,
-                    language?.Name,
-                    string.Equals(usage.Locale, defaultLocale, StringComparison.OrdinalIgnoreCase),
-                    language is not null,
+                    language.Code,
+                    language.Name,
+                    string.Equals(language.Code, defaultLocale, StringComparison.OrdinalIgnoreCase),
+                    // False only for a locale that has messages but is no longer a site language.
+                    IsConfigured: !orphaned.Any(item => item.Code == language.Code),
                     usage.MessageCount,
                     usage.OverriddenCount,
                     usage.NeedsReviewCount,
