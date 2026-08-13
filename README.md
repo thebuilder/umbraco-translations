@@ -8,19 +8,57 @@ The ownership rule is intentionally simple:
 - Umbraco stores optional overrides and their edit history.
 - Runtime consumers bundle their defaults and merge the overrides returned by Umbraco.
 
+One deliberate exception: a site may have more Umbraco languages than its applications ship. An
+editor can write a translation for such a locale, and because no application default exists to merge
+it over, that text is the whole message and is served from both delivery endpoints.
+
 ## What is implemented
 
 Phases 1–5 are represented by one vertical slice:
 
-- HTTP sources with `{locale}` expansion, conditional request support, response limits, and server-side secret references.
+- HTTP sources with `{locale}` and `{language}` expansion, conditional request support, response limits, and server-side secret references.
 - Nested next-intl and i18next JSON v4 string-resource parsing with fixed or first-segment namespaces.
 - ICU and i18next interpolation validation with argument-signature enforcement.
 - Transactional Umbraco persistence for sources, messages, overrides, and synchronization history.
 - Server-paged Management APIs, optimistic concurrency, and an ETag-enabled next-intl Delivery API.
+- A key-centric editor API that pages over translation keys rather than key-locale pairs, so a
+  reference locale can be shown beside the one being edited and "present in English, absent in
+  Danish" is an ordinary filter.
 - A React/TanStack editor hosted behind an Umbraco custom element.
 - An administrator Settings dashboard for source setup, testing, synchronization, history, limits, and output guidance.
 - A runnable sample that exposes English and Danish source messages at `/sample/messages/{locale}.json`.
 - The sample also exposes i18next JSON v4 string resources at `/sample/i18next/{locale}.json`.
+
+## Endpoint templates
+
+A source's endpoint template names the locale it is fetching:
+
+```
+messages/{locale}.json     ->  messages/en-US.json
+messages/{language}.json   ->  messages/en.json
+{language}/{locale}.json   ->  en/en-US.json
+```
+
+Umbraco language codes carry a region, but applications often name their message files by language
+alone. Use `{language}` when they do. Messages are stored under the full Umbraco code either way, so
+regional variants never collapse into one another and the delivery contract is unaffected.
+
+## Editing translations
+
+Overrides are addressed by identity — source, namespace, key, and locale — rather than by message
+id:
+
+```
+PUT  /umbraco/management/api/v1/translations/messages/override
+POST /umbraco/management/api/v1/translations/messages/override/reset
+```
+
+Both take `{ sourceId, namespace, key, locale, ... }` with an optional `expectedVersion` for
+optimistic concurrency. Identity rather than id is what allows writing a locale no source ships:
+until someone writes to it, no row exists and there is no id to address. Saving one creates the row,
+inheriting the key's message format and argument signature from a shipped locale so that argument
+validation accepts the placeholders the message requires. Resetting the override removes that row
+again.
 
 ## Run the sample
 

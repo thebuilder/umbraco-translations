@@ -14,20 +14,33 @@ internal sealed class UmbracoTranslationStore(
     TimeProvider timeProvider)
     : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository, ITranslationEditorRepository
 {
+    public Task<TranslationMessageView?> FindMessageAsync(MessageIdentity identity, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        return Task.FromResult(Find(scope.Database, identity));
+    }
+
+    private static TranslationMessageView? Find(NPoco.IDatabase database, MessageIdentity identity)
+    {
+        var row = database.SingleOrDefault<MessageRow>(
+            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND Locale = @3",
+            identity.SourceId, identity.Namespace, identity.Key, identity.Locale);
+        if (row is null) return null;
+        var current = database.SingleOrDefaultById<OverrideRow>(row.Id);
+        return new TranslationMessageView(
+            TranslationRowMapper.ToDomain(row),
+            current is null ? null : TranslationRowMapper.ToDomain(current));
+    }
+
     public Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var scope = scopeProvider.CreateScope();
-        var existing = scope.Database.SingleOrDefault<MessageRow>(
-            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND Locale = @3",
-            identity.SourceId, identity.Namespace, identity.Key, identity.Locale);
-        if (existing is not null)
+        if (Find(scope.Database, identity) is { } existing)
         {
-            var current = scope.Database.SingleOrDefaultById<OverrideRow>(existing.Id);
             scope.Complete();
-            return Task.FromResult(new TranslationMessageView(
-                TranslationRowMapper.ToDomain(existing),
-                current is null ? null : TranslationRowMapper.ToDomain(current)));
+            return Task.FromResult(existing);
         }
 
         // The key has to exist in some locale: an editor translates a key the application defined,

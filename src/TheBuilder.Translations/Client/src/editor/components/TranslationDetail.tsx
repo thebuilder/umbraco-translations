@@ -3,6 +3,15 @@ import { useState } from "react";
 import { api } from "../../api/generated/client.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { Button } from "../../bridge/uui/index.js";
+import type { MessageDetail } from "../../api/generated/models.js";
+
+/** Writes are addressed by identity, which the detail response carries for exactly this reason. */
+const identityOf = (message: MessageDetail | undefined) => ({
+  sourceId: message?.sourceId ?? "",
+  namespace: message?.namespace ?? "",
+  key: message?.key ?? "",
+  locale: message?.locale ?? "",
+});
 
 export const TranslationDetail = ({ id, bridge, close }: { id: string; bridge: BackofficeBridge; close: () => void }) => {
   const queryClient = useQueryClient();
@@ -16,12 +25,19 @@ export const TranslationDetail = ({ id, bridge, close }: { id: string; bridge: B
     ]);
   };
   const save = useMutation({
-    mutationFn: (value: string) => api.saveOverride(id, value, detail.data?.version ?? undefined),
+    mutationFn: (value: string) => api.saveOverride({
+      ...identityOf(detail.data),
+      value,
+      expectedVersion: detail.data?.version ?? undefined,
+    }),
     onSuccess: async () => { bridge.notify("positive", "Translation saved"); await refresh(); },
     onError: error => bridge.notify("danger", "Translation could not be saved", error.message),
   });
   const reset = useMutation({
-    mutationFn: () => api.resetOverride(id, detail.data?.version ?? undefined),
+    mutationFn: () => api.resetOverride({
+      ...identityOf(detail.data),
+      expectedVersion: detail.data?.version ?? undefined,
+    }),
     onSuccess: async () => {
       bridge.notify("positive", "Translation reset");
       await queryClient.invalidateQueries({ queryKey: ["messages"] });

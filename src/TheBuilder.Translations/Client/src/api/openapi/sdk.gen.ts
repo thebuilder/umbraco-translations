@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessageKeysListMessageKeyIdsData, MessageKeysListMessageKeyIdsErrors, MessageKeysListMessageKeyIdsResponses, MessageKeysListMessageKeysData, MessageKeysListMessageKeysErrors, MessageKeysListMessageKeysResponses, MessageKeysSaveKeyOverrideData, MessageKeysSaveKeyOverrideErrors, MessageKeysSaveKeyOverrideResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetMessageOverrideData, MessagesResetMessageOverrideErrors, MessagesResetMessageOverrideResponses, MessagesSaveMessageOverrideData, MessagesSaveMessageOverrideErrors, MessagesSaveMessageOverrideResponses, PermissionsGetPermissionsData, PermissionsGetPermissionsErrors, PermissionsGetPermissionsResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
+import type { HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessageKeysListMessageKeyIdsData, MessageKeysListMessageKeyIdsErrors, MessageKeysListMessageKeyIdsResponses, MessageKeysListMessageKeysData, MessageKeysListMessageKeysErrors, MessageKeysListMessageKeysResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetOverrideData, MessagesResetOverrideErrors, MessagesResetOverrideResponses, MessagesSaveOverrideData, MessagesSaveOverrideErrors, MessagesSaveOverrideResponses, PermissionsGetPermissionsData, PermissionsGetPermissionsErrors, PermissionsGetPermissionsResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -67,34 +67,6 @@ export class TranslationsService {
         });
     }
     
-    public static messagesResetMessageOverride<ThrowOnError extends boolean = false>(options: Options<MessagesResetMessageOverrideData, ThrowOnError>): RequestResult<MessagesResetMessageOverrideResponses, MessagesResetMessageOverrideErrors, ThrowOnError> {
-        return (options.client ?? client).delete<MessagesResetMessageOverrideResponses, MessagesResetMessageOverrideErrors, ThrowOnError>({
-            security: [{
-                    key: 'Backoffice-User',
-                    scheme: 'bearer',
-                    type: 'http'
-                }],
-            url: '/umbraco/management/api/v1/translations/messages/{id}/override',
-            ...options
-        });
-    }
-    
-    public static messagesSaveMessageOverride<ThrowOnError extends boolean = false>(options: Options<MessagesSaveMessageOverrideData, ThrowOnError>): RequestResult<MessagesSaveMessageOverrideResponses, MessagesSaveMessageOverrideErrors, ThrowOnError> {
-        return (options.client ?? client).put<MessagesSaveMessageOverrideResponses, MessagesSaveMessageOverrideErrors, ThrowOnError>({
-            security: [{
-                    key: 'Backoffice-User',
-                    scheme: 'bearer',
-                    type: 'http'
-                }],
-            url: '/umbraco/management/api/v1/translations/messages/{id}/override',
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
-        });
-    }
-    
     public static messageKeysListMessageKeys<ThrowOnError extends boolean = false>(options?: Options<MessageKeysListMessageKeysData, ThrowOnError>): RequestResult<MessageKeysListMessageKeysResponses, MessageKeysListMessageKeysErrors, ThrowOnError> {
         return (options?.client ?? client).get<MessageKeysListMessageKeysResponses, MessageKeysListMessageKeysErrors, ThrowOnError>({
             security: [{
@@ -119,14 +91,30 @@ export class TranslationsService {
         });
     }
     
-    public static messageKeysSaveKeyOverride<ThrowOnError extends boolean = false>(options?: Options<MessageKeysSaveKeyOverrideData, ThrowOnError>): RequestResult<MessageKeysSaveKeyOverrideResponses, MessageKeysSaveKeyOverrideErrors, ThrowOnError> {
-        return (options?.client ?? client).put<MessageKeysSaveKeyOverrideResponses, MessageKeysSaveKeyOverrideErrors, ThrowOnError>({
+    public static messagesSaveOverride<ThrowOnError extends boolean = false>(options?: Options<MessagesSaveOverrideData, ThrowOnError>): RequestResult<MessagesSaveOverrideResponses, MessagesSaveOverrideErrors, ThrowOnError> {
+        return (options?.client ?? client).put<MessagesSaveOverrideResponses, MessagesSaveOverrideErrors, ThrowOnError>({
             security: [{
                     key: 'Backoffice-User',
                     scheme: 'bearer',
                     type: 'http'
                 }],
-            url: '/umbraco/management/api/v1/translations/messages/keys/override',
+            url: '/umbraco/management/api/v1/translations/messages/override',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers
+            }
+        });
+    }
+    
+    public static messagesResetOverride<ThrowOnError extends boolean = false>(options?: Options<MessagesResetOverrideData, ThrowOnError>): RequestResult<MessagesResetOverrideResponses, MessagesResetOverrideErrors, ThrowOnError> {
+        return (options?.client ?? client).post<MessagesResetOverrideResponses, MessagesResetOverrideErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/messages/override/reset',
             ...options,
             headers: {
                 'Content-Type': 'application/json',

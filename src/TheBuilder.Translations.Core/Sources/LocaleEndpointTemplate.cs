@@ -27,13 +27,11 @@ public static class LocaleEndpointTemplate
         template.Contains(LocaleToken, StringComparison.Ordinal) ||
         template.Contains(LanguageToken, StringComparison.Ordinal);
 
-    public static string Expand(string template, string locale, Func<string, string>? escape = null)
-    {
-        escape ??= value => value;
-        return template
-            .Replace(LocaleToken, escape(locale), StringComparison.Ordinal)
-            .Replace(LanguageToken, escape(LanguageOf(locale)), StringComparison.Ordinal);
-    }
+    /// <summary>Values are always URL-escaped; a well-formed locale code is unaffected.</summary>
+    public static string Expand(string template, string locale) =>
+        template
+            .Replace(LocaleToken, Uri.EscapeDataString(locale), StringComparison.Ordinal)
+            .Replace(LanguageToken, Uri.EscapeDataString(LanguageOf(locale)), StringComparison.Ordinal);
 
     /// <summary>
     /// The language subtag of an IETF tag: the text before the first separator. Both '-' and '_'

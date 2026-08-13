@@ -3,7 +3,8 @@ using TheBuilder.Translations.Core.Messages;
 namespace TheBuilder.Translations.Core.Persistence;
 
 /// <summary>
-/// Key-centric reads for the backoffice editor.
+/// Key-centric data access for the backoffice editor. Mostly reads; EnsureMessageAsync writes,
+/// because a locale with no row cannot be addressed by id until one exists.
 ///
 /// Separate from <see cref="ITranslationMessageRepository"/> on purpose: that interface is public
 /// API of a shipped package and describes single messages, while these queries are a distinct
@@ -28,6 +29,12 @@ public interface ITranslationEditorRepository
     /// </summary>
     /// <exception cref="KeyNotFoundException">The key exists in no locale of that source.</exception>
     Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The message for an identity, or null. Distinct from <see cref="EnsureMessageAsync"/> because
+    /// resetting an override must not conjure the row it is about to empty.
+    /// </summary>
+    Task<TranslationMessageView?> FindMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
 
     Task<Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken);
 
