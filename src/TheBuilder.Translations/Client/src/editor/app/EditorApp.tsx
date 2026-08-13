@@ -20,16 +20,32 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
    */
   const unsaved = useRef(false);
   const onDirtyChange = useCallback((dirty: boolean) => { unsaved.current = dirty; }, []);
-  const mayLeave = () =>
-    !unsaved.current || confirm("This translation has changes you have not saved. Discard them?");
+
+  /**
+   * Where the editor is trying to go while unsaved text is in the way: another message id, or
+   * "close". The drawer asks about it in its own footer.
+   *
+   * This used to be `confirm()`, which is suppressed in enough contexts that the dialog never
+   * appeared and its false return left the drawer with no way out at all -- Escape and the close
+   * button both silently did nothing, with the text still in the field.
+   */
+  const [pending, setPending] = useState<string | "close">();
 
   // Both routes out of an open translation: picking another row, and closing altogether.
   const select = useCallback((messageId: string) => {
-    if (messageId === selectedId || mayLeave()) setSelectedId(messageId);
+    if (!unsaved.current || messageId === selectedId) setSelectedId(messageId);
+    else setPending(messageId);
   }, [selectedId]);
   const close = useCallback(() => {
-    if (mayLeave()) setSelectedId(undefined);
+    if (unsaved.current) setPending("close");
+    else setSelectedId(undefined);
   }, []);
+
+  const discard = useCallback(() => {
+    unsaved.current = false;
+    setSelectedId(pending === "close" ? undefined : pending);
+    setPending(undefined);
+  }, [pending]);
 
   const search = useRef<HTMLInputElement>(null);
   useSearchShortcut(useCallback(() => {
@@ -146,6 +162,9 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
             comparison={comparisonFor(selectedId)}
             next={rowAfter(selectedId)}
             canEdit={canEdit}
+            pending={pending}
+            onKeepEditing={() => setPending(undefined)}
+            onDiscard={discard}
             onDirtyChange={onDirtyChange}
             select={select}
             close={close}
