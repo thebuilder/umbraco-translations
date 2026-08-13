@@ -20,6 +20,10 @@ export interface EditorFilters {
   direction: SortDirection;
 }
 
+/**
+ * "status" ranks by how much attention a key needs rather than by any column's contents, which is
+ * why the order is chosen in the toolbar: no column heading could have honestly claimed it.
+ */
 export type SortField = "key" | "updatedAt" | "status";
 export type SortDirection = "asc" | "desc";
 

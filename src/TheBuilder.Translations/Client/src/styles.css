@@ -33,7 +33,7 @@ h1, h2, h3, p { margin-top: 0; }
 .toolbar { display: grid; gap: var(--uui-size-space-3); }
 .toolbar__row { display: flex; gap: var(--uui-size-space-3); align-items: end; }
 .field { display: grid; gap: 4px; min-inline-size: 12rem; }
-.toolbar .field > span { font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); text-transform: uppercase; letter-spacing: .05em; }
+.toolbar .field > span { font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); }
 .field label { font-weight: 700; font-size: var(--uui-type-small-size); }
 
 /* Form controls are native elements on backoffice tokens, because UUI's are form-associated custom
@@ -52,7 +52,7 @@ h1, h2, h3, p { margin-top: 0; }
 .control:hover { border-color: var(--uui-color-border-emphasis); }
 .control:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 .control:disabled { opacity: .6; cursor: not-allowed; }
-textarea.control { min-block-size: 6rem; resize: vertical; font-family: inherit; }
+textarea.control { min-block-size: 3.5rem; resize: vertical; font-family: inherit; line-height: 1.45; }
 
 .button {
   display: inline-flex; align-items: center; gap: var(--uui-size-space-2);
@@ -85,7 +85,25 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 /* One bounded row. Without the explicit row track the grid sizes to its content, the frame grows
    to the full height of the list instead of scrolling inside itself, and the inspector floats over
    the rows rather than sitting beside them. */
-.field--grow { flex: 2; }
+.field--grow { flex: 1; }
+.toolbar__row--filters .field { min-inline-size: 0; flex: 1; max-inline-size: 16rem; }
+.field--secondary > span { opacity: .75; }
+
+/* Search is the control an editor reaches for first, so it says what it is rather than relying on
+   placeholder text that disappears the moment it is used. Both affordances sit inside the field,
+   which is why the input carries matching padding on each side. */
+.search { position: relative; display: flex; align-items: center; }
+.search__input { padding-inline: 2rem; }
+.search__icon { position: absolute; inset-inline-start: 9px; inline-size: 14px; block-size: 14px; color: var(--uui-color-text-alt); pointer-events: none; }
+.search__clear {
+  position: absolute; inset-inline-end: 4px;
+  display: flex; align-items: center; justify-content: center;
+  inline-size: 22px; block-size: 22px; padding: 0;
+  border: 0; border-radius: 50%; background: none;
+  color: var(--uui-color-text-alt); font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
+}
+.search__clear:hover { background: var(--uui-color-surface-alt); color: var(--uui-color-text); }
+.search__clear:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 .locale-select { min-inline-size: 14rem; }
 
 /* Navigation, so the namespace need not repeat on every row. */
@@ -99,46 +117,96 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .grid { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .grid__body { overflow: auto; flex: 1; min-height: 0; }
 
-.grid__row { display: grid; grid-template-columns: minmax(16rem, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.5fr) 2.5rem; align-items: center; gap: var(--uui-size-space-4); inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-.grid__row--single { grid-template-columns: minmax(16rem, 1.1fr) minmax(0, 2.6fr) 2.5rem; }
+/* grid-template-columns is set inline from the visible columns' widths: which columns exist is
+   decided at runtime, and a template written here would have to restate that rule and then drift. */
+.grid__row { display: grid; align-items: center; gap: var(--uui-size-space-4); inline-size: 100%; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
 .grid__row:not(.grid__row--head) { position: absolute; inset-inline: 0; top: 0; cursor: pointer; }
 .grid__row:not(.grid__row--head):hover { background: var(--uui-color-surface-alt); }
 .grid__row--selected { background: var(--uui-color-surface-alt); box-shadow: inset 3px 0 0 var(--uui-color-selected); }
 .grid__row--head { position: sticky; top: 0; z-index: 1; background: var(--uui-color-surface); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--uui-color-text-alt); font-weight: 700; block-size: 34px; }
 
-.grid__cell { min-inline-size: 0; display: flex; flex-direction: column; gap: 1px; justify-content: center; }
+.grid__cell { min-inline-size: 0; display: flex; flex-direction: column; gap: 2px; justify-content: flex-start; padding-block-start: 13px; }
+.grid__row--head .grid__cell { flex-direction: row; align-items: baseline; gap: 4px; padding-block-start: 0; }
+.grid__cell--open { justify-content: center; padding-block-start: 0; }
 .grid__cell:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: -2px; border-radius: 2px; }
 
-/* The namespace is a label above the key, and the key gets one line: a wrapped key pushes the row
-   taller than its neighbours and reads worse than an ellipsis. */
-.namespace { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--uui-color-text-alt); font-weight: 700; }
-.key { font-family: var(--uui-font-monospace, ui-monospace, monospace); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The heading names a language; what that language is for in this view is the quieter half. */
+.head__name { font-weight: 700; }
+.head__role { font-weight: 400; opacity: .6; }
 
-.value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.value--strong { font-weight: 600; }
-.value--empty { color: var(--uui-color-text-alt); font-style: italic; font-weight: 400; }
-.status { font-size: 11px; color: var(--uui-color-text-alt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.status--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
+/* The translation is the row. Normal weight, because bolding every value makes weight meaningless
+   as a signal and leaves nothing louder for the rows that need attention. */
+.line { display: flex; align-items: baseline; gap: var(--uui-size-space-2); min-inline-size: 0; }
+.value { min-inline-size: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.value--quiet { color: var(--uui-color-text-alt); }
+.value--absent { color: var(--uui-color-text-alt); font-style: italic; }
 
-.grid__cell--edit { align-items: center; }
-.edit { border: 0; background: none; padding: 4px 6px; border-radius: var(--uui-border-radius); color: var(--uui-color-text-alt); cursor: pointer; font-size: 14px; line-height: 1; opacity: 0; }
-.grid__row:hover .edit, .grid__row--selected .edit, .edit:focus-visible { opacity: 1; }
-.edit:hover { color: var(--uui-color-selected); background: var(--uui-color-surface); }
+/* Custom text is common enough that spelling it out on every row buries the rows that are not
+   ordinary. A mark carries it instead, with the words behind a tooltip and read out to a screen
+   reader, so colour and shape are never the only thing saying it. */
+.mark { flex: none; font-size: 8px; color: var(--uui-color-selected); line-height: 1; }
+
+/* Identity, not content: the key belongs under the words it names, in a quieter voice. */
+.meta { display: flex; align-items: baseline; gap: var(--uui-size-space-2); font-size: 11px; color: var(--uui-color-text-alt); min-inline-size: 0; }
+.meta__namespace { flex: none; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; font-size: 10px; }
+.meta__key { font-family: var(--uui-font-monospace, ui-monospace, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Reserved for states an editor has to decide something about. */
+.flag { flex: none; font-weight: 700; }
+.flag--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
+
+/* Says the row opens, without occupying a column of its own on every row. */
+.grid__cell--open { align-items: center; }
+.open { color: var(--uui-color-text-alt); font-size: 16px; line-height: 1; opacity: 0; }
+.grid__row:hover .open, .grid__row--selected .open, .grid__cell:focus-within .open { opacity: 1; }
 
 .skeleton { display: block; block-size: 9px; inline-size: 70%; border-radius: 3px; background: var(--uui-color-divider); }
 .grid__row--pending { cursor: default; }
 
 /* Overlays the list rather than taking a column, so opening one does not resize the table. */
-.drawer { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: min(28rem, 100%); display: flex; flex-direction: column; background: var(--uui-color-surface); border-inline-start: 1px solid var(--uui-color-border); box-shadow: -10px 0 28px rgb(0 0 0 / .12); z-index: 2; }
-.drawer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-.drawer__head h2 { margin: 0; font-size: 13px; }
-.drawer__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: grid; gap: var(--uui-size-space-4); align-content: start; }
-.drawer__foot { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); }
-.drawer__foot--split { justify-content: space-between; }
+/* Overlays the list rather than taking a column, so opening one does not resize the table. */
+.drawer { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: min(30rem, 100%); display: flex; flex-direction: column; background: var(--uui-color-surface); border-inline-start: 1px solid var(--uui-color-border); box-shadow: -10px 0 28px rgb(0 0 0 / .12); z-index: 2; }
+
+/* Head and foot hold their place while the body scrolls: what is being edited and how to save it
+   both have to stay reachable once the content is longer than the drawer. */
+.drawer__head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+.drawer__title { min-inline-size: 0; }
+.drawer__head h2 { margin: 0 0 2px; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.drawer__head h2:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
+.drawer__id { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--uui-size-space-2); font-size: 11px; color: var(--uui-color-text-alt); }
+
+.drawer__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
+.drawer__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-2); padding: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); }
 .drawer__actions { display: flex; gap: var(--uui-size-space-2); }
-.readonly { padding: var(--uui-size-space-3); border: 1px solid var(--uui-color-divider); border-radius: var(--uui-border-radius); background: var(--uui-color-surface-alt); }
+
+/* One labelled section per thing being compared, so the reference, what the application ships and
+   what the editor writes are three separate readings rather than one wall. */
+.block { display: grid; gap: var(--uui-size-space-2); }
+.block h3 { margin: 0; font-size: 11px; font-weight: 700; color: var(--uui-color-text-alt); }
+.block label { font: inherit; color: inherit; }
+
+/* Text to read, not a field that happens to be switched off. A disabled input says "you could have
+   typed here but may not", which is the wrong idea about the application's own text. */
+.reading { margin: 0; padding-inline-start: var(--uui-size-space-3); border-inline-start: 2px solid var(--uui-color-divider); white-space: pre-wrap; overflow-wrap: anywhere; }
+.reading em { color: var(--uui-color-text-alt); }
+
 .hint { font-size: 11px; color: var(--uui-color-text-alt); }
-.arguments { display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2); }
+.notice { margin: 0; padding-inline-start: var(--uui-size-space-3); border-inline-start: 3px solid currentColor; font-size: var(--uui-type-small-size); }
+.notice--warning { color: var(--uui-color-warning-emphasis, #8a6d00); }
+.notice--error { color: var(--uui-color-danger); font-weight: 600; }
+
+.arguments { display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2); margin: 0; padding: 0; list-style: none; }
+.tag__kind { margin-inline-start: var(--uui-size-space-2); opacity: .65; font-family: var(--uui-font-family, inherit); }
+/* A placeholder the text has left out, marked where the editor is looking for what to put back. */
+.tag--missing { border-color: var(--uui-color-danger); color: var(--uui-color-danger); font-weight: 700; }
+
+.technical { border-top: 1px solid var(--uui-color-divider); padding-block-start: var(--uui-size-space-3); font-size: var(--uui-type-small-size); }
+.technical summary { cursor: pointer; color: var(--uui-color-text-alt); font-weight: 700; font-size: 11px; }
+.technical dl { display: grid; grid-template-columns: auto 1fr; gap: var(--uui-size-space-2) var(--uui-size-space-4); margin: var(--uui-size-space-3) 0 0; }
+.technical dt { color: var(--uui-color-text-alt); }
+.technical dd { margin: 0; display: flex; align-items: center; gap: var(--uui-size-space-2); min-inline-size: 0; }
+.technical code { font-family: var(--uui-font-monospace, ui-monospace, monospace); overflow-wrap: anywhere; }
+.technical .button { min-block-size: 22px; padding: 0 var(--uui-size-space-2); font-size: 11px; }
 
 .visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 

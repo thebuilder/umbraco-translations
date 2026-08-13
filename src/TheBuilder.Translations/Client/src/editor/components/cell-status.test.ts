@@ -11,14 +11,27 @@ const cell = (state: MessageLocaleState, hasOverride = false): MessageCell => ({
 describe("cellStatus", () => {
   it("says nothing for a row using the application text", () => {
     // The common case. Annotating it on every row buries the few rows that differ.
-    expect(cellStatus(cell("Default")).text).toBeNull();
+    expect(cellStatus(cell("Default"))).toEqual({ custom: false, text: null, warning: false });
   });
 
-  it("speaks up only where the row differs", () => {
-    expect(cellStatus(undefined).text).toBe("Not translated");
-    expect(cellStatus(cell("Overridden", true)).text).toBe("Customised");
-    expect(cellStatus(cell("NeedsReview", true)).text).toBeTruthy();
+  it("marks custom text rather than labelling it, because most rows would carry the label", () => {
+    expect(cellStatus(cell("Overridden", true))).toEqual({ custom: true, text: null, warning: false });
+  });
+
+  it("leaves an untranslated row to the value, which already says so", () => {
+    expect(cellStatus(undefined)).toEqual({ custom: false, text: null, warning: false });
+  });
+
+  it("uses words only where the editor has something to decide", () => {
+    expect(cellStatus(cell("NeedsReview", true)).text).toBe("Needs review");
     expect(cellStatus(cell("Removed", true)).text).toBeTruthy();
+  });
+
+  it("still marks custom text on a row that also needs attention", () => {
+    // The two are independent: a row can need review and have custom text, and losing the mark
+    // would make it look untouched at exactly the moment someone is deciding what to do with it.
+    expect(cellStatus(cell("NeedsReview", true)).custom).toBe(true);
+    expect(cellStatus(cell("NeedsReview", false)).custom).toBe(false);
   });
 
   it("emphasises only what asks the editor to act", () => {
