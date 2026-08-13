@@ -37,7 +37,7 @@ public sealed class TranslationSyncEngine(
             var localeResults = await Task.WhenAll(localeTasks);
             var messages = localeResults.SelectMany(result => result.Messages).ToArray();
             if (messages.Length == 0)
-                throw new TranslationSourceFormatException("The source produced no messages; the active snapshot was retained.");
+                throw new TranslationSourceFormatException(DescribeEmptyResult(localeResults));
 
             var revision = CombinedRevision(localeResults.Select(result => result.Revision));
             if (!await store.RenewSynchronizationLeaseAsync(lease, _leasePolicy.Duration, synchronizationCancellation.Token))
@@ -114,11 +114,21 @@ public sealed class TranslationSyncEngine(
         string locale,
         CancellationToken cancellationToken)
     {
-        await using var payload = await transport.FetchAsync(source, new TranslationFetchContext(locale), cancellationToken);
-        var messages = new List<TranslationSourceMessage>();
-        await foreach (var message in parser.ParseAsync(payload, source.Parser, cancellationToken))
-            messages.Add(message);
-        return new LocaleResult(locale, payload.Revision, messages);
+        try
+        {
+            await using var payload = await transport.FetchAsync(source, new TranslationFetchContext(locale), cancellationToken);
+            var messages = new List<TranslationSourceMessage>();
+            await foreach (var message in parser.ParseAsync(payload, source.Parser, cancellationToken))
+                messages.Add(message);
+            return new LocaleResult(locale, payload.Revision, messages);
+        }
+        // Locales are fetched in parallel, so without this the failure names neither the locale nor
+        // the source and an editor cannot tell which of them to go and fix.
+        catch (Exception exception) when (exception is not OperationCanceledException
+                                          and not TranslationSourceNotModifiedException)
+        {
+            throw new TranslationSourceFetchException(source.Alias, locale, exception);
+        }
     }
 
     private static string CombinedRevision(IEnumerable<string> revisions)
@@ -126,6 +136,16 @@ public sealed class TranslationSyncEngine(
         var input = string.Join('\n', revisions.Order(StringComparer.Ordinal));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input))).ToLowerInvariant();
     }
+
+    /// <summary>
+    /// Names the locales that came back empty. "The source produced no messages" on its own leaves
+    /// an editor guessing whether the endpoint, the locale list or the file itself is at fault.
+    /// </summary>
+    private static string DescribeEmptyResult(IReadOnlyCollection<LocaleResult> results) =>
+        results.Count == 0
+            ? "The source has no locales configured, so there was nothing to fetch."
+            : $"The source returned no messages for {string.Join(", ", results.Select(result => result.Locale))}. " +
+              "Each endpoint responded, but held no translatable values. The previous snapshot was retained.";
 
     private sealed record LocaleResult(string Locale, string Revision, IReadOnlyList<TranslationSourceMessage> Messages);
 }

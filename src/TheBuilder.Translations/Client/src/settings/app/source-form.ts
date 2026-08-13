@@ -36,7 +36,19 @@ export const unavailableLocales = (configuredLocales: string[], selectedLocales:
 };
 
 export const sourceEndpoint = (endpointTemplate: string, locale: string): string =>
-  endpointTemplate.replaceAll("{locale}", encodeURIComponent(locale));
+  endpointTemplate
+    .replaceAll("{locale}", encodeURIComponent(locale))
+    .replaceAll("{language}", encodeURIComponent(languageOf(locale)));
+
+/**
+ * The language subtag of an IETF tag. Umbraco languages carry a region (en-US) but applications
+ * often name message files by language alone (en.json), so a template can ask for either.
+ * Mirrors LocaleEndpointTemplate in the Core project.
+ */
+export const languageOf = (locale: string): string => locale.split(/[-_]/, 1)[0] ?? locale;
+
+export const hasLocaleToken = (template: string): boolean =>
+  template.includes("{locale}") || template.includes("{language}");
 
 export const deliveryEndpoint = (backofficeUrl: string, locale: string, namespace: string, mode: DeliveryMode = "overrides", format: DeliveryFormat = "next-intl"): string => {
   const endpoint = new URL(backofficeUrl);

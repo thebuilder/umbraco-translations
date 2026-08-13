@@ -13,7 +13,7 @@ import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { api } from "../api/generated/client.js";
 import type { OutputConflict, OutputEndpoint, Source, SyncResult } from "../api/generated/models.js";
-import { createEmptySource, sourceEndpoint, sourceRequest, type SourceDraft } from "./app/source-form.js";
+import { createEmptySource, sourceEndpoint, sourceRequest, type SourceDraft, hasLocaleToken } from "./app/source-form.js";
 import { messageFormatLabel } from "./app/format-options.js";
 import "./source-editor.element.js";
 
@@ -104,7 +104,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     if (!source.displayName.trim()) return "Enter a source name.";
     if (!source.alias.trim()) return "Enter a source identifier.";
     if (source.alias === "." || source.alias === ".." || !/^[a-z0-9._~-]+$/.test(source.alias)) return "Use only lowercase letters, numbers, hyphens, periods, underscores, or tildes in the source identifier.";
-    if (!source.endpointTemplate.includes("{locale}")) return "The messages endpoint must contain {locale}.";
+    if (!hasLocaleToken(source.endpointTemplate)) return "The messages endpoint must contain {locale} or {language}.";
     if (source.locales.length === 0) return "Choose at least one site language.";
     if (source.namespaceMode === "Fixed" && !source.namespace.trim()) return "Enter the namespace used for every message.";
     if (!Number.isFinite(source.timeoutSeconds) || source.timeoutSeconds < 1 || source.timeoutSeconds > 120) return "Request timeout must be between 1 and 120 seconds.";

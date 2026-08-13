@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Source } from "../../api/generated/models.js";
-import { createEmptySource, deliveryEndpoint, sourceAlias, sourceEndpoint, sourceRequest, unavailableLocales } from "./source-form.js";
+import { createEmptySource, deliveryEndpoint, sourceAlias, sourceEndpoint, sourceRequest, unavailableLocales, hasLocaleToken } from "./source-form.js";
 
 describe("translation source form", () => {
   it("starts with generic package defaults and every configured site locale", () => {
@@ -77,5 +77,23 @@ describe("translation source form", () => {
       { name: "X-Api-Key", valueConfigurationKey: "Translations:ApiKey" },
     ]);
     expect(sourceRequest(source).secretName).toBe("Translations:LegacyBearerToken");
+  });
+});
+
+describe("locale tokens", () => {
+  it("expands {language} to the subtag so a region-less source resolves", () => {
+    expect(sourceEndpoint("https://app/messages/{language}.json", "en-US"))
+      .toBe("https://app/messages/en.json");
+  });
+
+  it("expands both tokens in one template", () => {
+    expect(sourceEndpoint("https://app/{language}/{locale}.json", "pt-BR"))
+      .toBe("https://app/pt/pt-BR.json");
+  });
+
+  it("accepts either token as naming a locale", () => {
+    expect(hasLocaleToken("https://app/{locale}.json")).toBe(true);
+    expect(hasLocaleToken("https://app/{language}.json")).toBe(true);
+    expect(hasLocaleToken("https://app/messages.json")).toBe(false);
   });
 });

@@ -14,8 +14,9 @@ public static class TranslationSourceValidator
         var aliasError = ValidateAlias(source.Alias);
         if (aliasError is not null) return aliasError;
         if (source.DisplayName.Length is < 1 or > 200) return "Display name is required and cannot exceed 200 characters.";
-        if (!source.Transport.EndpointTemplate.Contains("{locale}", StringComparison.Ordinal)) return "Endpoint must contain {locale}.";
-        var endpoint = source.Transport.EndpointTemplate.Replace("{locale}", "en-US", StringComparison.Ordinal);
+        if (!LocaleEndpointTemplate.HasLocaleToken(source.Transport.EndpointTemplate))
+            return "Endpoint must contain {locale} or {language}.";
+        var endpoint = LocaleEndpointTemplate.Expand(source.Transport.EndpointTemplate, "en-US");
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri) ||
             (endpointUri.Scheme != Uri.UriSchemeHttp && endpointUri.Scheme != Uri.UriSchemeHttps))
             return "Endpoint must be an absolute HTTP or HTTPS URL.";
