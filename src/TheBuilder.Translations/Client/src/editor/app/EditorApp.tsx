@@ -4,8 +4,7 @@ import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/que
 import { KeyGrid } from "../components/KeyGrid.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
-import { LocaleProgress, Toolbar } from "./Toolbar.js";
-import { ScopeList } from "./ScopeList.js";
+import { Toolbar } from "./Toolbar.js";
 
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const [filters, update] = useUrlFilters();
@@ -17,50 +16,56 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const rows = useKeyRows(filters);
 
   const locales = facets.data?.locales ?? [];
-  // The server resolves the pair when the URL names neither, and reports what it chose. Reading it
-  // back from the response keeps the toolbar honest without duplicating the resolution rules here.
+  // The server resolves the pair when the URL names neither and reports what it chose, so the
+  // toolbar reflects that decision rather than duplicating the rules.
   const page = rows.query.data?.pages[0];
   const shown: typeof filters = {
     ...filters,
     locale: filters.locale ?? page?.targetLocale ?? null,
     referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
   };
+  const current = locales.find((locale) => locale.code === shown.locale);
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
 
   return (
     <main className="shell">
-      <header className="header">
-        <div className="header__status">
-          {syncing && <span className="muted" role="status">Synchronising…</span>}
-          {permissions.data && !permissions.data.canEdit && (
-            <span className="muted">You have read-only access</span>
-          )}
-          <LocaleProgress
-            locale={locales.find((locale) => locale.code === shown.locale)}
-            totalKeys={facets.data?.totalKeys ?? 0}
-          />
-        </div>
-      </header>
+      <Toolbar
+        filters={shown}
+        locales={locales}
+        namespaces={facets.data?.namespaces ?? []}
+        update={update}
+      />
 
-      <Toolbar filters={shown} locales={locales} update={update} />
-
-      <div className={selectedId ? "layout layout--inspecting" : "layout"}>
-        <ScopeList namespaces={facets.data?.namespaces ?? []} filters={shown} update={update} />
-
+      <div className="board">
         <KeyGrid
           keys={rows.keys}
           filters={shown}
-          locales={locales}
           total={rows.total}
           loading={rows.query.isLoading}
           error={rows.query.error ?? undefined}
           namespaceCount={facets.data?.namespaces.length ?? 0}
+          selectedId={selectedId}
           onSelect={setSelectedId}
           onLoadMore={() => void rows.query.fetchNextPage()}
           hasMore={rows.query.hasNextPage}
           loadingMore={rows.query.isFetchingNextPage}
-          onLocaleChange={(locale) => update({ locale })}
         />
+
+        <div className="board__bar">
+          <span><strong>{rows.total.toLocaleString()}</strong> translations</span>
+          {current && current.absentKeyCount > 0 && (
+            <><span className="board__sep" />{current.absentKeyCount.toLocaleString()} not translated</>
+          )}
+          {current && current.needsReviewCount > 0 && (
+            <>
+              <span className="board__sep" />
+              <span className="status--warning">{current.needsReviewCount.toLocaleString()} need review</span>
+            </>
+          )}
+          <span className="board__spacer" />
+          {syncing && <span role="status">Synchronising…</span>}
+          {permissions.data && !permissions.data.canEdit && <span>Read-only access</span>}
+        </div>
 
         {selectedId && (
           <TranslationDetail

@@ -12,4 +12,8 @@ namespace TheBuilder.Translations.ManagementApi;
 [Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
 [Authorize(Policy = TranslationPolicies.View)]
 [MapToApi(Constants.ApiName)]
+// Responses carry no cache headers otherwise, so a browser is free to reuse a GET heuristically.
+// It did: after saving an override, re-reading the message served the pre-save body from cache and
+// the editor showed an empty field for a translation that had just been written.
+[ResponseCache(Location = ResponseCacheLocation.None, NoStore = true)]
 public abstract class TranslationsApiControllerBase : ControllerBase;

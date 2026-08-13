@@ -113,7 +113,7 @@ public sealed class MessagesController(
         var defaultLocale = ReferenceLocale.Resolve(
             requested: null,
             facets.Locales.Select(locale => locale.Locale).ToArray(),
-            await locales.GetDefaultLocaleAsync(cancellationToken));
+            TranslationLocales.DefaultOf(configured));
 
         return new(
             DescribeLocales(facets, configured, defaultLocale),

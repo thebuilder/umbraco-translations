@@ -21,15 +21,17 @@ styleSheet.replaceSync(styles);
 
 export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
   readonly #bridge: BackofficeBridge = {
-    notify: (type, headline, message) => this.#notification?.peek(type, { data: { headline, message: message ?? headline } }),
+    // Umbraco requires a message and treats the headline as an optional bold line above it, so a
+    // single-argument call becomes the message alone. Defaulting the message to the headline
+    // printed the same sentence twice.
+    notify: (type, headline, message) =>
+      this.#notification?.peek(type, { data: message ? { headline, message } : { message: headline } }),
   };
   #notification?: typeof UMB_NOTIFICATION_CONTEXT.TYPE;
   #root?: Root;
 
   protected abstract component: ComponentType<{ bridge: BackofficeBridge }>;
 
-  /** Custom elements React renders as props must be upgraded first, or object props become attributes. */
-  protected customElementTags: readonly string[] = [];
 
   constructor() {
     super();
@@ -45,39 +47,16 @@ export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
     mount.className = "mount";
     shadow.append(mount);
     this.#root = createRoot(mount);
-    void this.#render();
+    this.#render();
   }
 
-  async #render(): Promise<void> {
-    await this.#awaitCustomElements();
-    // The element can be torn down while waiting for upgrades.
-    if (!this.#root || !this.isConnected) return;
+  #render(): void {
+    if (!this.#root) return;
     this.#root.render(
       createElement(QueryClientProvider, { client: queryClient },
         createElement(this.component, { bridge: this.#bridge })));
   }
 
-  /**
-   * Waits for the custom elements React passes object props to, but never indefinitely.
-   * `customElements.whenDefined` returns a promise that simply never settles for a tag nobody
-   * registers, which would leave the editor as a blank panel with no error. Rendering slightly
-   * early degrades one prop; not rendering at all degrades everything.
-   */
-  async #awaitCustomElements(): Promise<void> {
-    if (this.customElementTags.length === 0) return;
-
-    const upgraded = Promise.all(this.customElementTags.map((tag) => customElements.whenDefined(tag)));
-    const timedOut = Symbol("timed-out");
-    const deadline = new Promise<typeof timedOut>((resolve) =>
-      setTimeout(() => resolve(timedOut), ReactHostElement.#upgradeTimeoutMs));
-
-    if (await Promise.race([upgraded.then(() => undefined), deadline]) === timedOut) {
-      const pending = this.customElementTags.filter((tag) => !customElements.get(tag));
-      console.warn(`[TheBuilder.Translations] Rendering without: ${pending.join(", ")}`);
-    }
-  }
-
-  static readonly #upgradeTimeoutMs = 3_000;
 
   override disconnectedCallback(): void {
     this.#root?.unmount();

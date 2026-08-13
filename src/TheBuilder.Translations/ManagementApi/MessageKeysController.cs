@@ -130,11 +130,11 @@ public sealed class MessageKeysController(
         var translated = await editor.GetLocalesAsync(cancellationToken);
         if (translated.Count == 0) return null;
 
-        var reference = ReferenceLocale.Resolve(
-            referenceLocale, translated, await locales.GetDefaultLocaleAsync(cancellationToken));
+        // One catalog call serves both the default and the selectable set.
+        var configured = await locales.GetLocalesAsync(cancellationToken);
+        var reference = ReferenceLocale.Resolve(referenceLocale, translated, TranslationLocales.DefaultOf(configured));
         if (reference is null) return null;
 
-        var configured = await locales.GetLocalesAsync(cancellationToken);
         var selectable = translated
             .Concat(configured.Select(language => language.Code))
             .Distinct(StringComparer.OrdinalIgnoreCase);

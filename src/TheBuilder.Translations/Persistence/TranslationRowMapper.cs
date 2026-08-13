@@ -1,3 +1,4 @@
+using NPoco;
 using System.Text.Json;
 using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
@@ -152,13 +153,22 @@ internal static class TranslationRowMapper
     private static DateTimeOffset AsOffset(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
 }
 
+/// <summary>
+/// A message joined to its override.
+///
+/// Every property needs <see cref="ResultColumnAttribute"/>: this derives from a row marked
+/// <c>[ExplicitColumns]</c>, so NPoco maps only what is attributed, and without them these came back
+/// null on every read. An override could be written and never read again -- the editor showed an
+/// empty field for text it had just saved, and the delivery endpoints served application defaults
+/// as though nothing had ever been customised.
+/// </summary>
 internal sealed class MessageViewRow : MessageRow
 {
-    public string? OverrideValue { get; set; }
-    public string? SourceChecksumAtEdit { get; set; }
-    public long? OverrideVersion { get; set; }
-    public DateTime? OverrideCreatedAt { get; set; }
-    public string? OverrideCreatedBy { get; set; }
-    public DateTime? OverrideUpdatedAt { get; set; }
-    public string? OverrideUpdatedBy { get; set; }
+    [ResultColumn] public string? OverrideValue { get; set; }
+    [ResultColumn] public string? SourceChecksumAtEdit { get; set; }
+    [ResultColumn] public long? OverrideVersion { get; set; }
+    [ResultColumn] public DateTime? OverrideCreatedAt { get; set; }
+    [ResultColumn] public string? OverrideCreatedBy { get; set; }
+    [ResultColumn] public DateTime? OverrideUpdatedAt { get; set; }
+    [ResultColumn] public string? OverrideUpdatedBy { get; set; }
 }

@@ -1,79 +1,164 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/generated/client.js";
-import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
-import { Button } from "../../bridge/uui/index.js";
 import type { MessageDetail } from "../../api/generated/models.js";
+import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
+import { Button, Tag, Textarea } from "../../bridge/uui/index.js";
+import { queryKeys } from "../api/keys.js";
 
-/** Writes are addressed by identity, which the detail response carries for exactly this reason. */
-const identityOf = (message: MessageDetail | undefined) => ({
-  sourceId: message?.sourceId ?? "",
-  namespace: message?.namespace ?? "",
-  key: message?.key ?? "",
-  locale: message?.locale ?? "",
-});
-
-export const TranslationDetail = ({ id, bridge, close }: { id: string; bridge: BackofficeBridge; close: () => void }) => {
+/**
+ * Editing panel for one translation.
+ *
+ * A drawer over the list rather than a third column: at this width a column would squeeze the text
+ * being compared, and opening one would resize the table out from under the row just clicked.
+ */
+export const TranslationDetail = ({ id, bridge, close }: {
+  id: string;
+  bridge: BackofficeBridge;
+  close: () => void;
+}) => {
   const queryClient = useQueryClient();
-  const detail = useQuery({ queryKey: ["message", id], queryFn: () => api.message(id) });
+  const detail = useQuery({ queryKey: queryKeys.message(id), queryFn: ({ signal }) => api.message(id, signal) });
   const [draft, setDraft] = useState<string>();
-  const refresh = async () => {
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // Focus moves to the drawer when it opens, and Escape closes it: it covers the list, so leaving
+  // focus behind would strand a keyboard user behind an overlay.
+  useEffect(() => heading.current?.focus(), [id]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [close]);
+
+  /**
+   * The list and the counts have to be refetched, but the message itself does not: the write
+   * returned its own result, so seeding the cache with that shows the saved text immediately.
+   * Invalidating instead left the field blank until the refetch landed, which reads as the save
+   * having wiped it.
+   */
+  const settle = (saved?: MessageDetail) => {
     setDraft(undefined);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["messages"] }),
-      queryClient.invalidateQueries({ queryKey: ["message", id] }),
-    ]);
+    if (saved) queryClient.setQueryData(queryKeys.message(id), saved);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.keys() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.facets() });
   };
-  const save = useMutation({
-    mutationFn: (value: string) => api.saveOverride({
-      ...identityOf(detail.data),
-      value,
-      expectedVersion: detail.data?.version ?? undefined,
-    }),
-    onSuccess: async () => { bridge.notify("positive", "Translation saved"); await refresh(); },
-    onError: error => bridge.notify("danger", "Translation could not be saved", error.message),
-  });
-  const reset = useMutation({
-    mutationFn: () => api.resetOverride({
-      ...identityOf(detail.data),
-      expectedVersion: detail.data?.version ?? undefined,
-    }),
-    onSuccess: async () => {
-      bridge.notify("positive", "Translation reset");
-      await queryClient.invalidateQueries({ queryKey: ["messages"] });
-      queryClient.removeQueries({ queryKey: ["message", id] });
-      close();
-    },
-    onError: error => bridge.notify("danger", "Translation could not be reset", error.message),
+
+  const identity = (message: MessageDetail) => ({
+    sourceId: message.sourceId,
+    namespace: message.namespace,
+    key: message.key,
+    locale: message.locale,
   });
 
-  if (detail.isLoading) return <aside className="panel detail"><p>Loading translation…</p></aside>;
-  if (detail.isError) return <aside className="panel detail"><p className="error">{detail.error.message}</p></aside>;
-  if (!detail.data) return null;
+  const save = useMutation({
+    mutationFn: (value: string) =>
+      api.saveOverride({ ...identity(detail.data!), value, expectedVersion: detail.data?.version ?? undefined }),
+    // Saving closes the drawer, the same as reverting does: the row behind it shows the new text
+    // and its status, which is the confirmation. Nothing is announced -- a toast would land on the
+    // button just pressed and repeat what the list already says. Failures still notify, because
+    // nothing else would say so, and the drawer stays open with the text intact to fix.
+    onSuccess: (saved) => { settle(saved); close(); },
+    onError: (error) => bridge.notify("danger", "Translation could not be saved", error.message),
+  });
+
+  const reset = useMutation({
+    mutationFn: () =>
+      api.resetOverride({ ...identity(detail.data!), expectedVersion: detail.data?.version ?? undefined }),
+    onSuccess: () => { settle(); close(); },
+    onError: (error) => bridge.notify("danger", "Translation could not be reset", error.message),
+  });
 
   const message = detail.data;
-  const removed = message.state === "Missing";
-  return <aside className="panel detail">
-    <h2 className="key">{message.key}</h2>
-    <p className="muted">{message.namespace} · {message.locale}</p>
-    {removed && <p className="tag tag--warning">Removed from the source. This entry is retained only because it has custom text.</p>}
-    <div className="field">
-      <label>{removed ? "Last source value" : "Application default"}</label>
-      <div className="panel">{message.defaultValue || <em>Empty string</em>}</div>
-    </div>
-    {Object.keys(message.arguments).length > 0 && <>
-      <h3>Required arguments</h3>
-      <div className="argument-list">{Object.entries(message.arguments).map(([name, kind]) =>
-        <span className="tag" key={name}>{name}: {kind}</span>)}</div>
-    </>}
-    <div className="field">
-      <label htmlFor="override">Custom text</label>
-      <textarea id="override" value={draft ?? message.overrideValue ?? ""} onChange={event => setDraft(event.target.value)} placeholder="Enter custom text" />
-    </div>
-    <div className="actions">
-      <Button look="primary" disabled={save.isPending || draft === undefined} onClick={() => draft !== undefined && save.mutate(draft)}>Save override</Button>
-      <Button disabled={message.overrideValue == null || reset.isPending} onClick={() => reset.mutate()}>{removed ? "Delete override" : "Reset to default"}</Button>
-    </div>
-    {message.needsReview && <p className="tag tag--warning">The application default changed after this override was edited.</p>}
-  </aside>;
+  const value = draft ?? message?.overrideValue ?? "";
+  const dirty = draft !== undefined && draft !== (message?.overrideValue ?? "");
+
+  return (
+    <aside className="drawer" role="complementary" aria-label="Edit translation">
+      <div className="drawer__head">
+        <div>
+          {message && <div className="namespace">{message.namespace}</div>}
+          <h2 ref={heading} tabIndex={-1} className="key">
+            {message?.key ?? "Loading…"}
+          </h2>
+        </div>
+        <Button label="Close" icon onClick={close}>✕</Button>
+      </div>
+
+      <div className="drawer__body">
+        {detail.isLoading && <p>Loading translation…</p>}
+        {detail.isError && <p className="error">{detail.error.message}</p>}
+
+        {message && (
+          <>
+            {message.state === "Removed" && (
+              <p className="status status--warning">
+                ⚠ Removed from the application. This entry is kept only because it has custom text.
+              </p>
+            )}
+            {message.needsReview && (
+              <p className="status status--warning">
+                ⚠ The application default changed after this text was written. Check it still reads correctly.
+              </p>
+            )}
+
+            <div className="field">
+              <label>Application default</label>
+              <div className="readonly">{message.defaultValue || <em>No text in this locale</em>}</div>
+            </div>
+
+            {Object.keys(message.arguments).length > 0 && (
+              <div className="field">
+                <label>Required placeholders</label>
+                <div className="arguments">
+                  {Object.entries(message.arguments).map(([name, kind]) => (
+                    <Tag key={name}>{`{${name}} · ${kind}`}</Tag>
+                  ))}
+                </div>
+                <span className="hint">Your text has to use the same placeholders.</span>
+              </div>
+            )}
+
+            <div className="field">
+              <label htmlFor="override">Custom text · {message.locale}</label>
+              <Textarea
+                label={`Custom text for ${message.locale}`}
+                placeholder="Leave blank to use the application text"
+                value={value}
+                rows={6}
+                onValueChange={setDraft}
+              />
+              <span className="hint">
+                {message.overrideValue === null
+                  ? "Nothing custom yet, so the application text above is used."
+                  : "Clear this and save to go back to the application text."}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="drawer__foot drawer__foot--split">
+        <Button
+          look="secondary"
+          disabled={!message || message.overrideValue === null || reset.isPending}
+          onClick={() => reset.mutate()}
+        >
+          Use application text
+        </Button>
+        <span className="drawer__actions">
+          <Button onClick={close}>Cancel</Button>
+          <Button
+            look="primary"
+            disabled={!dirty || save.isPending}
+            onClick={() => draft !== undefined && save.mutate(draft)}
+          >
+            {save.isPending ? "Saving…" : "Save"}
+          </Button>
+        </span>
+      </div>
+    </aside>
+  );
 };

@@ -17,9 +17,18 @@ public sealed record TranslationLocale(
 /// </summary>
 public interface ITranslationLocaleCatalog
 {
+    /// <summary>
+    /// The site's languages, each carrying whether it is the default. One call rather than two:
+    /// this runs on every editor and settings page load, each one is a query against the same
+    /// database Umbraco is authenticating the request on, and the answer is already in the list.
+    /// </summary>
     Task<IReadOnlyList<TranslationLocale>> GetLocalesAsync(CancellationToken cancellationToken);
+}
 
-    Task<string?> GetDefaultLocaleAsync(CancellationToken cancellationToken);
+public static class TranslationLocales
+{
+    public static string? DefaultOf(IEnumerable<TranslationLocale> locales) =>
+        locales.FirstOrDefault(locale => locale.IsDefault)?.Code;
 }
 
 /// <summary>
@@ -65,9 +74,4 @@ internal sealed class UmbracoTranslationLocaleCatalog(ILanguageService languages
             .ToArray();
     }
 
-    public async Task<string?> GetDefaultLocaleAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return await languages.GetDefaultIsoCodeAsync();
-    }
 }
