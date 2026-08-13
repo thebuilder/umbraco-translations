@@ -84,7 +84,7 @@ export const TranslationDetail = ({ id, bridge, close }: {
             {message?.key ?? "Loading…"}
           </h2>
         </div>
-        <Button label="Close" compact onClick={close}>✕</Button>
+        <Button label="Close" icon onClick={close}>✕</Button>
       </div>
 
       <div className="drawer__body">

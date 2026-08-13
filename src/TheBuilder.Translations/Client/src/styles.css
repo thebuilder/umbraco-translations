@@ -67,7 +67,9 @@ textarea.control { min-block-size: 6rem; resize: vertical; font-family: inherit;
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .button--primary { border-color: var(--uui-color-selected); background: var(--uui-color-selected); color: var(--uui-color-selected-contrast); }
 .button--primary:hover:not(:disabled) { background: var(--uui-color-selected-emphasis); }
-.button--compact { padding-inline: var(--uui-size-space-2); }
+/* Square and sized to the glyph. Text-button padding leaves a single character looking wedged
+   into a box built for a word. */
+.button--icon { inline-size: 30px; padding: 0; justify-content: center; font-size: 13px; font-weight: 400; }
 .button--danger { border-color: var(--uui-color-danger); color: var(--uui-color-danger); }
 
 .checkbox { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); cursor: pointer; }

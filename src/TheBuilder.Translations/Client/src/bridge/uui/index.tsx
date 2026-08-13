@@ -20,12 +20,13 @@ type Color = "default" | "positive" | "warning" | "danger";
  * need no shim to pass an array of options.
  */
 
-export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, disabled, compact, label, ref }: {
+export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, disabled, icon, label, ref }: {
   children: ReactNode;
   look?: Look;
   color?: Color;
   disabled?: boolean;
-  compact?: boolean;
+  /** A single glyph rather than a word: square, and sized to the glyph. */
+  icon?: boolean;
   label?: string;
   type?: "button" | "submit";
   onClick?: () => void;
@@ -38,8 +39,15 @@ export const Button = ({ children, look = "default", color = "default", type = "
     disabled={disabled}
     aria-label={label}
     onClick={onClick}
-    className={["button", `button--${look}`, `button--${color}`, compact ? "button--compact" : "", className ?? ""]
-      .filter(Boolean).join(" ")}
+    className={[
+      "button",
+      // Only the non-default variants add a class, or a plain button carries "button--default"
+      // twice -- once for its look and once for its colour.
+      look === "default" ? "" : `button--${look}`,
+      color === "default" ? "" : `button--${color}`,
+      icon ? "button--icon" : "",
+      className ?? "",
+    ].filter(Boolean).join(" ")}
   >
     {children}
   </button>
