@@ -1,7 +1,7 @@
 import { client } from "../openapi/client.gen.js";
 import { TranslationsService } from "../openapi/sdk.gen.js";
 import { unwrap } from "../errors.js";
-import type { MessageStatus, SourceRequest } from "./models.js";
+import type { MessageKeyQuery, MessageStatus, SourceRequest } from "./models.js";
 
 interface ApiConfiguration {
   token?: string | (() => Promise<string | undefined>);
@@ -37,6 +37,12 @@ export const api = {
   messages: (filters: { locale?: string; namespace?: string; query?: string; status: MessageStatus; page: number; pageSize: number }) =>
     unwrap(TranslationsService.messagesListMessages({ ...requestOptions, query: filters })),
   message: (id: string) => unwrap(TranslationsService.messagesGetMessage({ ...requestOptions, path: { id } })),
+  /** The editor's list: one row per key, with a cell per requested locale. */
+  messageKeys: (query: MessageKeyQuery) =>
+    unwrap(TranslationsService.messageKeysListMessageKeys({ ...requestOptions, query })),
+  /** Target-locale ids for a filter, so "select all matching" can be materialised for a bulk write. */
+  messageKeyIds: (query: Omit<MessageKeyQuery, "compare" | "sort" | "direction" | "page" | "pageSize">) =>
+    unwrap(TranslationsService.messageKeysListMessageKeyIds({ ...requestOptions, query })),
   saveOverride: (id: string, value: string, expectedVersion?: number) =>
     unwrap(TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } })),
   resetOverride: (id: string, expectedVersion?: number) =>

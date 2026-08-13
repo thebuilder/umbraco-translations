@@ -46,6 +46,7 @@ public sealed class TranslationsComposer : IComposer
         builder.Services.AddScoped<ITranslationSourceRepository>(services => services.GetRequiredService<UmbracoTranslationStore>());
         builder.Services.AddScoped<ITranslationSynchronizationStore>(services => services.GetRequiredService<UmbracoTranslationStore>());
         builder.Services.AddScoped<ITranslationMessageRepository>(services => services.GetRequiredService<UmbracoTranslationStore>());
+        builder.Services.AddScoped<ITranslationEditorRepository>(services => services.GetRequiredService<UmbracoTranslationStore>());
         builder.Services.AddScoped<TranslationSyncEngine>();
         builder.Services.AddSingleton<ITranslationOutputSerializer, NestedJsonOutputSerializer>();
         // No caching wrapper: ILanguageService is already cached inside Umbraco, and a second layer

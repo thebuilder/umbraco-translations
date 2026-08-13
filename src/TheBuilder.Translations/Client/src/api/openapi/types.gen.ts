@@ -40,6 +40,20 @@ export type LocaleFacetResponse = {
     absentKeyCount: number;
 };
 
+export type MessageCellResponse = {
+    id: string;
+    locale: string;
+    defaultValue: string;
+    overrideValue?: string | null;
+    hasOverride: boolean;
+    needsReview: boolean;
+    truncated: boolean;
+    state: MessageLocaleState;
+    version?: number | null;
+    updatedAt?: string | null;
+    updatedBy?: string | null;
+};
+
 export type MessageDetailResponse = {
     id: string;
     namespace: string;
@@ -62,6 +76,47 @@ export type MessageDetailResponse = {
 
 export type MessageFormat = 'PlainText' | 'Icu' | 'I18NextV4';
 
+export type MessageKeyListResponse = {
+    items: Array<MessageKeyResponse>;
+    page: number;
+    pageSize: number;
+    total: number;
+    referenceLocale: string;
+    targetLocale: string;
+    compareLocales: Array<string>;
+};
+
+export type MessageKeyReference = {
+    id: string;
+    version?: number | null;
+};
+
+export type MessageKeyReferenceResponse = {
+    items: Array<MessageKeyReference>;
+    limit: number;
+    capped: boolean;
+};
+
+export type MessageKeyResponse = {
+    sourceId: string;
+    namespace: string;
+    key: string;
+    format: MessageFormat;
+    arguments: {
+        [key: string]: string;
+    };
+    cells: {
+        [key: string]: MessageCellResponse;
+    };
+    coverage: {
+        [key: string]: MessageLocaleState;
+    };
+};
+
+export type MessageKeySort = 'Key' | 'UpdatedAt' | 'Status';
+
+export type MessageKeyStatusFilter = 'All' | 'Absent' | 'Default' | 'Overridden' | 'NeedsReview' | 'Removed';
+
 export type MessageListItem = {
     id: string;
     namespace: string;
@@ -81,6 +136,8 @@ export type MessageListResponse = {
     pageSize: number;
     total: number;
 };
+
+export type MessageLocaleState = 'Default' | 'Overridden' | 'NeedsReview' | 'Removed' | 'Absent';
 
 export type MessageStatusFilter = 'All' | 'Default' | 'Overridden' | 'NeedsReview' | 'Missing';
 
@@ -116,6 +173,8 @@ export type PermissionsResponse = {
     canManageSources: boolean;
     canSync: boolean;
 };
+
+export type SortDirection = 'Ascending' | 'Descending';
 
 export type SourceRequest = {
     alias: string;
@@ -341,6 +400,82 @@ export type MessagesSaveMessageOverrideResponses = {
 };
 
 export type MessagesSaveMessageOverrideResponse = MessagesSaveMessageOverrideResponses[keyof MessagesSaveMessageOverrideResponses];
+
+export type MessageKeysListMessageKeysData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locale?: string;
+        referenceLocale?: string;
+        compare?: Array<string>;
+        sourceId?: string;
+        namespace?: string;
+        keyPrefix?: string;
+        query?: string;
+        status?: MessageKeyStatusFilter;
+        sort?: MessageKeySort;
+        direction?: SortDirection;
+        page?: number;
+        pageSize?: number;
+    };
+    url: '/umbraco/management/api/v1/translations/messages/keys';
+};
+
+export type MessageKeysListMessageKeysErrors = {
+    /**
+     * Bad Request
+     */
+    400: unknown;
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+};
+
+export type MessageKeysListMessageKeysResponses = {
+    /**
+     * OK
+     */
+    200: MessageKeyListResponse;
+};
+
+export type MessageKeysListMessageKeysResponse = MessageKeysListMessageKeysResponses[keyof MessageKeysListMessageKeysResponses];
+
+export type MessageKeysListMessageKeyIdsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locale?: string;
+        referenceLocale?: string;
+        sourceId?: string;
+        namespace?: string;
+        keyPrefix?: string;
+        query?: string;
+        status?: MessageKeyStatusFilter;
+        limit?: number;
+    };
+    url: '/umbraco/management/api/v1/translations/messages/keys/ids';
+};
+
+export type MessageKeysListMessageKeyIdsErrors = {
+    /**
+     * Bad Request
+     */
+    400: unknown;
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+};
+
+export type MessageKeysListMessageKeyIdsResponses = {
+    /**
+     * OK
+     */
+    200: MessageKeyReferenceResponse;
+};
+
+export type MessageKeysListMessageKeyIdsResponse = MessageKeysListMessageKeyIdsResponses[keyof MessageKeysListMessageKeyIdsResponses];
 
 export type PermissionsGetPermissionsData = {
     body?: never;
