@@ -12,8 +12,7 @@
     "generate-client": "node scripts/generate-openapi.js"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.0",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-virtual": "^3.14.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
