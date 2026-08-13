@@ -88,6 +88,22 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .field--grow { flex: 1; }
 .toolbar__row--filters .field { min-inline-size: 0; flex: 1; max-inline-size: 16rem; }
 .field--secondary > span { opacity: .75; }
+
+/* Search is the control an editor reaches for first, so it says what it is rather than relying on
+   placeholder text that disappears the moment it is used. Both affordances sit inside the field,
+   which is why the input carries matching padding on each side. */
+.search { position: relative; display: flex; align-items: center; }
+.search__input { padding-inline: 2rem; }
+.search__icon { position: absolute; inset-inline-start: 9px; inline-size: 14px; block-size: 14px; color: var(--uui-color-text-alt); pointer-events: none; }
+.search__clear {
+  position: absolute; inset-inline-end: 4px;
+  display: flex; align-items: center; justify-content: center;
+  inline-size: 22px; block-size: 22px; padding: 0;
+  border: 0; border-radius: 50%; background: none;
+  color: var(--uui-color-text-alt); font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
+}
+.search__clear:hover { background: var(--uui-color-surface-alt); color: var(--uui-color-text); }
+.search__clear:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 .locale-select { min-inline-size: 14rem; }
 
 /* Navigation, so the namespace need not repeat on every row. */

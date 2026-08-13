@@ -85,15 +85,37 @@ export const Toolbar = ({ filters, locales, namespaces, update }: {
       <div className="toolbar__row">
         <label className="field field--grow">
           <span className="visually-hidden">Search</span>
-          <Input
-            label="Search text and keys"
-            placeholder="Search text or keys…"
-            value={search}
-            onValueChange={(value) => {
-              setSearch(value);
-              update({ query: value });
-            }}
-          />
+          <div className="search">
+            {/* Drawn inline rather than taken from the icon registry: that is a UUI custom element,
+                and those do not upgrade inside this shadow root. */}
+            <svg className="search__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M10.6 10.6 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <Input
+              className="search__input"
+              label="Search text and keys"
+              placeholder="Search text or keys…"
+              value={search}
+              onValueChange={(value) => {
+                setSearch(value);
+                update({ query: value });
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                className="search__clear"
+                aria-label="Clear search"
+                onClick={() => {
+                  setSearch("");
+                  update({ query: "" });
+                }}
+              >
+                <span aria-hidden="true">✕</span>
+              </button>
+            )}
+          </div>
         </label>
       </div>
 
