@@ -104,12 +104,35 @@ export const KeyGrid = ({
     if (cell) onSelect(cell.id);
   }, [rows, filters.locale, onSelect]);
 
-  const { onKeyDown, cellProps } = useGridNavigation({
+  const { onKeyDown, cellProps, restoreFocus } = useGridNavigation({
     rowCount: rows.length,
     columns: navigable,
     scrollToRow,
     onActivate: activate,
   });
+
+  /**
+   * Focus follows the editor back out. It opens over the grid, and every way of dismissing it --
+   * Escape, Cancel, the close button, saving -- left focus on nothing at all, so the next Tab
+   * started again from the top of the backoffice.
+   *
+   * Which row to return to is looked up from the message that was open rather than remembered as a
+   * position, because the row can move underneath: saving while sorted by when a translation was
+   * last edited reorders the list before the editor closes.
+   */
+  const openedFrom = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (selectedId !== undefined) {
+      openedFrom.current = selectedId;
+      return;
+    }
+    const message = openedFrom.current;
+    openedFrom.current = undefined;
+    if (message === undefined || rows.length === 0) return;
+
+    const row = rows.findIndex((candidate) => cellOf(candidate.original, filters.locale)?.id === message);
+    restoreFocus(row >= 0 ? row : undefined);
+  }, [selectedId, rows, filters.locale, restoreFocus]);
 
   if (error) return <p className="panel error">{error.message}</p>;
   if (loading) return <p className="panel">Loading translations…</p>;

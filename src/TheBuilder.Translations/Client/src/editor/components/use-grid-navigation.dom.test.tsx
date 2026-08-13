@@ -8,13 +8,16 @@ afterEach(cleanup);
 const BOTH_LOCALES = ["key", "reference", "target"];
 
 /** A grid small enough to assert on, rendering every row so focus can be observed directly. */
-const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, onActivate = () => {} }: {
+const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, onActivate = () => {}, expose }: {
   rowCount?: number;
   columns?: string[];
   scrollToRow?: (row: number) => void;
   onActivate?: (focus: { row: number }) => void;
+  /** Hands the restore callback out, standing in for the editor drawer closing. */
+  expose?: (restoreFocus: (row?: number) => void) => void;
 }) => {
-  const { onKeyDown, cellProps, focus } = useGridNavigation({ rowCount, columns, scrollToRow, onActivate });
+  const { onKeyDown, cellProps, focus, restoreFocus } = useGridNavigation({ rowCount, columns, scrollToRow, onActivate });
+  expose?.(restoreFocus);
   return (
     <div role="grid" onKeyDown={onKeyDown} data-focus={`${focus.row}:${focus.column}`}>
       {Array.from({ length: rowCount }, (_, row) => (
@@ -139,6 +142,36 @@ describe("useGridNavigation", () => {
 
     press(grid, "ArrowRight");
     expect(grid).toHaveProperty("dataset.focus", "0:target");
+  });
+
+  it("takes focus back to the cell after the editor closes over it", () => {
+    let restore: (row?: number) => void = () => {};
+    const { container, getByTestId } = render(<Grid expose={(fn) => { restore = fn; }} />);
+    const grid = container.querySelector("[role=grid]") as HTMLElement;
+
+    press(grid, "ArrowDown");
+    // The editor drawer opens over the grid and focuses its own heading.
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    act(() => elsewhere.focus());
+    expect(document.activeElement).toBe(elsewhere);
+
+    act(() => restore());
+
+    expect(document.activeElement).toBe(getByTestId("1:target"));
+    elsewhere.remove();
+  });
+
+  it("returns to the row it is given, because the list can reorder while the editor is open", () => {
+    let restore: (row?: number) => void = () => {};
+    const scrollToRow = vi.fn();
+    const { getByTestId } = render(<Grid scrollToRow={scrollToRow} expose={(fn) => { restore = fn; }} />);
+
+    act(() => restore(3));
+
+    // Scrolled first: the row may not have been rendered at the moment focus was asked for.
+    expect(scrollToRow).toHaveBeenCalledWith(3);
+    expect(document.activeElement).toBe(getByTestId("3:target"));
   });
 
   it("follows focus that the user moved by clicking", () => {

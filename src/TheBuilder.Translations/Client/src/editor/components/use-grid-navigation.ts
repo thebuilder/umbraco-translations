@@ -54,6 +54,27 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
     scrollToRow(row);
   }, [rowCount, scrollToRow]);
 
+  // Read by restoreFocus, which has to reach the current coordinate without taking it as a
+  // dependency: a callback that changed on every focus move would restart the effect that calls it.
+  const latest = useRef(focus);
+  latest.current = focus;
+
+  /**
+   * Takes focus back to the coordinate after something else claimed it. The editor opens as an
+   * overlay, so closing it with nothing to return to drops a keyboard user at the top of the page
+   * with the whole list to walk again.
+   *
+   * The row is passed explicitly because the list can reorder while the editor is open -- saving a
+   * translation while sorted by when it was last edited moves it -- and the row that was being
+   * worked on is the one to come back to, not the position it used to occupy.
+   */
+  const restoreFocus = useCallback((row?: number) => {
+    const next = { ...latest.current, row: row ?? latest.current.row };
+    claiming.current = true;
+    scrollToRow(next.row);
+    setFocus(next);
+  }, [scrollToRow]);
+
   const onKeyDown = useCallback((event: React.KeyboardEvent) => {
     if (columns.length === 0) return;
     const columnIndex = columns.indexOf(focus.column);
@@ -109,7 +130,7 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
     };
   }, [focus]);
 
-  return { focus, onKeyDown, cellProps, moveTo };
+  return { focus, onKeyDown, cellProps, moveTo, restoreFocus };
 };
 
 const PAGE_ROWS = 10;
