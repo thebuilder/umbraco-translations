@@ -53,6 +53,21 @@ public sealed record MessageDetailResponse(
     string State, string SourceRevision, string DefaultChecksum, long? Version, DateTimeOffset? UpdatedAt, string? UpdatedBy);
 
 public sealed record OverrideRequest(string Value, long? ExpectedVersion);
+
+/// <summary>
+/// The body of a 409. Carries the value that actually landed so the editor can show "yours" beside
+/// "theirs" without a follow-up request.
+/// </summary>
+public sealed record MessageConflictResponse(
+    string Code,
+    string Message,
+    long? CurrentVersion,
+    string? CurrentValue,
+    DateTimeOffset? UpdatedAt,
+    string? UpdatedBy)
+{
+    public const string VersionConflict = "version_conflict";
+}
 public sealed record OutputEndpointResponse(string Locale, string Namespace, TranslationOutputFormat Format);
 public sealed record OutputConflictResponse(string Locale, string Namespace, IReadOnlyList<MessageFormat> MessageFormats);
 public sealed record FacetResponse(

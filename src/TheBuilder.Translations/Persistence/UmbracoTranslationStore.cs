@@ -324,11 +324,7 @@ internal sealed class UmbracoTranslationStore(
         return Task.FromResult<IReadOnlyList<TranslationMessageView>>(rows.Select(TranslationRowMapper.ToDomain).ToArray());
     }
 
-    private static void Validate(MessageQuery query)
-    {
-        if (query.Page < 1) throw new ArgumentOutOfRangeException(nameof(query), "Page must be at least 1.");
-        if (query.PageSize is not (50 or 100 or 200)) throw new ArgumentOutOfRangeException(nameof(query), "Page size must be 50, 100, or 200.");
-    }
+    private static void Validate(MessageQuery query) => MessageQueryValidation.Ensure(query);
 
     private static void EnsureVersion(long? current, long? expected)
     {

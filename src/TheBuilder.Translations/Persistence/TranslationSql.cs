@@ -25,7 +25,10 @@ internal static class TranslationSql
         var sql = new Sql(MessageSelect + " WHERE 1 = 1");
         if (!string.IsNullOrWhiteSpace(query.Locale)) sql.Append("AND m.Locale = @0", query.Locale);
         if (!string.IsNullOrWhiteSpace(query.Namespace)) sql.Append("AND m.Namespace = @0", query.Namespace);
-        if (!string.IsNullOrWhiteSpace(query.Query)) sql.Append("AND (m.[Key] LIKE @0 OR m.DefaultValue LIKE @0 OR o.Value LIKE @0)", $"%{query.Query}%");
+        if (!string.IsNullOrWhiteSpace(query.Query))
+            sql.Append(
+                $"AND (m.[Key] LIKE @0{SqlLikePattern.EscapeClause} OR m.DefaultValue LIKE @0{SqlLikePattern.EscapeClause} OR o.Value LIKE @0{SqlLikePattern.EscapeClause})",
+                SqlLikePattern.Contains(query.Query));
         if (query.Status is not MessageStatusFilter.Missing)
             sql.Append("AND m.State <> @0", TranslationMessageState.Missing.ToString());
         switch (query.Status)

@@ -101,9 +101,24 @@ public sealed class MessageFormatValidator : IMessageFormatValidator
                 throw Error("Unclosed argument branch");
         }
 
+        // ICU only starts a quoted section when the apostrophe is followed by a syntax
+        // character; '' is an escaped literal apostrophe, and every other apostrophe is
+        // ordinary prose ("Il n'y a {count} messages", "Aujourd'hui").
         private void ScanQuotedText()
         {
             _position++;
+            if (_position == input.Length)
+                return;
+
+            if (input[_position] == '\'')
+            {
+                _position++;
+                return;
+            }
+
+            if (input[_position] is not ('{' or '}' or '#'))
+                return;
+
             while (_position < input.Length)
             {
                 if (input[_position] != '\'')
