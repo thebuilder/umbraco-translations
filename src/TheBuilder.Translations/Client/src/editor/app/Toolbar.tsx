@@ -21,7 +21,7 @@ const STATUSES: readonly { value: MessageKeyStatus; label: string }[] = [
 const SORTS: readonly { value: string; label: string; sort: SortField; direction: SortDirection }[] = [
   { value: "key", label: "Sort: Key", sort: "key", direction: "asc" },
   { value: "recent", label: "Recently updated", sort: "updatedAt", direction: "desc" },
-  { value: "attention", label: "Needs attention first", sort: "status", direction: "asc" },
+  { value: "attention", label: "Needs attention", sort: "status", direction: "asc" },
 ];
 
 /** Setting the comparison to the language being edited is how "no comparison" is expressed. */
@@ -61,100 +61,97 @@ export const Toolbar = ({ filters, locales, namespaces, update, searchRef }: {
 
   return (
     <div className="toolbar">
-      <div className="toolbar__row">
-        <label className="field">
-          <span>Editing language</span>
-          <Select
-            label="Language being edited"
-            options={options}
-            value={editing ?? ""}
-            onValueChange={(locale) =>
-              // Carrying "no comparison" across a language change means moving it with the new
-              // language, or the old one silently becomes the thing being compared against.
-              update({ locale, referenceLocale: comparing ? filters.referenceLocale : locale })}
-          />
-        </label>
-        <label className="field field--secondary">
-          <span>Compare with</span>
-          <Select
-            label="Language to compare against"
-            options={comparisons}
-            value={comparing ? filters.referenceLocale ?? "" : NO_COMPARISON}
-            onValueChange={(value) => update({ referenceLocale: value || editing })}
-          />
-        </label>
+      {/*
+        Reads as a statement of what is being worked on rather than as a form. The two languages
+        are the context every row is shown in, so they sit above the controls that narrow which
+        rows those are, and the one being edited carries the weight.
+      */}
+      <div className="languages">
+        <span className="languages__lead">Editing</span>
+        <Select
+          className="control--auto control--strong"
+          label="Language being edited"
+          options={options}
+          value={editing ?? ""}
+          onValueChange={(locale) =>
+            // Carrying "no comparison" across a language change means moving it with the new
+            // language, or the old one silently becomes the thing being compared against.
+            update({ locale, referenceLocale: comparing ? filters.referenceLocale : locale })}
+        />
+        <span className="languages__lead">compared with</span>
+        <Select
+          className="control--auto"
+          label="Language to compare against"
+          options={comparisons}
+          value={comparing ? filters.referenceLocale ?? "" : NO_COMPARISON}
+          onValueChange={(value) => update({ referenceLocale: value || editing })}
+        />
       </div>
 
-      <div className="toolbar__row">
-        <label className="field field--grow">
-          <span className="visually-hidden">Search</span>
-          <div className="search">
-            {/* Drawn inline rather than taken from the icon registry: that is a UUI custom element,
-                and those do not upgrade inside this shadow root. */}
-            <svg className="search__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M10.6 10.6 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <Input
-              ref={searchRef}
-              className="search__input"
-              label="Search text and keys"
-              placeholder="Search text or keys…"
-              value={search}
-              onValueChange={(value) => {
-                setSearch(value);
-                update({ query: value });
-              }}
-            />
-            {search && (
-              <button
-                type="button"
-                className="search__clear"
-                aria-label="Clear search"
-                onClick={() => {
-                  setSearch("");
-                  update({ query: "" });
-                }}
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
-            )}
-          </div>
-        </label>
-      </div>
-
-      <div className="toolbar__row toolbar__row--filters">
-        <label className="field">
-          <span className="visually-hidden">Namespace</span>
-          <Select
-            label="Namespace"
-            options={[{ name: "Namespace: All", value: "" },
-              ...namespaces.map((namespace) => ({ name: namespace, value: namespace }))]}
-            value={filters.namespace ?? ""}
-            onValueChange={(namespace) => update({ namespace: namespace || null, keyPrefix: null })}
-          />
-        </label>
-        <label className="field">
-          <span className="visually-hidden">Status</span>
-          <Select
-            label="Status"
-            options={STATUSES.map((status) => ({ name: status.label, value: status.value }))}
-            value={filters.status}
-            onValueChange={(status) => update({ status: status as MessageKeyStatus })}
-          />
-        </label>
-        <label className="field">
-          <span className="visually-hidden">Sort</span>
-          <Select
-            label="Sort order"
-            options={SORTS.map((option) => ({ name: option.label, value: option.value }))}
-            value={sort.value}
+      {/*
+        One row, because these are one question: which of the translations am I looking at. Search
+        takes the space and the three menus size to their own text, so the row reads as a search
+        field with qualifiers rather than four equal boxes.
+      */}
+      <div className="filters">
+        <div className="search">
+          {/* Drawn inline rather than taken from the icon registry: that is a UUI custom element,
+              and those do not upgrade inside this shadow root. */}
+          <svg className="search__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10.6 10.6 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <Input
+            ref={searchRef}
+            className="search__input"
+            label="Search text and keys"
+            placeholder="Search text or keys…"
+            value={search}
             onValueChange={(value) => {
-              const picked = SORTS.find((option) => option.value === value) ?? SORTS[0]!;
-              update({ sort: picked.sort, direction: picked.direction });
+              setSearch(value);
+              update({ query: value });
             }}
           />
-        </label>
+          {search && (
+            <button
+              type="button"
+              className="search__clear"
+              aria-label="Clear search"
+              onClick={() => {
+                setSearch("");
+                update({ query: "" });
+              }}
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          )}
+        </div>
+
+        <Select
+          className="control--auto control--quiet"
+          label="Namespace"
+          options={[{ name: "Namespace: All", value: "" },
+            ...namespaces.map((namespace) => ({ name: namespace, value: namespace }))]}
+          value={filters.namespace ?? ""}
+          onValueChange={(namespace) => update({ namespace: namespace || null, keyPrefix: null })}
+        />
+        <Select
+          className="control--auto control--quiet"
+          label="Status"
+          options={STATUSES.map((status) => ({ name: status.label, value: status.value }))}
+          value={filters.status}
+          onValueChange={(status) => update({ status: status as MessageKeyStatus })}
+        />
+        <Select
+          className="control--auto control--quiet"
+          label="Sort order"
+          options={SORTS.map((option) => ({ name: option.label, value: option.value }))}
+          value={sort.value}
+          onValueChange={(value) => {
+            const picked = SORTS.find((option) => option.value === value) ?? SORTS[0]!;
+            update({ sort: picked.sort, direction: picked.direction });
+          }}
+        />
       </div>
     </div>
   );
