@@ -18,6 +18,8 @@ internal static class RemovedMessageRetention
                 ? RemovedMessageAction.None
                 : RemovedMessageAction.Tombstone;
 
+    // A tombstone survives only for its override, and an authored row exists only because of one,
+    // so resetting either leaves nothing worth keeping.
     public static bool DeleteAfterOverrideReset(TranslationMessageState state) =>
-        state is TranslationMessageState.Missing;
+        state is TranslationMessageState.Missing or TranslationMessageState.Authored;
 }

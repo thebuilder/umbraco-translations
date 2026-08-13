@@ -20,4 +20,11 @@ public enum TranslationMessageState
     Changed,
     Missing,
     Invalid,
+
+    /// <summary>
+    /// The row exists because an editor wrote a translation for a locale no source ships, not
+    /// because a source shipped it. It has no application default, so its text lives entirely in
+    /// the override, and synchronisation must leave it alone rather than treat it as removed.
+    /// </summary>
+    Authored,
 }

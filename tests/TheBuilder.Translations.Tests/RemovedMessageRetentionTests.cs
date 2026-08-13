@@ -25,4 +25,18 @@ public sealed class RemovedMessageRetentionTests
     {
         Assert.Equal(expected, RemovedMessageRetention.DeleteAfterOverrideReset(state));
     }
+
+    [Fact]
+    public void Resetting_an_authored_override_deletes_the_row()
+    {
+        // An authored row exists only because someone wrote text for a locale nothing ships, so
+        // removing that text leaves a row with an empty default and no reason to exist.
+        Assert.True(RemovedMessageRetention.DeleteAfterOverrideReset(TranslationMessageState.Authored));
+    }
+
+    [Fact]
+    public void Resetting_an_ordinary_override_keeps_the_row()
+    {
+        Assert.False(RemovedMessageRetention.DeleteAfterOverrideReset(TranslationMessageState.Active));
+    }
 }

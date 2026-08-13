@@ -29,6 +29,7 @@ public sealed record TranslationDiff(
         }
 
         var missing = current
+            .Where(message => message.State is not TranslationMessageState.Authored)
             .Where(message => !incomingByIdentity.ContainsKey(message.Identity))
             .ToArray();
         return new TranslationDiff(added, changed, missing);

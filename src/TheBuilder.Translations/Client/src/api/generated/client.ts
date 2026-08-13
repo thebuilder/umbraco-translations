@@ -1,7 +1,7 @@
 import { client } from "../openapi/client.gen.js";
 import { TranslationsService } from "../openapi/sdk.gen.js";
 import { unwrap } from "../errors.js";
-import type { MessageKeyQuery, MessageStatus, SourceRequest } from "./models.js";
+import type { KeyOverrideRequest, MessageKeyQuery, MessageStatus, SourceRequest } from "./models.js";
 
 interface ApiConfiguration {
   token?: string | (() => Promise<string | undefined>);
@@ -43,6 +43,12 @@ export const api = {
   /** Target-locale ids for a filter, so "select all matching" can be materialised for a bulk write. */
   messageKeyIds: (query: Omit<MessageKeyQuery, "compare" | "sort" | "direction" | "page" | "pageSize">, signal?: AbortSignal) =>
     unwrap(TranslationsService.messageKeysListMessageKeyIds({ ...requestOptions, query, signal })),
+  /**
+   * Saves by identity rather than message id, which is the only way to write a locale no source
+   * ships: there is no id to address until the row exists.
+   */
+  saveKeyOverride: (body: KeyOverrideRequest) =>
+    unwrap(TranslationsService.messageKeysSaveKeyOverride({ ...requestOptions, body })),
   saveOverride: (id: string, value: string, expectedVersion?: number) =>
     unwrap(TranslationsService.messagesSaveMessageOverride({ ...requestOptions, body: { value, expectedVersion }, path: { id } })),
   resetOverride: (id: string, expectedVersion?: number) =>
