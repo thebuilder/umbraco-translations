@@ -165,6 +165,17 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .grid__row:hover .open, .grid__row--selected .open, .grid__cell:focus-within .open { opacity: 1; }
 
 .skeleton { display: block; block-size: 9px; inline-size: 70%; border-radius: 3px; background: var(--uui-color-divider); }
+.skeleton--meta { block-size: 7px; opacity: .6; }
+
+/* Whatever the list has instead of rows. Centred in the card rather than pinned to the top,
+   because there is nothing above it for the eye to start from. */
+.state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--uui-size-space-3); padding: var(--uui-size-layout-1); text-align: center; }
+.state h2 { margin: 0; font-size: 15px; }
+.state__detail { margin: 0; max-inline-size: 34rem; color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
+
+/* Loading is the exception: it draws the shape of the list, so it aligns with the list. */
+.state--loading { align-items: stretch; justify-content: flex-start; gap: 0; padding: 0; }
+.skeleton-row { display: flex; flex-direction: column; justify-content: center; gap: 6px; block-size: 64px; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
 .grid__row--pending { cursor: default; }
 
 /* Overlays the list rather than taking a column, so opening one does not resize the table. */

@@ -13,15 +13,13 @@ export const ROW_HEIGHT = 64;
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
-  keys, filters, locales, total, loading, error, namespaceCount,
+  keys, filters, locales, total, namespaceCount,
   selectedId, onSelect, onLoadMore, hasMore, loadingMore,
 }: {
   keys: MessageKey[];
   filters: EditorFilters;
   locales: readonly LocaleFacet[];
   total: number;
-  loading: boolean;
-  error?: Error;
   namespaceCount: number;
   selectedId?: string;
   onSelect: (messageId: string) => void;
@@ -120,10 +118,6 @@ export const KeyGrid = ({
     const row = rows.findIndex((candidate) => cellOf(candidate.original, filters.locale)?.id === message);
     restoreFocus(row >= 0 ? row : undefined);
   }, [selectedId, rows, filters.locale, restoreFocus]);
-
-  if (error) return <p className="panel error">{error.message}</p>;
-  if (loading) return <p className="panel">Loading translations…</p>;
-  if (rows.length === 0) return <p className="panel">No translations match these filters.</p>;
 
   // Built from the columns actually on screen, so the reference column disappearing closes its
   // track rather than leaving a gap.
