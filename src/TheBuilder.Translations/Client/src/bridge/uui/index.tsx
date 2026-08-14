@@ -1,6 +1,6 @@
 import type { ChangeEvent, KeyboardEvent, ReactNode, Ref } from "react";
 
-type Look = "default" | "primary" | "secondary";
+type Look = "default" | "primary" | "secondary" | "danger";
 type Color = "default" | "positive" | "warning" | "danger";
 
 /**

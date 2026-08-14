@@ -17,13 +17,24 @@ import { describeOverride } from "../validation/override.js";
  * editor knows, then what the application ships in the language being edited, then the field where
  * they replace it. Anything the developer needs is at the bottom, folded away.
  */
-export const TranslationDetail = ({ id, bridge, comparison, next, canEdit, onDirtyChange, select, close }: {
+export const TranslationDetail = ({
+  id, bridge, comparison, next, canEdit, pending, onKeepEditing, onDiscard, onDirtyChange, select, close,
+}: {
   id: string;
   bridge: BackofficeBridge;
   /** The language being compared against, when one is chosen. Read-only context, shown first. */
   comparison?: { locale: string; name: string; value: string | null };
   /** The row after this one, so a reviewer can work down the list without returning to it. */
   next?: string;
+  /**
+   * Set when leaving has been asked for and there is unsaved text in the way: the message id being
+   * moved to, or "close". The question is answered in the footer rather than by a native dialog --
+   * `confirm` is suppressed in enough contexts that relying on it left the editor with no way out
+   * at all.
+   */
+  pending?: string | "close";
+  onKeepEditing: () => void;
+  onDiscard: () => void;
   /**
    * Whether this user may write translations. The API enforces it either way; without it here the
    * editor offers a field to type in and a Save button that can only ever fail.
@@ -120,20 +131,36 @@ export const TranslationDetail = ({ id, bridge, comparison, next, canEdit, onDir
     if (savable && draft !== undefined) save.mutate({ value: draft, then });
   };
 
-  // Escape leaves; the drawer covers the list, so leaving focus behind would strand a keyboard user
-  // behind an overlay. Ctrl/Cmd+S saves, which is the shortcut anyone typing into a field reaches
-  // for, and it has to be caught here or the browser offers to save the page instead.
+  /*
+   * Escape leaves; the drawer covers the list, so leaving focus behind would strand a keyboard
+   * user behind an overlay. While a discard is being asked about, Escape answers that instead --
+   * dismissing the question, not the editor -- because otherwise the key that got someone into the
+   * prompt would also throw their text away.
+   *
+   * Ctrl/Cmd+S and Ctrl/Cmd+Enter both save. Enter alone cannot: the field holds real newlines,
+   * and messages legitimately contain them. Both have to be caught here, or the browser offers to
+   * save the page and the Enter goes into the text instead.
+   *
+   * Held in a ref because the handler closes over values that change on every keystroke. Without
+   * it the effect resubscribes on each render, which is how one Escape ended up asking twice.
+   */
+  const latest = useRef<(event: KeyboardEvent) => void>(() => {});
+  latest.current = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      return pending ? onKeepEditing() : close();
+    }
+    const saving = event.key.toLowerCase() === "s" || event.key === "Enter";
+    if (!saving || !(event.metaKey || event.ctrlKey)) return;
+    event.preventDefault();
+    commit(event.shiftKey && next ? "next" : "close");
+  };
+
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-      if (event.key.toLowerCase() === "s" && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        commit("close");
-      }
-    };
+    const onKeyDown = (event: KeyboardEvent) => latest.current(event);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, []);
 
   const language = message ? nameOf(message.locale) : "";
 
@@ -272,7 +299,17 @@ export const TranslationDetail = ({ id, bridge, comparison, next, canEdit, onDir
         a row of buttons that are permanently dimmed and never explain themselves.
       */}
       <div className="drawer__foot">
-        {canEdit ? (
+        {pending ? (
+          <>
+            <p className="hint">
+              {pending === "close" ? "Close without saving your changes?" : "Open another translation without saving?"}
+            </p>
+            <span className="drawer__actions">
+              <Button look="primary" onClick={onKeepEditing}>Keep editing</Button>
+              <Button look="danger" onClick={onDiscard}>Discard</Button>
+            </span>
+          </>
+        ) : canEdit ? (
           <>
             <Button
               look="secondary"
