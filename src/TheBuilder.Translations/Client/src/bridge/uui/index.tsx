@@ -53,7 +53,7 @@ export const Button = ({ children, look = "default", color = "default", type = "
   </button>
 );
 
-export const Input = ({ value, onValueChange, onEnter, className, label, placeholder, disabled, type = "text" }: {
+export const Input = ({ value, onValueChange, onEnter, className, label, placeholder, disabled, type = "text", ref }: {
   value: string;
   onValueChange: (value: string) => void;
   onEnter?: () => void;
@@ -62,8 +62,10 @@ export const Input = ({ value, onValueChange, onEnter, className, label, placeho
   disabled?: boolean;
   type?: string;
   className?: string;
+  ref?: React.Ref<HTMLInputElement>;
 }) => (
   <input
+    ref={ref}
     className={["control", className ?? ""].filter(Boolean).join(" ")}
     type={type}
     value={value}

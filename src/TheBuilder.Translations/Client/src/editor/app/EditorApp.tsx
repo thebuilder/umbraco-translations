@@ -3,6 +3,7 @@ import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/KeyGrid.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
+import { useSearchShortcut } from "../search/use-search-shortcut.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { Toolbar } from "./Toolbar.js";
 
@@ -27,6 +28,12 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const close = useCallback(() => {
     if (mayLeave()) setSelectedId(undefined);
   }, []);
+
+  const search = useRef<HTMLInputElement>(null);
+  useSearchShortcut(useCallback(() => {
+    search.current?.focus();
+    search.current?.select();
+  }, []));
 
   const facets = useFacets();
   const permissions = usePermissions();
@@ -78,6 +85,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
         locales={locales}
         namespaces={facets.data?.namespaces ?? []}
         update={update}
+        searchRef={search}
       />
 
       <div className="board">

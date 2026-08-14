@@ -43,7 +43,8 @@ export const KeyGrid = ({
     editingName: nameOf(filters.locale),
     comparisonName: nameOf(filters.referenceLocale),
     showNamespace: namespaceCount > 1 || filters.namespace === null,
-  }), [filters.locale, filters.referenceLocale, filters.namespace, namespaceCount, nameOf]);
+    term: filters.query,
+  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, nameOf]);
 
   const table = useTable({
     features: keyTableFeatures,
