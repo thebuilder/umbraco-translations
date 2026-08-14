@@ -30,6 +30,9 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
 
   const facets = useFacets();
   const permissions = usePermissions();
+  // Defaults to withheld rather than granted: until the answer arrives, offering a field that
+  // cannot be saved is the more expensive of the two mistakes to make.
+  const canEdit = permissions.data?.canEdit ?? false;
   const sync = useSyncStatus();
   const rows = useKeyRows(filters);
 
@@ -106,7 +109,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
           )}
           <span className="board__spacer" />
           {syncing && <span role="status">Synchronising…</span>}
-          {permissions.data && !permissions.data.canEdit && <span>Read-only access</span>}
+          {permissions.data && !permissions.data.canEdit && <span>View-only access</span>}
         </div>
 
         {selectedId && (
@@ -116,6 +119,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
             bridge={bridge}
             comparison={comparisonFor(selectedId)}
             next={rowAfter(selectedId)}
+            canEdit={canEdit}
             onDirtyChange={onDirtyChange}
             select={select}
             close={close}
