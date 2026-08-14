@@ -81,8 +81,8 @@ export const keyColumns = ({
             <span className="meta">
               {showNamespace && (
                 <>
-                  <span className="meta__namespace">{info.row.original.namespace}</span>
-                  <span aria-hidden="true"> · </span>
+                  {/* Part of the key, written the way the key is written. */}
+                  <span className="meta__namespace">{info.row.original.namespace}.</span>
                 </>
               )}
               <span className="meta__key" title={`${info.row.original.namespace}.${info.row.original.key}`}>
@@ -110,7 +110,7 @@ export const keyColumns = ({
     helper.display({
       id: "open",
       header: () => <span className="visually-hidden">Open</span>,
-      meta: { width: "1.75rem" },
+      meta: { width: "2rem" },
       // The whole row opens the editor; this only says so. It shows on hover and on focus rather
       // than marking every row permanently, and stays out of the tab order because Enter on the
       // row already does the same thing.
