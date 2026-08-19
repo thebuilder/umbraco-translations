@@ -92,10 +92,14 @@ internal static class TranslationKeyQueries
         var detail = query.DetailLocales.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var locales = new Dictionary<string, TranslationMessageLocaleView>(StringComparer.OrdinalIgnoreCase);
         var coverage = new Dictionary<string, MessageLocaleState>(StringComparer.OrdinalIgnoreCase);
+        // Every locale row is tested against the search, including the ones that contribute nothing
+        // but a state, so this can name a language whose text the response never carries.
+        var matched = new List<string>();
 
         foreach (var row in rows)
         {
             coverage[row.Locale] = StateOf(row);
+            if (row.Matched == 1) matched.Add(row.Locale);
             if (!detail.Contains(row.Locale)) continue;
             locales[row.Locale] = new TranslationMessageLocaleView(
                 row.Id,
@@ -122,7 +126,8 @@ internal static class TranslationKeyQueries
             shape is null ? MessageFormat.PlainText : Enum.Parse<MessageFormat>(shape.Format),
             shape is null ? new Dictionary<string, string>() : TranslationRowMapper.DeserializeArguments(shape.ArgumentSignature!),
             locales,
-            coverage);
+            coverage,
+            matched);
     }
 
     private static MessageLocaleState StateOf(MessageLocaleRow row)
