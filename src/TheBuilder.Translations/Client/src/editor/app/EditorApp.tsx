@@ -5,6 +5,7 @@ import { KeyGrid } from "../components/KeyGrid.js";
 import { ListState } from "../components/ListState.js";
 import { Shortcuts } from "../components/Shortcuts.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
+import { matchedElsewhere } from "../search/matched-in.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
 import { editingMode } from "../state/editing-mode.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
@@ -102,6 +103,16 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     setPending(undefined);
   }, [pending, go]);
 
+  /*
+   * Rows that are results on the strength of a language neither column shows. Search is
+   * locale-blind, so pasting in an English sentence while editing Danish finds the key -- but
+   * without saying how many rows came back that way, the list reads as though it ignored what was
+   * typed. Counted over the rows in hand rather than the whole result, because that is all anyone
+   * can scroll to; the grid keeps pulling pages until the two agree.
+   */
+  const elsewhere = rows.keys.filter((key) =>
+    matchedElsewhere(key, shown.query, [shown.locale, shown.referenceLocale]).length > 0).length;
+
   const listState = describeListState({
     error: rows.query.error ?? undefined,
     loading: rows.query.isLoading,
@@ -148,6 +159,14 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
                 <strong>{rows.total.toLocaleString()}</strong> {rows.total === 1 ? "key" : "keys"}
                 {shown.query && <> matching “{shown.query}”</>}
               </span>
+              {/* Said once here rather than only row by row, so the shape of the result is legible
+                  before scrolling it: a search that mostly hit a language nobody is looking at is
+                  a different thing from one that hit the words on screen. */}
+              {elsewhere > 0 && (
+                <span className="results__aside">
+                  {elsewhere.toLocaleString()} matched in a language you are not viewing
+                </span>
+              )}
               {/* A queue is worth narrowing to the work still in it, but not behind the editor's
                   back: the offer says how many, and taking it is one press. */}
               {mode === "queue" && shown.status === "All" && current && current.absentKeyCount > 0 && (

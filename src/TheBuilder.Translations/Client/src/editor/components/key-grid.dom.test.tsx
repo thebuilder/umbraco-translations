@@ -20,14 +20,21 @@ const cell = (locale: string, text: string, state: MessageLocaleState = "Default
   updatedBy: null,
 });
 
-const key = (name: string, cells: MessageKey["cells"]): MessageKey => ({
+/**
+ * `matchedLocales` is the server's own answer about where the search hit, so a fixture that has a
+ * term in its text has to say so here too -- an empty list is the server saying no language
+ * matched, not the server saying nothing.
+ */
+const key = (name: string, cells: MessageKey["cells"], matchedLocales: string[] = []): MessageKey => ({
   sourceId: "s1", namespace: "website", key: name, format: "Icu", arguments: {}, cells, coverage: {},
-  matchedLocales: [],
+  matchedLocales,
 });
 
 const LOCALES: LocaleFacet[] = [
   { code: "da", name: "Danish", isDefault: false, isConfigured: true, messageCount: 10, overriddenCount: 2, needsReviewCount: 1, absentKeyCount: 1 },
   { code: "en", name: "English", isDefault: true, isConfigured: true, messageCount: 10, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0 },
+  // Neither edited nor compared: the language a row can only be a result because of.
+  { code: "de", name: "German", isDefault: false, isConfigured: true, messageCount: 10, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0 },
 ];
 
 const show = (keys: MessageKey[], filters: Partial<EditorFilters> = {}, mode: "search" | "queue" = "search") =>
@@ -83,7 +90,7 @@ describe("what a row says about itself", () => {
 describe("why a row is a result", () => {
   it("names the language the hit was in when it is not the one leading the row", () => {
     show(
-      [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") })],
+      [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") }, ["en"])],
       { query: "Welcome back" },
     );
 
@@ -101,7 +108,7 @@ describe("why a row is a result", () => {
 
   it("stays quiet when the hit is in the words already shown, which are marked", () => {
     const { container } = show(
-      [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") })],
+      [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") }, ["da"])],
       { query: "Velkommen" },
     );
 
@@ -109,15 +116,25 @@ describe("why a row is a result", () => {
     expect(container.querySelector(".hit")?.textContent).toBe("Velkommen");
   });
 
-  it("says nothing rather than guessing when the hit is in neither language on screen", () => {
-    // The server matches every language it was asked for; inventing an explanation for a hit this
-    // client cannot see would be worse than leaving the row unexplained.
-    const { container } = show(
-      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") })],
+  it("names a language with no column at all, because the server says which one", () => {
+    // The row this feature exists for: the words in both columns look unrelated to what was typed,
+    // and the only thing that can explain it is the language nobody is looking at.
+    show(
+      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de"])],
       { query: "Willkommen" },
     );
 
-    expect(container.querySelector(".row__source")).toBeNull();
+    expect(screen.getByText("matched · German")).toBeTruthy();
+  });
+
+  it("names all of them when the sentence turns up in more than one", () => {
+    show(
+      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de", "sv"])],
+      { query: "Willkommen" },
+    );
+
+    // No facet for Swedish here, so it falls back to the code rather than dropping the language.
+    expect(screen.getByText("matched · German, sv")).toBeTruthy();
   });
 });
 

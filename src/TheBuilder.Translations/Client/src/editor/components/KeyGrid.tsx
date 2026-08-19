@@ -43,6 +43,7 @@ export const KeyGrid = ({
     comparison: filters.referenceLocale,
     editingName: nameOf(filters.locale),
     comparisonName: nameOf(filters.referenceLocale),
+    nameOf,
     showNamespace: namespaceCount > 1 || filters.namespace === null,
     term: filters.query,
     mode,
