@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import type { MessageCell, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/Highlight.js";
-import { matchesTerm } from "../search/matching.js";
+import { matchedIn, type MatchedInOptions } from "../search/matched-in.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { cellStatus } from "./cell-status.js";
 
@@ -42,26 +42,14 @@ export const cellOf = (key: MessageKey | undefined, locale: string | null): Mess
 export const valueOf = (cell: MessageCell | undefined): string | null =>
   cell === undefined ? null : cell.overrideValue ?? cell.defaultValue;
 
-export interface KeyColumnOptions {
-  editing: string | null;
-  comparison: string | null;
-  /** How each language reads to an editor, so a row names a language rather than a code. */
-  editingName: string;
-  comparisonName: string;
+/**
+ * Extends what naming a search hit needs -- the two languages, their names, a way to name a third,
+ * the term and the mode -- because a row is where that naming is done and passing the same object
+ * on is cheaper than restating it.
+ */
+export interface KeyColumnOptions extends MatchedInOptions {
   /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
   showNamespace: boolean;
-  /**
-   * The active search, marked wherever it appears. The server matches on the key, the application
-   * text and the custom text, so those are the three places a row can be a hit for reasons that
-   * are otherwise invisible -- a match in the key explains a row whose text looks unrelated.
-   */
-  term: string;
-  /**
-   * Which language leads the row. Editing a language the application ships nothing for puts a
-   * column of "Not written" first, which is a list of absences rather than a queue of work, so
-   * there the row leads with the language being written from.
-   */
-  mode: EditingMode;
 }
 
 export const keyColumns = (options: KeyColumnOptions) => {
@@ -131,26 +119,6 @@ export const keyColumns = (options: KeyColumnOptions) => {
       ),
     }),
   ]);
-};
-
-/**
- * Where the search hit was, when it was not in the words leading the row.
- *
- * Said only when it explains something. A hit in the leading column is already marked there, and a
- * row whose hit is in neither language on screen says nothing rather than guessing: the server
- * matches the key and both languages' text, so anything else would be an invented explanation.
- */
-const matchedIn = (row: MessageKey, { editing, comparison, term, mode, ...names }: KeyColumnOptions): string | null => {
-  if (term.trim() === "") return null;
-
-  const lead = mode === "queue" ? comparison : editing;
-  const second = mode === "queue" ? editing : comparison;
-  if (matchesTerm(valueOf(cellOf(row, lead)), term)) return null;
-
-  if (second !== null && second !== lead && matchesTerm(valueOf(cellOf(row, second)), term))
-    return mode === "queue" ? names.editingName : names.comparisonName;
-
-  return matchesTerm(`${row.namespace}.${row.key}`, term) ? "the key" : null;
 };
 
 /** Which language the column holds. What it is for is said once, above the list. */
