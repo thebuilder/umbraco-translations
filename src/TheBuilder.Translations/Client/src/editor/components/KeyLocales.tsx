@@ -1,0 +1,81 @@
+import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
+import { Highlight } from "../search/Highlight.js";
+import { valueOf } from "./key-columns.js";
+
+/**
+ * The same key in every language the site has.
+ *
+ * The list holds two languages because a list is for scanning and a third column is too narrow for
+ * a sentence. This is where the question that leaves out gets answered: is the wording wrong
+ * everywhere, or only in the one being edited. For the job that brings an editor here most often --
+ * somebody reported a string -- that is usually the actual question.
+ *
+ * Switching to one is switching the whole view to it, not a second editor inside the first. Two
+ * fields for two languages open at once is a way to save text into the wrong one.
+ */
+export const KeyLocales = ({ row, locales, editing, term, loading, onEdit }: {
+  /** The key with a cell per language, or undefined while that is still being fetched. */
+  row: MessageKey | null | undefined;
+  locales: readonly LocaleFacet[];
+  editing: string;
+  term: string;
+  loading: boolean;
+  onEdit: (locale: string) => void;
+}) => {
+  if (loading) return <p className="pane__note">Looking up the other languages…</p>;
+  if (!row) return null;
+
+  const shown = locales.filter((locale) => row.cells[locale.code] !== undefined || locale.code === editing);
+  const unwritten = shown.filter((locale) => row.cells[locale.code] === undefined).length;
+
+  return (
+    <section className="pane__block">
+      <div className="pane__blockhead">
+        <h3>This key in every language</h3>
+        <span className="pane__aside">
+          {shown.length} {shown.length === 1 ? "language" : "languages"}
+          {unwritten > 0 && ` · ${unwritten} not written`}
+        </span>
+      </div>
+
+      <ul className="locales">
+        {shown.map((locale) => {
+          const current = locale.code === editing;
+          const text = valueOf(row.cells[locale.code]);
+          return (
+            <li key={locale.code} className={current ? "locales__row locales__row--current" : "locales__row"}>
+              <span className="locales__name">
+                {locale.name || locale.code}
+                <span className="locales__code">{locale.code}</span>
+              </span>
+              {text === null || text === "" ? (
+                <span className="locales__text locales__text--absent">
+                  {text === "" ? "Deliberately empty" : "Not written"}
+                </span>
+              ) : (
+                <span className="locales__text" title={text}>
+                  <Highlight text={text} term={term} />
+                </span>
+              )}
+              {current ? (
+                // Already the language being edited: the field above is where it is changed.
+                <span className="locales__here" aria-label="Being edited">
+                  <span className="row__dot" aria-hidden="true" />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="locales__edit"
+                  aria-label={`Edit this key in ${locale.name || locale.code}`}
+                  onClick={() => onEdit(locale.code)}
+                >
+                  <span aria-hidden="true">✎</span>
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+};

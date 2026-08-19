@@ -15,6 +15,17 @@ export interface TextPart {
  * collation is case-insensitive and the SQLite queries use LIKE, which is case-insensitive for
  * ASCII. Marking only exact-case runs would leave visible hits unmarked.
  */
+/**
+ * Whether the term is in this text at all, by the same literal, case-insensitive rule the server
+ * applies. Used to say *why* a row is a result: the server matches the key, the application text
+ * and the custom text, so a row whose visible words look unrelated was matched by something else,
+ * and naming it is the difference between a result and a puzzle.
+ */
+export const matchesTerm = (text: string | null | undefined, term: string): boolean => {
+  const needle = term.trim().toLowerCase();
+  return needle.length > 0 && (text ?? "").toLowerCase().includes(needle);
+};
+
 export const splitOnMatch = (text: string, term: string): TextPart[] => {
   const needle = term.trim().toLowerCase();
   if (needle.length === 0 || text.length === 0) return [{ text, match: false }];

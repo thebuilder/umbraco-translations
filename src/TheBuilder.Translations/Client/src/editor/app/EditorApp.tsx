@@ -3,18 +3,22 @@ import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/KeyGrid.js";
 import { ListState } from "../components/ListState.js";
+import { Shortcuts } from "../components/Shortcuts.js";
 import { TranslationDetail } from "../components/TranslationDetail.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
+import { editingMode } from "../state/editing-mode.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
+import { sameTarget, targetOf, targetId, type EditTarget } from "../state/target.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
-import { Toolbar } from "./Toolbar.js";
+import { ContextStrip } from "./ContextStrip.js";
+import { FilterBar } from "./FilterBar.js";
 
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const [filters, update] = useUrlFilters();
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selected, setSelected] = useState<EditTarget>();
 
   /**
-   * Typed text that has not been saved lives only in the drawer, so anything that would unmount it
+   * Typed text that has not been saved lives only in the pane, so anything that would unmount it
    * has to ask first. A ref rather than state: this changes on every keystroke and re-rendering the
    * whole editor for it would be absurd, and nothing on screen depends on the value.
    */
@@ -22,30 +26,14 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const onDirtyChange = useCallback((dirty: boolean) => { unsaved.current = dirty; }, []);
 
   /**
-   * Where the editor is trying to go while unsaved text is in the way: another message id, or
-   * "close". The drawer asks about it in its own footer.
+   * Where the editor is trying to go while unsaved text is in the way: another translation, or
+   * "close". The pane asks about it in its own footer.
    *
    * This used to be `confirm()`, which is suppressed in enough contexts that the dialog never
-   * appeared and its false return left the drawer with no way out at all -- Escape and the close
+   * appeared and its false return left the pane with no way out at all -- Escape and the close
    * button both silently did nothing, with the text still in the field.
    */
-  const [pending, setPending] = useState<string | "close">();
-
-  // Both routes out of an open translation: picking another row, and closing altogether.
-  const select = useCallback((messageId: string) => {
-    if (!unsaved.current || messageId === selectedId) setSelectedId(messageId);
-    else setPending(messageId);
-  }, [selectedId]);
-  const close = useCallback(() => {
-    if (unsaved.current) setPending("close");
-    else setSelectedId(undefined);
-  }, []);
-
-  const discard = useCallback(() => {
-    unsaved.current = false;
-    setSelectedId(pending === "close" ? undefined : pending);
-    setPending(undefined);
-  }, [pending]);
+  const [pending, setPending] = useState<EditTarget | "close">();
 
   const search = useRef<HTMLInputElement>(null);
   useSearchShortcut(useCallback(() => {
@@ -62,111 +50,185 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const rows = useKeyRows(filters);
 
   const locales = facets.data?.locales ?? [];
-  // The server resolves the pair when the URL names neither and reports what it chose, so the
-  // toolbar reflects that decision rather than duplicating the rules.
+  // The server resolves the pair when the URL names neither and reports what it chose, so the strip
+  // reflects that decision rather than duplicating the rules.
   const page = rows.query.data?.pages[0];
   const shown: typeof filters = {
     ...filters,
     locale: filters.locale ?? page?.targetLocale ?? null,
     referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
   };
+
+  const current = locales.find((locale) => locale.code === shown.locale);
+  const mode = editingMode(current);
+  const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
+  const referenceName = locales.find((locale) => locale.code === shown.referenceLocale)?.name
+    || shown.referenceLocale
+    || "";
+
+  /**
+   * Opening a translation, including one in another language.
+   *
+   * Correcting the reference language is editing it, so it moves the whole view rather than opening
+   * a second field beside the first: two editable languages on screen at once is a way to save text
+   * into the wrong one. The comparison follows, or the view ends up comparing a language with
+   * itself and the reference column silently disappears.
+   */
+  const go = useCallback((target: EditTarget) => {
+    setSelected(target);
+    if (target.locale !== shown.locale) {
+      update({
+        locale: target.locale,
+        referenceLocale: target.locale === shown.referenceLocale ? shown.locale : shown.referenceLocale,
+      });
+    }
+  }, [shown.locale, shown.referenceLocale, update]);
+
+  // Both routes out of an open translation: picking another row, and closing altogether.
+  const select = useCallback((target: EditTarget) => {
+    if (!unsaved.current || sameTarget(target, selected)) go(target);
+    else setPending(target);
+  }, [selected, go]);
+
+  const close = useCallback(() => {
+    if (unsaved.current) setPending("close");
+    else setSelected(undefined);
+  }, []);
+
+  const discard = useCallback(() => {
+    unsaved.current = false;
+    if (pending === undefined || pending === "close") setSelected(undefined);
+    else go(pending);
+    setPending(undefined);
+  }, [pending, go]);
+
   const listState = describeListState({
     error: rows.query.error ?? undefined,
     loading: rows.query.isLoading,
     rowCount: rows.keys.length,
     totalKeys: facets.data?.totalKeys,
   });
-
-  const current = locales.find((locale) => locale.code === shown.locale);
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
 
-  // Which row an open translation is, so the drawer can offer the one after it and show the
-  // comparison text the list already holds rather than fetching it a second time.
-  const rowOf = (messageId: string) =>
-    rows.keys.findIndex((key) => shown.locale !== null && key.cells[shown.locale]?.id === messageId);
-
-  const rowAfter = (messageId: string): string | undefined => {
-    const index = rowOf(messageId);
-    const following = index < 0 ? undefined : rows.keys[index + 1];
-    return shown.locale !== null && following ? following.cells[shown.locale]?.id : undefined;
-  };
-
-  const comparisonFor = (messageId: string) => {
-    const reference = shown.referenceLocale;
-    if (reference === null || reference === shown.locale) return undefined;
-    const key = rows.keys[rowOf(messageId)];
-    const cell = key?.cells[reference];
-    return {
-      locale: reference,
-      name: locales.find((locale) => locale.code === reference)?.name || reference,
-      value: cell ? cell.overrideValue ?? cell.defaultValue : null,
-    };
+  // Where an open translation sits in the result, so the pane can offer the rows either side of it
+  // and say how much of a queue is left. Looked up by identity rather than remembered as a
+  // position, because the row moves underneath: saving while sorted by what needs attention
+  // reorders the list while the pane is still open on the row that moved.
+  const index = selected === undefined
+    ? -1
+    : rows.keys.findIndex((key) => sameTarget(targetOf(key, selected.locale), selected));
+  const row = index < 0 ? undefined : rows.keys[index];
+  const step = (offset: number): EditTarget | undefined => {
+    const neighbour = index < 0 ? undefined : rows.keys[index + offset];
+    return neighbour && selected ? targetOf(neighbour, selected.locale) : undefined;
   };
 
   return (
     <main className="shell">
-      <Toolbar
+      <ContextStrip
         filters={shown}
         locales={locales}
+        totalKeys={facets.data?.totalKeys}
+        mode={mode}
+        update={update}
+      />
+
+      <FilterBar
+        filters={shown}
         namespaces={facets.data?.namespaces ?? []}
         update={update}
         searchRef={search}
       />
 
       <div className="board">
-        {listState.kind === "rows" ? (
-          <KeyGrid
-            keys={rows.keys}
-            filters={shown}
-            total={rows.total}
-            locales={locales}
-            namespaceCount={facets.data?.namespaces.length ?? 0}
-            selectedId={selectedId}
-            onSelect={select}
-            onLoadMore={() => void rows.query.fetchNextPage()}
-            hasMore={rows.query.hasNextPage}
-            loadingMore={rows.query.isFetchingNextPage}
-          />
-        ) : (
-          <ListState
-            state={listState}
-            term={shown.query}
-            filtered={hasNarrowingFilters(shown)}
-            canManageSources={permissions.data?.canManageSources ?? false}
-            onClear={() => update(clearedFilters())}
-            onRetry={() => void rows.query.refetch()}
-          />
-        )}
+        <div className="results">
+          {listState.kind === "rows" && (
+            <div className="results__head">
+              <span>
+                <strong>{rows.total.toLocaleString()}</strong> {rows.total === 1 ? "key" : "keys"}
+                {shown.query && <> matching “{shown.query}”</>}
+              </span>
+              {/* A queue is worth narrowing to the work still in it, but not behind the editor's
+                  back: the offer says how many, and taking it is one press. */}
+              {mode === "queue" && shown.status === "All" && current && current.absentKeyCount > 0 && (
+                <button type="button" className="link" onClick={() => update({ status: "Absent" })}>
+                  Show only the {current.absentKeyCount.toLocaleString()} not written yet
+                </button>
+              )}
+            </div>
+          )}
 
-        <div className="board__bar">
-          <span><strong>{rows.total.toLocaleString()}</strong> translations</span>
-          {current && current.absentKeyCount > 0 && (
-            <><span className="board__sep" />{current.absentKeyCount.toLocaleString()} not translated</>
+          {listState.kind === "rows" ? (
+            <KeyGrid
+              keys={rows.keys}
+              filters={shown}
+              total={rows.total}
+              locales={locales}
+              namespaceCount={facets.data?.namespaces.length ?? 0}
+              mode={mode}
+              selected={selected}
+              onSelect={select}
+              onLoadMore={() => void rows.query.fetchNextPage()}
+              hasMore={rows.query.hasNextPage}
+              loadingMore={rows.query.isFetchingNextPage}
+            />
+          ) : (
+            <ListState
+              state={listState}
+              term={shown.query}
+              filtered={hasNarrowingFilters(shown)}
+              canManageSources={permissions.data?.canManageSources ?? false}
+              onClear={() => update(clearedFilters())}
+              onRetry={() => void rows.query.refetch()}
+            />
           )}
-          {current && current.needsReviewCount > 0 && (
-            <>
-              <span className="board__sep" />
-              <span className="status--warning">{current.needsReviewCount.toLocaleString()} need review</span>
-            </>
-          )}
-          <span className="board__spacer" />
-          {syncing && <span role="status">Synchronising…</span>}
-          {permissions.data && !permissions.data.canEdit && <span>View-only access</span>}
+
+          <div className="results__foot">
+            <span>
+              <strong>{(facets.data?.totalKeys ?? 0).toLocaleString()}</strong> keys
+              {shown.namespace && <> in {shown.namespace}</>}
+            </span>
+            {/* Secondary, and said again in the strip at the top, so these are what goes first when
+                the pane takes half the width. The shortcuts below are not repeated anywhere. */}
+            {current && current.absentKeyCount > 0 && (
+              <span className="results__aside">
+                {current.absentKeyCount.toLocaleString()} not written in {current.name || current.code}
+              </span>
+            )}
+            {current && current.needsReviewCount > 0 && (
+              <span className="results__aside results__warning">
+                {current.needsReviewCount.toLocaleString()} changed upstream
+              </span>
+            )}
+            <span className="results__spacer" />
+            {syncing && <span role="status">Synchronising…</span>}
+            {permissions.data && !permissions.data.canEdit && <span>View-only access</span>}
+            <Shortcuts editing={selected !== undefined && row !== undefined} />
+          </div>
         </div>
 
-        {selectedId && (
+        {selected && row && shown.locale && (
           <TranslationDetail
-            key={selectedId}
-            id={selectedId}
+            key={targetId(selected)}
+            target={selected}
+            row={row}
             bridge={bridge}
-            comparison={comparisonFor(selectedId)}
-            next={rowAfter(selectedId)}
+            locales={locales}
+            reference={comparing && shown.referenceLocale
+              ? { locale: shown.referenceLocale, name: referenceName }
+              : undefined}
+            mode={mode}
+            term={shown.query}
+            position={{ index: index + 1, total: rows.total }}
+            previous={step(-1)}
+            next={step(1)}
             canEdit={canEdit}
             pending={pending}
             onKeepEditing={() => setPending(undefined)}
             onDiscard={discard}
             onDirtyChange={onDirtyChange}
             select={select}
+            switchLocale={(locale) => select({ ...selected, locale })}
             close={close}
           />
         )}

@@ -53,6 +53,57 @@ export const useKeyRows = (filters: EditorFilters): KeyRows => {
   return { keys, total: totalOf(query.data), query: query as KeyRows["query"] };
 };
 
+/**
+ * One key, in every language there is.
+ *
+ * The list shows two languages because a list is for scanning and a third column is too narrow to
+ * hold a sentence. The question the list therefore cannot answer -- is this wrong everywhere, or
+ * only here -- is the one an editor asks most often once they have found the row, so the pane
+ * fetches the rest.
+ *
+ * A separate query rather than widening the list's own: asking for every language on every row of
+ * a thousand-row page would pay for the whole grid to answer a question about one cell of it. The
+ * key is addressed by its prefix, which matches that node of the key tree and everything beneath
+ * it, so the exact row is picked back out here.
+ *
+ * The two locales that define the key set are the same pair the list used, deliberately. The server
+ * builds the set of keys from those two alone -- a compare locale adds a column but must not drag
+ * in keys neither of them has -- so any other pair could exclude the very key being asked about.
+ */
+export const useKeyLocales = (
+  target: { sourceId: string; namespace: string; key: string } | undefined,
+  keySet: { locale: string; referenceLocale: string } | undefined,
+  locales: readonly string[],
+  enabled: boolean,
+) =>
+  useQuery({
+    queryKey: queryKeys.keyLocales(
+      target?.sourceId ?? "",
+      target?.namespace ?? "",
+      target?.key ?? "",
+      `${keySet?.locale ?? ""}|${keySet?.referenceLocale ?? ""}`,
+    ),
+    enabled: enabled && target !== undefined && keySet !== undefined && locales.length > 0,
+    queryFn: async ({ signal }) => {
+      const page = await api.messageKeys({
+        sourceId: target!.sourceId,
+        namespace: target!.namespace,
+        keyPrefix: target!.key,
+        locale: keySet!.locale,
+        referenceLocale: keySet!.referenceLocale,
+        compare: locales.filter((code) => code !== keySet!.locale && code !== keySet!.referenceLocale),
+        pageSize: KEY_TREE_PAGE_SIZE,
+      }, signal);
+      return page.items.find((item) => item.key === target!.key) ?? null;
+    },
+  });
+
+/**
+ * A prefix names a node and everything under it, so a key with children brings them along. Enough
+ * to find the key itself among them without paging, and small enough that a deep node costs little.
+ */
+const KEY_TREE_PAGE_SIZE = 50;
+
 export const useFacets = () =>
   useQuery({
     queryKey: queryKeys.facets(),

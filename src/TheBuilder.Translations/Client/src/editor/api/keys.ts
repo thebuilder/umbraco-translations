@@ -28,4 +28,11 @@ export const queryKeys = {
   keyList: (filters: EditorFilters) => [...queryKeys.keys(), filters] as const,
 
   message: (id: string) => [...queryKeys.all, "message", id] as const,
+
+  /**
+   * One key across every language. Under the list prefix so that saving, which already invalidates
+   * the list, refreshes this with it -- the pane is showing the same rows from a different angle.
+   */
+  keyLocales: (sourceId: string, namespace: string, key: string, keySet: string) =>
+    [...queryKeys.keys(), "locales", sourceId, namespace, key, keySet] as const,
 } as const;
