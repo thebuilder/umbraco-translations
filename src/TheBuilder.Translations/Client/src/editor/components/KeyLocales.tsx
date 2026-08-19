@@ -1,5 +1,6 @@
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/Highlight.js";
+import { localeIn, sameLocale } from "../state/locales.js";
 import { valueOf } from "./key-columns.js";
 
 /**
@@ -9,6 +10,10 @@ import { valueOf } from "./key-columns.js";
  * a sentence. This is where the question that leaves out gets answered: is the wording wrong
  * everywhere, or only in the one being edited. For the job that brings an editor here most often --
  * somebody reported a string -- that is usually the actual question.
+ *
+ * Every configured language is listed, including the ones this key has never been written in. Those
+ * are half the answer: "which languages still need this" is not something a list of the languages
+ * that already have it can be read backwards to give.
  *
  * Switching to one is switching the whole view to it, not a second editor inside the first. Two
  * fields for two languages open at once is a way to save text into the wrong one.
@@ -25,23 +30,22 @@ export const KeyLocales = ({ row, locales, editing, term, loading, onEdit }: {
   if (loading) return <p className="pane__note">Looking up the other languages…</p>;
   if (!row) return null;
 
-  const shown = locales.filter((locale) => row.cells[locale.code] !== undefined || locale.code === editing);
-  const unwritten = shown.filter((locale) => row.cells[locale.code] === undefined).length;
+  const unwritten = locales.filter((locale) => localeIn(row.cells, locale.code) === undefined).length;
 
   return (
     <section className="pane__block">
       <div className="pane__blockhead">
         <h3>This key in every language</h3>
         <span className="pane__aside">
-          {shown.length} {shown.length === 1 ? "language" : "languages"}
+          {locales.length} {locales.length === 1 ? "language" : "languages"}
           {unwritten > 0 && ` · ${unwritten} not written`}
         </span>
       </div>
 
       <ul className="locales">
-        {shown.map((locale) => {
-          const current = locale.code === editing;
-          const text = valueOf(row.cells[locale.code]);
+        {locales.map((locale) => {
+          const current = sameLocale(locale.code, editing);
+          const text = valueOf(localeIn(row.cells, locale.code));
           return (
             <li key={locale.code} className={current ? "locales__row locales__row--current" : "locales__row"}>
               <span className="locales__name">

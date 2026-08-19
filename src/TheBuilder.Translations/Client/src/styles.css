@@ -278,8 +278,14 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 /* Nothing in either bar wraps. A phrase broken over four lines is not a smaller phrase, it is a
    taller bar and an unreadable one; what does not fit is dropped instead, further down. */
 .results__head > *, .results__foot > * { white-space: nowrap; }
+.results__head { justify-content: flex-start; }
+/* Counts that are said again in the strip above, so they are what a narrow bar gives up first. */
 .results__aside { flex: none; display: flex; align-items: center; gap: var(--uui-size-space-3); }
 .results__aside::before { content: ""; inline-size: 1px; block-size: .75rem; background: var(--uui-color-divider); }
+/* Not that. This is the only sentence on screen explaining why rows nobody can read the reason for
+   came back, and it is needed most when the pane is open over the results it is explaining. It
+   keeps its own class so the rule below cannot reach it. */
+.results__because { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
 .results__spacer { flex: 1 1 auto; }
 .results__warning { color: var(--edit-warning); }
 /* The shortcuts where they are used, rather than only in a sheet nobody opens -- which means they
@@ -496,7 +502,8 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 }
 
 /* What the bars give up, in the order they can afford to. The counts go first: the strip at the top
-   already carries them. The shortcuts go last, because nothing else on screen says them. */
+   already carries them. The shortcuts go last, because nothing else on screen says them. What is
+   never given up is the line explaining a result the reader cannot otherwise account for. */
 @container results (max-width: 34rem) {
   .results__aside { display: none; }
 }

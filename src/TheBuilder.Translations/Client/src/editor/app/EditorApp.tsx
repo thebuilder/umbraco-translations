@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/KeyGrid.js";
@@ -9,6 +9,7 @@ import { matchedElsewhere } from "../search/matched-in.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
 import { editingMode } from "../state/editing-mode.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
+import { facetFor, localeName } from "../state/locales.js";
 import { sameTarget, targetOf, targetId, type EditTarget } from "../state/target.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { ContextStrip } from "./ContextStrip.js";
@@ -60,12 +61,10 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
   };
 
-  const current = locales.find((locale) => locale.code === shown.locale);
+  const current = facetFor(locales, shown.locale);
   const mode = editingMode(current);
   const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
-  const referenceName = locales.find((locale) => locale.code === shown.referenceLocale)?.name
-    || shown.referenceLocale
-    || "";
+  const referenceName = localeName(locales, shown.referenceLocale);
 
   /**
    * Opening a translation, including one in another language.
@@ -110,8 +109,14 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
    * typed. Counted over the rows in hand rather than the whole result, because that is all anyone
    * can scroll to; the grid keeps pulling pages until the two agree.
    */
-  const elsewhere = rows.keys.filter((key) =>
-    matchedElsewhere(key, shown.query, [shown.locale, shown.referenceLocale]).length > 0).length;
+  const elsewhere = useMemo(
+    () => rows.keys.filter((key) =>
+      matchedElsewhere(key, shown.query, [shown.locale, shown.referenceLocale]).length > 0).length,
+    // Memoised because the whole loaded result is scanned and a keystroke in the search field
+    // re-renders this component: the filter state is set synchronously and only the history write
+    // is debounced, so without this a ten-character search walks a thousand-row list ten times.
+    [rows.keys, shown.query, shown.locale, shown.referenceLocale],
+  );
 
   const listState = describeListState({
     error: rows.query.error ?? undefined,
@@ -163,7 +168,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
                   before scrolling it: a search that mostly hit a language nobody is looking at is
                   a different thing from one that hit the words on screen. */}
               {elsewhere > 0 && (
-                <span className="results__aside">
+                <span className="results__because">
                   {elsewhere.toLocaleString()} matched in a language you are not viewing
                 </span>
               )}

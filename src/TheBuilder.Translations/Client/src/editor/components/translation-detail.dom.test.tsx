@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
+import * as client from "../../api/generated/client.js";
 import type { EditTarget } from "../state/target.js";
 import { TranslationDetail } from "./TranslationDetail.js";
 
@@ -220,6 +221,52 @@ describe("moving between translations from the field", () => {
     press("ArrowDown", { metaKey: true });
 
     expect(select).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The section that answers what a two-language list cannot: is the wording wrong everywhere, or
+ * only in the one being edited.
+ */
+describe("the key in every language", () => {
+  const withCells = () => {
+    const api = vi.mocked(client.api);
+    api.messageKeys.mockResolvedValue({
+      items: [{
+        sourceId: "s1", namespace: "website", key: "cart.empty", format: "Icu", arguments: {},
+        coverage: {}, matchedLocales: [],
+        cells: {
+          da: written.cells.da!,
+          en: written.cells.en!,
+        },
+      }],
+      page: 1, pageSize: 50, total: 1, referenceLocale: "en", targetLocale: "da", compareLocales: [],
+    } as never);
+    return api;
+  };
+
+  it("lists the languages the key has never been written in, not only the ones it has", async () => {
+    // Half the answer is which languages still need it, and a list of the ones that already have
+    // it cannot be read backwards to give that.
+    withCells();
+    open(true, { locales: [locale("da", "Danish"), locale("en", "English"), locale("de", "German")] });
+
+    expect(await screen.findByText("This key in every language")).toBeTruthy();
+    expect(screen.getByText("German")).toBeTruthy();
+    expect(screen.getByText("Not written")).toBeTruthy();
+    expect(screen.getByText("3 languages · 1 not written")).toBeTruthy();
+  });
+
+  it("is still there when no comparison language is chosen", async () => {
+    // Passing no locale pair disabled the query outright, and a disabled query is not loading, so
+    // the whole section rendered as nothing at all for anyone not comparing against a second one.
+    const api = withCells();
+    open(true, { reference: undefined });
+
+    expect(await screen.findByText("This key in every language")).toBeTruthy();
+    const query = api.messageKeys.mock.calls[0]![0] as { locale: string; referenceLocale: string };
+    expect(query.locale).toBe("da");
+    expect(query.referenceLocale).toBe("da");
   });
 });
 

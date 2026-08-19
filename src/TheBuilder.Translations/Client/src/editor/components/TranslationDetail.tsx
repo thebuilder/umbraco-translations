@@ -7,6 +7,7 @@ import { Button } from "../../bridge/uui/index.js";
 import { queryKeys } from "../api/keys.js";
 import { useKeyLocales } from "../api/queries.js";
 import type { EditingMode } from "../state/editing-mode.js";
+import { localeIn, localeName } from "../state/locales.js";
 import { fullKey, type EditTarget } from "../state/target.js";
 import { describeOverride } from "../validation/override.js";
 import { cellStatus } from "./cell-status.js";
@@ -72,7 +73,7 @@ export const TranslationDetail = ({
   close: () => void;
 }) => {
   const queryClient = useQueryClient();
-  const cell = row.cells[target.locale];
+  const cell = localeIn(row.cells, target.locale);
   const id = cell?.id;
 
   /*
@@ -214,16 +215,23 @@ export const TranslationDetail = ({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const language = locales.find((locale) => locale.code === target.locale)?.name || target.locale;
+  const language = localeName(locales, target.locale);
   const status = cellStatus(cell);
-  const referenceText = reference ? valueOf(row.cells[reference.locale]) : null;
+  const referenceText = reference ? valueOf(localeIn(row.cells, reference.locale)) : null;
   // Nothing written here yet, so the text being translated from is what there is to read, and it
   // leads. With something already written the field is what the editor came for.
   const leadsWithReference = referenceText !== null && (mode === "queue" || cell === undefined);
 
+  /*
+   * The pair is the same one the list used, deliberately: the server builds the key set from those
+   * two alone, so any other pair could exclude the very key being asked about. With no comparison
+   * chosen the list ran on the target alone and the row came back, so the target alone is what
+   * finds it again -- passing nothing here disabled the query outright and took the whole section
+   * off the screen for anyone not comparing against a second language.
+   */
   const others = useKeyLocales(
     target,
-    reference ? { locale: target.locale, referenceLocale: reference.locale } : undefined,
+    { locale: target.locale, referenceLocale: reference?.locale ?? target.locale },
     locales.map((locale) => locale.code),
     // Nothing to show while the pane is asking about leaving, and nothing to show for a site with
     // one language, where "every language" is the one already in the field.

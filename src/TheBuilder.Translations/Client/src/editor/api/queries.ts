@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { api } from "../../api/generated/client.js";
 import type { MessageKey, MessageKeyList } from "../../api/generated/models.js";
 import type { EditorFilters } from "../state/filters.js";
+import { sameLocale } from "../state/locales.js";
 import { queryKeys } from "./keys.js";
 import { flattenKeys, nextPageParam, totalOf } from "./cache.js";
 
@@ -72,7 +73,7 @@ export const useKeyRows = (filters: EditorFilters): KeyRows => {
  */
 export const useKeyLocales = (
   target: { sourceId: string; namespace: string; key: string } | undefined,
-  keySet: { locale: string; referenceLocale: string } | undefined,
+  keySet: { locale: string; referenceLocale: string },
   locales: readonly string[],
   enabled: boolean,
 ) =>
@@ -81,17 +82,18 @@ export const useKeyLocales = (
       target?.sourceId ?? "",
       target?.namespace ?? "",
       target?.key ?? "",
-      `${keySet?.locale ?? ""}|${keySet?.referenceLocale ?? ""}`,
+      `${keySet.locale}|${keySet.referenceLocale}`,
     ),
-    enabled: enabled && target !== undefined && keySet !== undefined && locales.length > 0,
+    enabled: enabled && target !== undefined && locales.length > 0,
     queryFn: async ({ signal }) => {
       const page = await api.messageKeys({
         sourceId: target!.sourceId,
         namespace: target!.namespace,
         keyPrefix: target!.key,
-        locale: keySet!.locale,
-        referenceLocale: keySet!.referenceLocale,
-        compare: locales.filter((code) => code !== keySet!.locale && code !== keySet!.referenceLocale),
+        locale: keySet.locale,
+        referenceLocale: keySet.referenceLocale,
+        compare: locales.filter((code) =>
+          !sameLocale(code, keySet.locale) && !sameLocale(code, keySet.referenceLocale)),
         pageSize: KEY_TREE_PAGE_SIZE,
       }, signal);
       return page.items.find((item) => item.key === target!.key) ?? null;

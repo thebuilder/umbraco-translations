@@ -28,15 +28,22 @@ const key = ({
 });
 
 const names: Record<string, string> = {
-  "da-DK": "Danish", "en-US": "English", "de-DE": "German", "sv-SE": "Swedish",
+  "da-dk": "Danish", "en-us": "English", "de-de": "German", "sv-se": "Swedish",
 };
+
+/**
+ * Stands in for `localeName`, which resolves a code against the facets case-insensitively. An
+ * exact-case stub here would pass while production dropped the name of any locale the database
+ * cased differently, which is the whole point of the case being folded.
+ */
+const nameOf = (locale: string): string => names[locale.toLowerCase()] ?? locale;
 
 const options = (overrides: Partial<MatchedInOptions> = {}): MatchedInOptions => ({
   editing: "da-DK",
   comparison: "en-US",
   editingName: "Danish",
   comparisonName: "English",
-  nameOf: (locale) => names[locale] ?? locale,
+  nameOf,
   term: "",
   mode: "search",
   ...overrides,
@@ -95,13 +102,43 @@ describe("matchedIn", () => {
     expect(matchedIn(row, options({ term: "varukorg" }))).toBe("Swedish");
   });
 
-  it("falls back to the cells when the server does not answer at all", () => {
-    // An older server sends no such field. Claiming nothing matched would be a lie about a row
-    // that is demonstrably a result.
-    const row = key({ cells: { "de-DE": cell("de-DE", "Ihr Warenkorb ist leer") } });
-    delete (row as { matchedLocales?: string[] }).matchedLocales;
+  it("names a language whose codes came back cased differently", () => {
+    // The server returns the locale verbatim from the database row and treats case as
+    // insignificant everywhere else; matching it exactly here would drop the language's name.
+    expect(matchedIn(key({ matchedLocales: ["DE-de"] }), options({ term: "Warenkorb" })))
+      .toBe("German");
+  });
 
-    expect(matchedIn(row, options({ term: "Warenkorb" }))).toBe("German");
+  /*
+   * The list carries previews, not whole messages. A hit past the cut is marked nowhere, so the
+   * row's own words cannot be what explains it -- which is exactly the unexplained result this
+   * whole function exists to prevent.
+   */
+  it("says so when the hit is past the end of a cut-down preview", () => {
+    const row = key({
+      cells: { "da-DK": { ...cell("da-DK", "Din kurv er tom"), truncated: true } },
+      matchedLocales: ["da-DK"],
+    });
+
+    expect(matchedIn(row, options({ term: "senere" }))).toBe("Danish, further in");
+  });
+
+  it("still says nothing when the whole value is on screen to be marked", () => {
+    const row = key({
+      cells: { "da-DK": cell("da-DK", "Din kurv er tom") },
+      matchedLocales: ["da-DK"],
+    });
+
+    expect(matchedIn(row, options({ term: "kurv" }))).toBeNull();
+  });
+
+  it("names the second column too when its value was cut", () => {
+    const row = key({
+      cells: { "en-US": { ...cell("en-US", "Your basket is empty"), truncated: true } },
+      matchedLocales: ["en-US"],
+    });
+
+    expect(matchedIn(row, options({ term: "later" }))).toBe("English, further in");
   });
 
   it("matches the same text the highlight marks, case and all", () => {

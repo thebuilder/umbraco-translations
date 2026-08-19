@@ -8,6 +8,7 @@ import type { MessageCell, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/Highlight.js";
 import { matchedIn, type MatchedInOptions } from "../search/matched-in.js";
 import type { EditingMode } from "../state/editing-mode.js";
+import { localeIn } from "../state/locales.js";
 import { cellStatus } from "./cell-status.js";
 
 /**
@@ -37,7 +38,7 @@ export const keyTableFeatures = tableFeatures({
 const helper = createColumnHelper<typeof keyTableFeatures, MessageKey>();
 
 export const cellOf = (key: MessageKey | undefined, locale: string | null): MessageCell | undefined =>
-  key && locale ? key.cells[locale] : undefined;
+  key ? localeIn(key.cells, locale) : undefined;
 
 export const valueOf = (cell: MessageCell | undefined): string | null =>
   cell === undefined ? null : cell.overrideValue ?? cell.defaultValue;

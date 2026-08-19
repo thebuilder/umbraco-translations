@@ -2,6 +2,7 @@ import type { LocaleFacet } from "../../api/generated/models.js";
 import { Caret, Picker } from "../components/Picker.js";
 import { coverageOf, type EditingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
+import { facetFor } from "../state/locales.js";
 
 /** Setting the comparison to the language being edited is how "no comparison" is expressed. */
 const NO_COMPARISON = "";
@@ -27,7 +28,7 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
 }) => {
   const editing = filters.locale;
   const comparing = filters.referenceLocale !== null && filters.referenceLocale !== editing;
-  const current = locales.find((locale) => locale.code === editing);
+  const current = facetFor(locales, editing);
 
   const options = locales.map((locale) => ({ name: describe(locale), value: locale.code }));
   // A comparison is only useful against a language with something to compare, and never against
@@ -36,10 +37,10 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
     { name: "None", value: NO_COMPARISON },
     ...options.filter((option) =>
       option.value !== editing &&
-      locales.find((locale) => locale.code === option.value)?.messageCount),
+      facetFor(locales, option.value)?.messageCount),
   ];
 
-  const reference = comparing ? locales.find((locale) => locale.code === filters.referenceLocale) : undefined;
+  const reference = comparing ? facetFor(locales, filters.referenceLocale) : undefined;
 
   return (
     <div className="context">
@@ -61,7 +62,7 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
 
       {/* Said once, where the language is chosen, rather than repeated down a column of rows. */}
       {mode === "queue" && (
-        <span className="badge badge--info">No application text — written here</span>
+        <span className="badge badge--info">No application text, written here</span>
       )}
 
       <span className="context__rule" />

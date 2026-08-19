@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
+import { localeName } from "../state/locales.js";
 import { sameTarget, targetOf, type EditTarget } from "../state/target.js";
 import { keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
@@ -35,8 +36,7 @@ export const KeyGrid = ({
   // condition for the second column being absent.
   const comparing = filters.referenceLocale !== null && filters.referenceLocale !== filters.locale;
 
-  const nameOf = useCallback((code: string | null) =>
-    locales.find((locale) => locale.code === code)?.name || code || "", [locales]);
+  const nameOf = useCallback((code: string | null) => localeName(locales, code), [locales]);
 
   const columns = useMemo(() => keyColumns({
     editing: filters.locale,
