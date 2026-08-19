@@ -121,6 +121,7 @@ export type MessageKeyResponse = {
     coverage: {
         [key: string]: MessageLocaleState;
     };
+    matchedLocales: Array<string>;
 };
 
 export type MessageKeySort = 'Key' | 'UpdatedAt' | 'Status';
