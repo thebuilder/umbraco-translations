@@ -37,6 +37,7 @@ const key = (name: string, cells: Record<string, MessageCell>, coverage: Record<
   arguments: {},
   cells,
   coverage: { "de-DE": "Absent", ...coverage },
+  matchedLocales: [],
 });
 
 const page = (items: MessageKey[], overrides: Partial<MessageKeyList> = {}): MessageKeyList => ({

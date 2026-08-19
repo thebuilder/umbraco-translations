@@ -22,6 +22,7 @@ const cell = (locale: string, text: string, state: MessageLocaleState = "Default
 
 const key = (name: string, cells: MessageKey["cells"]): MessageKey => ({
   sourceId: "s1", namespace: "website", key: name, format: "Icu", arguments: {}, cells, coverage: {},
+  matchedLocales: [],
 });
 
 const LOCALES: LocaleFacet[] = [

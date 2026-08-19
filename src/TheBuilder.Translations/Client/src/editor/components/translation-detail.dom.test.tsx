@@ -35,6 +35,7 @@ const locale = (code: string, name: string, overrides: Partial<LocaleFacet> = {}
 const row = (cells: MessageKey["cells"]): MessageKey => ({
   sourceId: "s1", namespace: "website", key: "cart.empty",
   format: "Icu", arguments: {}, cells, coverage: {},
+  matchedLocales: [],
 });
 
 const written = row({

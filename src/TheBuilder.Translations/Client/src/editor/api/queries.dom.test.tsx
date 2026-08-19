@@ -25,6 +25,7 @@ const pageOf = (keys: string[], page: number, total: number): MessageKeyList => 
     arguments: {},
     cells: {},
     coverage: {},
+    matchedLocales: [],
   })),
   page,
   pageSize: PAGE_SIZE,
