@@ -33,6 +33,10 @@ internal sealed class MessageLocaleRow
     public string? DefaultValue { get; set; }
     public string? ArgumentSignature { get; set; }
     public string? OverrideValue { get; set; }
+
+    /// <summary>Whether this locale's own text is where the search term was found.</summary>
+    public int Matched { get; set; }
+
     public int HasOverride { get; set; }
     public int NeedsReview { get; set; }
     public long? Version { get; set; }
