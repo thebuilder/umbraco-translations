@@ -97,6 +97,68 @@ public sealed class TranslationKeySqlTests
     }
 
     [Fact]
+    public void The_search_predicate_looks_outside_the_key_set()
+    {
+        var sql = TranslationKeySql.Keys(Query() with { Query = "Warenkorb" }).SQL;
+        var having = sql[sql.IndexOf("HAVING", StringComparison.Ordinal)..];
+
+        // An aggregate would only ever see the locales the key-set WHERE let through, so the
+        // predicate has to reach the key's own rows again through a correlated subquery.
+        Assert.Contains("EXISTS (SELECT 1", having, StringComparison.Ordinal);
+        Assert.Contains("sm.SourceId = m.SourceId", having, StringComparison.Ordinal);
+        Assert.Contains("sm.Namespace = m.Namespace", having, StringComparison.Ordinal);
+        Assert.Contains("sm.[Key] = m.[Key]", having, StringComparison.Ordinal);
+        // Correlated on identity and nothing else. A locale restriction here would be the aggregate
+        // again with more words, and a third language's sentence would still find nothing.
+        Assert.DoesNotContain("sm.Locale", having, StringComparison.Ordinal);
+        Assert.DoesNotContain("MAX(CASE WHEN sm", having, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_key_set_is_still_the_reference_and_target_locales_when_searching()
+    {
+        var sql = TranslationKeySql.Keys(Query() with { Query = "Warenkorb" });
+        var where = sql.SQL[sql.SQL.IndexOf("WHERE", StringComparison.Ordinal)..sql.SQL.IndexOf("GROUP BY", StringComparison.Ordinal)];
+
+        // Searching widens what is looked at, never what is listed: a key only a third language
+        // has is still a key this view has no column to show it in and no message to open.
+        Assert.Matches(@"m\.Locale IN \(@\d+,@\d+\)", where);
+        Assert.Contains(sql.Arguments, argument => Equals(argument, "en-US"));
+        Assert.Contains(sql.Arguments, argument => Equals(argument, "da-DK"));
+    }
+
+    [Fact]
+    public void The_locale_row_query_reports_which_locales_matched()
+    {
+        var sql = TranslationKeySql.LocaleRows(
+            Query() with { Query = "Warenkorb" }, [Guid.NewGuid()], ["website"], ["cart.empty"]);
+
+        // Computed from the raw columns rather than the CASE-guarded ones, so a locale whose text
+        // is never returned can still be named as the place the term was found.
+        Assert.Matches(@"m\.DefaultValue LIKE @\d+", sql.SQL);
+        Assert.Matches(@"o\.Value LIKE @\d+", sql.SQL);
+        Assert.Contains("END AS Matched", sql.SQL, StringComparison.Ordinal);
+        Assert.DoesNotContain("Warenkorb", sql.SQL, StringComparison.Ordinal);
+        Assert.Contains(sql.Arguments, argument => Equals(argument, "%Warenkorb%"));
+
+        // The key reads the same on every row of a key, so a hit in it names no language.
+        Assert.DoesNotContain("m.[Key] LIKE", sql.SQL, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_locale_row_query_carries_no_search_parameter_when_nothing_was_searched_for()
+    {
+        var sql = TranslationKeySql.LocaleRows(Query(), [Guid.NewGuid()], ["website"], ["cart.empty"]);
+
+        // A bound parameter the statement never names is an argument-count mismatch waiting to
+        // happen, so the column collapses to a constant instead.
+        Assert.Contains("0 AS Matched", sql.SQL, StringComparison.Ordinal);
+        Assert.DoesNotContain("LIKE", sql.SQL, StringComparison.Ordinal);
+        // Two detail locales, a source, a namespace and a key.
+        Assert.Equal(5, sql.Arguments.Length);
+    }
+
+    [Fact]
     public void The_locale_row_query_is_not_filtered_by_locale()
     {
         var sql = TranslationKeySql.LocaleRows(Query(), [Guid.NewGuid()], ["website"], ["cart.empty"]).SQL;

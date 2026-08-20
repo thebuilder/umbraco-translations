@@ -31,6 +31,11 @@ public sealed record MessageCellResponse(
 /// <paramref name="Coverage"/> carries a state for every locale the key exists in, which is what
 /// lets the editor show whole-locale coverage without paying the payload cost of every locale's
 /// prose on every row.
+///
+/// <paramref name="MatchedLocales"/> names the languages the search term was found in, which is
+/// the only way a row can explain itself when the hit is in a language the editor is not looking
+/// at. Empty when nothing was searched for, and never a report of the key matching -- that is the
+/// same string on every row and the client marks it where it stands.
 /// </summary>
 public sealed record MessageKeyResponse(
     Guid SourceId,
@@ -39,7 +44,8 @@ public sealed record MessageKeyResponse(
     MessageFormat Format,
     IReadOnlyDictionary<string, string> Arguments,
     IReadOnlyDictionary<string, MessageCellResponse> Cells,
-    IReadOnlyDictionary<string, MessageLocaleState> Coverage);
+    IReadOnlyDictionary<string, MessageLocaleState> Coverage,
+    IReadOnlyList<string> MatchedLocales);
 
 public sealed record MessageKeyListResponse(
     IReadOnlyList<MessageKeyResponse> Items,
@@ -77,7 +83,8 @@ internal static class KeyApiMapping
             entry => entry.Key,
             entry => entry.Value.ToCell(view.StateOf(entry.Key)),
             StringComparer.OrdinalIgnoreCase),
-        view.Coverage);
+        view.Coverage,
+        view.MatchedLocales);
 
     private static MessageCellResponse ToCell(this TranslationMessageLocaleView locale, MessageLocaleState state)
     {

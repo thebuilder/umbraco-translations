@@ -2,47 +2,52 @@ import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
+import type { EditingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
-import { cellOf, keyColumns, keyTableFeatures } from "./key-columns.js";
+import { localeName } from "../state/locales.js";
+import { sameTarget, targetOf, type EditTarget } from "../state/target.js";
+import { keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
 
-/** Two lines of key and two of value, at a size that can actually be read. */
+/** Two lines of text and one of key, at a size that can actually be read. */
 export const ROW_HEIGHT = 64;
 
 /** Rows left below the fold before the next page is requested. */
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
-  keys, filters, locales, total, namespaceCount,
-  selectedId, onSelect, onLoadMore, hasMore, loadingMore,
+  keys, filters, locales, total, namespaceCount, mode,
+  selected, onSelect, onLoadMore, hasMore, loadingMore,
 }: {
   keys: MessageKey[];
   filters: EditorFilters;
   locales: readonly LocaleFacet[];
   total: number;
   namespaceCount: number;
-  selectedId?: string;
-  onSelect: (messageId: string) => void;
+  mode: EditingMode;
+  selected?: EditTarget;
+  onSelect: (target: EditTarget) => void;
   onLoadMore: () => void;
   hasMore: boolean;
   loadingMore: boolean;
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
-  // Comparing a language with itself is how the toolbar expresses "no comparison", so that is also
-  // the condition for the column being absent.
+  // Comparing a language with itself is how "no comparison" is expressed, so that is also the
+  // condition for the second column being absent.
   const comparing = filters.referenceLocale !== null && filters.referenceLocale !== filters.locale;
 
-  const nameOf = useCallback((code: string | null) =>
-    locales.find((locale) => locale.code === code)?.name || code || "", [locales]);
+  const nameOf = useCallback((code: string | null) => localeName(locales, code), [locales]);
 
   const columns = useMemo(() => keyColumns({
     editing: filters.locale,
     comparison: filters.referenceLocale,
     editingName: nameOf(filters.locale),
     comparisonName: nameOf(filters.referenceLocale),
+    nameOf,
     showNamespace: namespaceCount > 1 || filters.namespace === null,
     term: filters.query,
-  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, nameOf]);
+    mode,
+  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, mode, nameOf]);
 
   const table = useTable({
     features: keyTableFeatures,
@@ -50,7 +55,7 @@ export const KeyGrid = ({
     data: keys,
     getRowId: (key) => `${key.sourceId}|${key.namespace}|${key.key}`,
     // The server filters, orders and pages the whole result. The table owns the column model.
-    state: { columnVisibility: { comparison: comparing } },
+    state: { columnVisibility: { second: comparing } },
   });
 
   const rows = table.getRowModel().rows;
@@ -85,8 +90,8 @@ export const KeyGrid = ({
 
   const scrollToRow = useCallback((row: number) => virtualizer.scrollToIndex(row), [virtualizer]);
   const activate = useCallback(({ row }: { row: number }) => {
-    const cell = cellOf(rows[row]?.original, filters.locale);
-    if (cell) onSelect(cell.id);
+    const key = rows[row]?.original;
+    if (key && filters.locale) onSelect(targetOf(key, filters.locale));
   }, [rows, filters.locale, onSelect]);
 
   const { onKeyDown, cellProps, restoreFocus } = useGridNavigation({
@@ -97,27 +102,28 @@ export const KeyGrid = ({
   });
 
   /**
-   * Focus follows the editor back out. It opens over the grid, and every way of dismissing it --
-   * Escape, the close button, saving -- left focus on nothing at all, so the next Tab
-   * started again from the top of the backoffice.
+   * Focus follows the editor back out. The pane opens beside the list, but every way of dismissing
+   * it -- Escape, the close button, saving -- left focus on nothing at all, so the next Tab started
+   * again from the top of the backoffice.
    *
-   * Which row to return to is looked up from the message that was open rather than remembered as a
+   * Which row to return to is looked up from the key that was open rather than remembered as a
    * position, because the row can move underneath: saving while sorted by when a translation was
-   * last edited reorders the list before the editor closes.
+   * last edited reorders the list before the pane closes.
    */
-  const openedFrom = useRef<string | undefined>(undefined);
+  const openedFrom = useRef<EditTarget | undefined>(undefined);
   useEffect(() => {
-    if (selectedId !== undefined) {
-      openedFrom.current = selectedId;
+    if (selected !== undefined) {
+      openedFrom.current = selected;
       return;
     }
-    const message = openedFrom.current;
+    const target = openedFrom.current;
     openedFrom.current = undefined;
-    if (message === undefined || rows.length === 0) return;
+    if (target === undefined || rows.length === 0) return;
 
-    const row = rows.findIndex((candidate) => cellOf(candidate.original, filters.locale)?.id === message);
+    const row = rows.findIndex((candidate) =>
+      sameTarget(targetOf(candidate.original, target.locale), target));
     restoreFocus(row >= 0 ? row : undefined);
-  }, [selectedId, rows, filters.locale, restoreFocus]);
+  }, [selected, rows, restoreFocus]);
 
   // Built from the columns actually on screen, so the reference column disappearing closes its
   // track rather than leaving a gap.
@@ -182,24 +188,24 @@ export const KeyGrid = ({
               );
             }
 
-            const target = cellOf(row.original, filters.locale);
-            const selected = target !== undefined && target.id === selectedId;
+            const target = filters.locale === null ? undefined : targetOf(row.original, filters.locale);
+            const open = sameTarget(target, selected);
 
             return (
               <div
                 key={row.id}
                 role="row"
                 aria-rowindex={item.index + 2}
-                aria-selected={selected}
-                className={`grid__row${selected ? " grid__row--selected" : ""}`}
+                aria-selected={open}
+                className={`grid__row${open ? " grid__row--selected" : ""}`}
                 style={style}
-                onClick={() => target && onSelect(target.id)}
+                onClick={() => target && onSelect(target)}
               >
                 {row.getVisibleCells().map((cell) => (
                   <span
                     key={cell.id}
-                    // Only the content columns are keyboard stops; the edit button is reachable by
-                    // pressing Enter on the row it belongs to.
+                    // Only the content columns are keyboard stops; the status a row carries is
+                    // reachable by pressing Enter on the row it belongs to.
                     {...(cell.column.columnDef.meta?.navigable
                       ? cellProps(item.index, cell.column.id)
                       : { role: "gridcell" as const })}

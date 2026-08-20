@@ -20,7 +20,7 @@ type Color = "default" | "positive" | "warning" | "danger";
  * need no shim to pass an array of options.
  */
 
-export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, disabled, icon, label, ref }: {
+export const Button = ({ children, look = "default", color = "default", type = "button", onClick, className, disabled, icon, label, title, keyShortcuts, ref }: {
   children: ReactNode;
   look?: Look;
   color?: Color;
@@ -28,6 +28,14 @@ export const Button = ({ children, look = "default", color = "default", type = "
   /** A single glyph rather than a word: square, and sized to the glyph. */
   icon?: boolean;
   label?: string;
+  /**
+   * What a pointer sees on hover. Kept separate from `label` so a keyboard shortcut can be written
+   * out for somebody looking at the button without also being read aloud, character by character,
+   * to somebody who is not.
+   */
+  title?: string;
+  /** The shortcut that does the same thing, in the form assistive technology expects. */
+  keyShortcuts?: string;
   type?: "button" | "submit";
   onClick?: () => void;
   className?: string;
@@ -38,6 +46,8 @@ export const Button = ({ children, look = "default", color = "default", type = "
     type={type}
     disabled={disabled}
     aria-label={label}
+    title={title}
+    aria-keyshortcuts={keyShortcuts}
     onClick={onClick}
     className={[
       "button",

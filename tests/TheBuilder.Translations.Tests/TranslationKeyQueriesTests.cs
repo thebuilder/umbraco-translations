@@ -17,6 +17,7 @@ public sealed class TranslationKeyQueriesTests
     private const string English = "en-US";
     private const string Danish = "da-DK";
     private const string German = "de-DE";
+    private const string Swedish = "sv-SE";
 
     [Fact]
     public void Total_counts_distinct_keys_not_key_locale_pairs()
@@ -165,12 +166,84 @@ public sealed class TranslationKeyQueriesTests
     }
 
     [Fact]
-    public void Search_does_not_match_text_from_a_locale_outside_the_view()
+    public void Search_matches_text_from_a_locale_outside_the_view()
     {
         using var database = Seeded();
 
-        // "Warenkorb" only appears in German, which is neither target nor reference here.
-        Assert.Empty(Query(database, query => query with { Query = "Warenkorb" }).Items);
+        // "Warenkorb" only appears in German, which is neither target nor reference here. Somebody
+        // handed a German sentence still has to be able to find the key and fix the Danish.
+        var row = Assert.Single(Query(database, query => query with { Query = "Warenkorb" }).Items);
+
+        Assert.Equal("cart.empty", row.Key);
+    }
+
+    [Fact]
+    public void Search_names_the_locales_it_matched_in()
+    {
+        using var database = Seeded();
+
+        var row = Query(database, query => query with { Query = "Warenkorb" }).Items.Single();
+
+        // German carries no text in this view at all, so naming it is the only thing that explains
+        // why a row whose two visible columns say nothing about carts is a result.
+        Assert.Equal([German], row.MatchedLocales);
+        Assert.False(row.Locales.ContainsKey(German));
+    }
+
+    [Fact]
+    public void Search_names_every_locale_that_matched()
+    {
+        using var database = Seeded();
+        Insert(database, Source, "website", "cart.empty", Swedish, "Din varukorg ar tom");
+
+        var row = Query(database, query => query with { Query = "Din " }).Items
+            .Single(item => item.Key == "cart.empty");
+
+        Assert.Equal([Danish, Swedish], row.MatchedLocales.Order());
+    }
+
+    [Fact]
+    public void Search_matches_an_override_written_in_a_locale_outside_the_view()
+    {
+        using var database = Seeded();
+        var german = Insert(database, Source, "website", "cart.stale", German, "Alter Standard");
+        Override(database, german, "Von Hand geschrieben", checksumAtEdit: "checksum", version: 1);
+
+        var row = Assert.Single(Query(database, query => query with { Query = "Von Hand" }).Items);
+
+        Assert.Equal("cart.stale", row.Key);
+        Assert.Equal([German], row.MatchedLocales);
+    }
+
+    [Fact]
+    public void Search_finds_keys_in_a_third_language_without_adding_any()
+    {
+        using var database = Seeded();
+
+        // "german.only" matches, and is still not in the key set. Widening it here would put a row
+        // on screen with nothing in either column and no message for the editor to open.
+        Assert.Empty(Query(database, query => query with { Query = "Nur Deutsch" }).Items);
+    }
+
+    [Fact]
+    public void A_key_matched_by_its_name_names_no_locale()
+    {
+        using var database = Seeded();
+
+        var row = Assert.Single(Query(database, query => query with { Query = "cart.untranslated" }).Items);
+
+        // The key reads the same on every row, so reporting it as a hit in every locale would
+        // answer "which language" with "all of them".
+        Assert.Equal("cart.untranslated", row.Key);
+        Assert.Empty(row.MatchedLocales);
+    }
+
+    [Fact]
+    public void No_search_names_no_locales()
+    {
+        using var database = Seeded();
+
+        Assert.All(Query(database).Items, item => Assert.Empty(item.MatchedLocales));
     }
 
     [Fact]

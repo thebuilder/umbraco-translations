@@ -1,56 +1,99 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../api/generated/client.js";
-import type { MessageDetail } from "../../api/generated/models.js";
+import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { Button } from "../../bridge/uui/index.js";
 import { queryKeys } from "../api/keys.js";
+import { useKeyLocales } from "../api/queries.js";
+import type { EditingMode } from "../state/editing-mode.js";
+import { localeIn, localeName } from "../state/locales.js";
+import { fullKey, type EditTarget } from "../state/target.js";
 import { describeOverride } from "../validation/override.js";
+import { cellStatus } from "./cell-status.js";
+import { KeyLocales } from "./KeyLocales.js";
+import { MODIFIER } from "./Shortcuts.js";
+import { valueOf } from "./key-columns.js";
 
 /**
- * Editing panel for one translation.
+ * Editing pane for one translation.
  *
- * A drawer over the list rather than a third column: at this width a column would squeeze the text
- * being compared, and opening one would resize the table out from under the row just clicked.
+ * Beside the list rather than over it. A drawer was a reasonable answer to a real constraint, but
+ * it covered the search results it was opened from, which is exactly the material a reviewer is
+ * working against: find the reported sentence, then read the field while the hits stay on screen.
+ * Below the width where two panes can both hold a sentence it becomes the drawer it used to be,
+ * which is a stylesheet decision rather than a second component.
  *
- * The reading order is the order the work happens in. What the message says in a language the
- * editor knows, then what the application ships in the language being edited, then the field where
- * they replace it. Anything the developer needs is at the bottom, folded away.
+ * The pane is addressed by identity, not by message id. A language the applications do not ship
+ * has no row and therefore no id until something is written to it, and those are the only rows
+ * that matter for the job of bringing a language up from nothing.
+ *
+ * The reading order is the order the work happens in, and it is not the same order for both jobs.
+ * With text already in the language being edited, the field comes first and everything else is
+ * evidence around it. With nothing there yet, the text being translated from comes first, because
+ * it is what is being read.
  */
 export const TranslationDetail = ({
-  id, bridge, comparison, next, canEdit, pending, onKeepEditing, onDiscard, onDirtyChange, select, close,
+  target, row, bridge, locales, reference, mode, term, position, previous, next,
+  canEdit, pending, onKeepEditing, onDiscard, onDirtyChange, select, switchLocale, close,
 }: {
-  id: string;
+  target: EditTarget;
+  /** The list row this was opened from, which already holds the text of both languages on screen. */
+  row: MessageKey;
   bridge: BackofficeBridge;
-  /** The language being compared against, when one is chosen. Read-only context, shown first. */
-  comparison?: { locale: string; name: string; value: string | null };
+  locales: readonly LocaleFacet[];
+  /** The language being compared against or written from, when one is chosen. */
+  reference?: { locale: string; name: string };
+  mode: EditingMode;
+  /** The active search, so the other languages can show where the reported sentence actually is. */
+  term: string;
+  /** Where this row sits in the result, so a long queue says how much of it is left. */
+  position?: { index: number; total: number };
+  previous?: EditTarget;
   /** The row after this one, so a reviewer can work down the list without returning to it. */
-  next?: string;
-  /**
-   * Set when leaving has been asked for and there is unsaved text in the way: the message id being
-   * moved to, or "close". The question is answered in the footer rather than by a native dialog --
-   * `confirm` is suppressed in enough contexts that relying on it left the editor with no way out
-   * at all.
-   */
-  pending?: string | "close";
-  onKeepEditing: () => void;
-  onDiscard: () => void;
+  next?: EditTarget;
   /**
    * Whether this user may write translations. The API enforces it either way; without it here the
    * editor offers a field to type in and a Save button that can only ever fail.
    */
   canEdit: boolean;
+  /**
+   * Set when leaving has been asked for and there is unsaved text in the way: where the editor is
+   * trying to go, or "close". The question is answered in the footer rather than by a native
+   * dialog -- `confirm` is suppressed in enough contexts that relying on it left the editor with no
+   * way out at all.
+   */
+  pending?: EditTarget | "close";
+  onKeepEditing: () => void;
+  onDiscard: () => void;
   onDirtyChange: (dirty: boolean) => void;
-  select: (messageId: string) => void;
+  select: (target: EditTarget) => void;
+  /** Fixing the reference language means editing it, which is a change of view rather than a second field. */
+  switchLocale: (locale: string) => void;
   close: () => void;
 }) => {
   const queryClient = useQueryClient();
-  const detail = useQuery({ queryKey: queryKeys.message(id), queryFn: ({ signal }) => api.message(id, signal) });
-  const [draft, setDraft] = useState<string>();
-  const heading = useRef<HTMLHeadingElement>(null);
-  const field = useRef<HTMLTextAreaElement>(null);
+  const cell = localeIn(row.cells, target.locale);
+  const id = cell?.id;
 
-  const message = detail.data;
+  /*
+   * The list carries previews, not whole messages: the server truncates them, and editing a value
+   * the client only holds the first part of would silently discard the rest. So anything with a row
+   * behind it is fetched in full. Anything without one has nothing to fetch -- there is no message
+   * yet -- and the key itself supplies the format and placeholders a draft has to satisfy.
+   */
+  const detail = useQuery({
+    queryKey: queryKeys.message(id ?? ""),
+    queryFn: ({ signal }) => api.message(id!, signal),
+    enabled: id !== undefined,
+  });
+
+  const message: MessageDetail | undefined = id === undefined ? unwritten(target, row) : detail.data;
+
+  const [draft, setDraft] = useState<string>();
+  const field = useRef<HTMLTextAreaElement>(null);
+  const heading = useRef<HTMLParagraphElement>(null);
+
   const committed = message?.overrideValue ?? "";
   const value = draft ?? committed;
   const dirty = draft !== undefined && draft !== committed;
@@ -66,22 +109,23 @@ export const TranslationDetail = ({
    */
   const problem = message && value !== "" ? describeOverride(value, message) : null;
 
-  // Focus goes to the field being filled in, not the heading: the drawer exists to be typed into.
+  // Focus goes to the field being filled in, not the heading: the pane exists to be typed into.
   useEffect(() => {
-    const target = canEdit ? field.current ?? heading.current : heading.current;
-    target?.focus();
+    const element = canEdit ? field.current ?? heading.current : heading.current;
+    element?.focus();
     // At the end of what is already there, rather than selecting it, so a keystroke does not wipe
     // an existing translation.
-    if (target instanceof HTMLTextAreaElement) target.setSelectionRange(target.value.length, target.value.length);
-  }, [id, canEdit, message !== undefined]);
+    if (element instanceof HTMLTextAreaElement)
+      element.setSelectionRange(element.value.length, element.value.length);
+  }, [target.locale, target.key, canEdit, message !== undefined]);
 
-  // Grows with what is typed instead of scrolling inside a fixed box, up to a share of the drawer.
+  // Grows with what is typed instead of scrolling inside a fixed box, up to a share of the pane.
   useLayoutEffect(() => {
     const element = field.current;
     if (!element) return;
     element.style.height = "auto";
     element.style.height = `${Math.min(element.scrollHeight, 320)}px`;
-  }, [value, id]);
+  }, [value, target.key]);
 
   /**
    * The list and the counts have to be refetched, but the message itself does not: the write
@@ -92,25 +136,18 @@ export const TranslationDetail = ({
   const settle = (saved?: MessageDetail) => {
     setDraft(undefined);
     onDirtyChange(false);
-    if (saved) queryClient.setQueryData(queryKeys.message(id), saved);
+    if (saved) queryClient.setQueryData(queryKeys.message(saved.id), saved);
     void queryClient.invalidateQueries({ queryKey: queryKeys.keys() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.facets() });
   };
 
-  const identity = (detail: MessageDetail) => ({
-    sourceId: detail.sourceId,
-    namespace: detail.namespace,
-    key: detail.key,
-    locale: detail.locale,
-  });
-
   const save = useMutation({
     mutationFn: ({ value }: { value: string; then: "close" | "next" }) =>
-      api.saveOverride({ ...identity(message!), value, expectedVersion: message?.version ?? undefined }),
-    // Saving leaves the editor, the same as reverting does: the row behind it shows the new text
-    // and its status, which is the confirmation. Nothing is announced -- a toast would land on the
+      api.saveOverride({ ...target, value, expectedVersion: message?.version ?? undefined }),
+    // Saving leaves the row, the same as reverting does: the row beside it shows the new text and
+    // its status, which is the confirmation. Nothing is announced -- a toast would land on the
     // button just pressed and repeat what the list already says. Failures still notify, because
-    // nothing else would say so, and the drawer stays open with the text intact to fix.
+    // nothing else would say so, and the pane stays open with the text intact to fix.
     onSuccess: (saved, variables) => {
       settle(saved);
       if (variables.then === "next" && next) select(next);
@@ -119,9 +156,8 @@ export const TranslationDetail = ({
     onError: (error) => bridge.notify("danger", "Translation could not be saved", error.message),
   });
 
-  const reset = useMutation({
-    mutationFn: () =>
-      api.resetOverride({ ...identity(message!), expectedVersion: message?.version ?? undefined }),
+  const revert = useMutation({
+    mutationFn: () => api.resetOverride({ ...target, expectedVersion: message?.version ?? undefined }),
     onSuccess: () => { settle(); close(); },
     onError: (error) => bridge.notify("danger", "Translation could not be reset", error.message),
   });
@@ -132,17 +168,23 @@ export const TranslationDetail = ({
   };
 
   /*
-   * Escape leaves; the drawer covers the list, so leaving focus behind would strand a keyboard
-   * user behind an overlay. While a discard is being asked about, Escape answers that instead --
-   * dismissing the question, not the editor -- because otherwise the key that got someone into the
-   * prompt would also throw their text away.
+   * Escape leaves. While a discard is being asked about, Escape answers that instead -- dismissing
+   * the question, not the pane -- because otherwise the key that got someone into the prompt would
+   * also throw their text away. Nothing else is listened for while that question is open: the only
+   * two answers to it are its own two buttons.
    *
-   * Ctrl/Cmd+S and Ctrl/Cmd+Enter both save. Enter alone cannot: the field holds real newlines,
-   * and messages legitimately contain them. Both have to be caught here, or the browser offers to
-   * save the page and the Enter goes into the text instead.
+   * Ctrl/Cmd+S and Ctrl/Cmd+Enter both save. Enter alone cannot: the field holds real newlines, and
+   * messages legitimately contain them. Both have to be caught here, or the browser offers to save
+   * the page and the Enter goes into the text instead.
    *
-   * Held in a ref because the handler closes over values that change on every keystroke. Without
-   * it the effect resubscribes on each render, which is how one Escape ended up asking twice.
+   * Ctrl/Cmd and an arrow moves to the translation above or below, which is the same thing the
+   * arrows do in the list. The modifier is what makes it possible at all: the caret is in a text
+   * field, so a bare arrow belongs to the text, and without a way past that the pane is a dead end
+   * for anyone not reaching for the mouse. Saving already had a way onward -- Shift+Ctrl/Cmd+Enter
+   * -- but only forwards and only by saving, which is no use for reading down a list of results.
+   *
+   * Held in a ref because the handler closes over values that change on every keystroke. Without it
+   * the effect resubscribes on each render, which is how one Escape ended up asking twice.
    */
   const latest = useRef<(event: KeyboardEvent) => void>(() => {});
   latest.current = (event: KeyboardEvent) => {
@@ -150,8 +192,19 @@ export const TranslationDetail = ({
       event.preventDefault();
       return pending ? onKeepEditing() : close();
     }
-    const saving = event.key.toLowerCase() === "s" || event.key === "Enter";
-    if (!saving || !(event.metaKey || event.ctrlKey)) return;
+    if (pending) return;
+    if (!(event.metaKey || event.ctrlKey)) return;
+
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      const destination = event.key === "ArrowUp" ? previous : next;
+      // At either end of the result the keystroke is left alone rather than swallowed, so it still
+      // does whatever the platform does with it inside the field.
+      if (!destination) return;
+      event.preventDefault();
+      return select(destination);
+    }
+
+    if (event.key.toLowerCase() !== "s" && event.key !== "Enter") return;
     event.preventDefault();
     commit(event.shiftKey && next ? "next" : "close");
   };
@@ -162,126 +215,237 @@ export const TranslationDetail = ({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const language = message ? nameOf(message.locale) : "";
+  const language = localeName(locales, target.locale);
+  const status = cellStatus(cell);
+  const referenceText = reference ? valueOf(localeIn(row.cells, reference.locale)) : null;
+  // Nothing written here yet, so the text being translated from is what there is to read, and it
+  // leads. With something already written the field is what the editor came for.
+  const leadsWithReference = referenceText !== null && (mode === "queue" || cell === undefined);
+
+  /*
+   * The pair is the same one the list used, deliberately: the server builds the key set from those
+   * two alone, so any other pair could exclude the very key being asked about. With no comparison
+   * chosen the list ran on the target alone and the row came back, so the target alone is what
+   * finds it again -- passing nothing here disabled the query outright and took the whole section
+   * off the screen for anyone not comparing against a second language.
+   */
+  const others = useKeyLocales(
+    target,
+    { locale: target.locale, referenceLocale: reference?.locale ?? target.locale },
+    locales.map((locale) => locale.code),
+    // Nothing to show while the pane is asking about leaving, and nothing to show for a site with
+    // one language, where "every language" is the one already in the field.
+    pending === undefined && locales.length > 1,
+  );
 
   return (
-    <aside className="drawer" role="complementary" aria-label="Edit translation">
-      <div className="drawer__head">
-        <div className="drawer__title">
-          <h2 ref={heading} tabIndex={-1}>{effective(message) ?? "Loading…"}</h2>
-          {message && (
-            <p className="drawer__id">
-              <span className="meta__key">{message.key}</span>
-              <span className="meta__namespace">{message.namespace}</span>
-            </p>
+    <aside className="pane" role="complementary" aria-label="Edit translation">
+      <div className="pane__head">
+        <div className="pane__identity">
+          <p className="pane__key" ref={heading} tabIndex={-1}>
+            <span className="pane__namespace">{target.namespace}.</span>{target.key}
+          </p>
+          {status.text && (
+            <span className={status.state === "Removed" ? "badge badge--danger" : "badge badge--warning"}>
+              {status.text}
+            </span>
           )}
         </div>
-        <Button label="Close editor" icon onClick={close}>✕</Button>
+
+        <div className="pane__controls">
+          {position && (
+            <span className="pane__position">
+              {position.index.toLocaleString()} of {position.total.toLocaleString()}
+            </span>
+          )}
+          <Button
+            icon
+            label="Previous translation"
+            title={`Previous translation (${MODIFIER}↑)`}
+            keyShortcuts="Meta+ArrowUp Control+ArrowUp"
+            disabled={!previous}
+            onClick={() => previous && select(previous)}
+          >
+            <span aria-hidden="true">↑</span>
+          </Button>
+          <Button
+            icon
+            label="Next translation"
+            title={`Next translation (${MODIFIER}↓)`}
+            keyShortcuts="Meta+ArrowDown Control+ArrowDown"
+            disabled={!next}
+            onClick={() => next && select(next)}
+          >
+            <span aria-hidden="true">↓</span>
+          </Button>
+          <Button icon label="Close editor" className="button--apart" onClick={close}>
+            <span aria-hidden="true">✕</span>
+          </Button>
+        </div>
       </div>
 
-      <div className="drawer__body">
-        {detail.isLoading && <p>Loading translation…</p>}
-        {detail.isError && <p className="error">{detail.error.message}</p>}
+      <div className="pane__body">
+        {detail.isLoading && <p className="pane__note">Loading translation…</p>}
+        {detail.isError && <p className="notice notice--error">{detail.error.message}</p>}
 
         {message && (
           <>
+            {/* Said in full, once, where the decision is made. The badge in the header is the same
+                fact in one word; this is the sentence that explains what to do about it. */}
             {message.state === "Removed" && (
-              <p className="notice notice--warning">
-                ⚠ Removed from the application. This entry is kept only because it has custom text.
+              <p className="callout callout--danger">
+                <span aria-hidden="true" className="callout__mark">⚠</span>
+                The application no longer ships this key. Your text is kept and still served, but
+                nothing in the application asks for it any more.
               </p>
             )}
-            {message.needsReview && (
-              <p className="notice notice--warning">
-                ⚠ The application text changed after this was written. Check it still reads correctly.
+            {message.needsReview && message.state !== "Removed" && (
+              <p className="callout callout--warning">
+                <span aria-hidden="true" className="callout__mark">⚠</span>
+                The application text changed after this was written. Check it still reads correctly;
+                saving clears the warning.
               </p>
             )}
 
-            {comparison && (
-              <section className="block">
-                <h3>{comparison.name} · Reference</h3>
-                <p className="reading">{comparison.value ?? <em>No text in this language</em>}</p>
+            {leadsWithReference && reference && (
+              <section className="pane__block">
+                <h3>{reference.name}</h3>
+                <p className="pane__reading pane__reading--lead">{referenceText}</p>
               </section>
             )}
 
-            <section className="block">
-              <h3>{language} · Application text</h3>
-              <p className="reading">{message.defaultValue || <em>No text in this language</em>}</p>
-            </section>
+            <section className="pane__block">
+              <div className="pane__blockhead">
+                <h3>
+                  {canEdit
+                    ? <label htmlFor="override">{language} · your text</label>
+                    : `${language} · your text`}
+                </h3>
+                {canEdit && leadsWithReference && reference && referenceText && (
+                  // A starting point, not a translation. Most languages are closer to the reference
+                  // than to an empty box, and retyping a key name or a placeholder by hand is how
+                  // a save fails validation for a reason nobody meant.
+                  <Button className="button--soft" onClick={() => setDraft(referenceText)}>
+                    Copy {reference.name} in
+                  </Button>
+                )}
+                {!leadsWithReference && message.updatedAt && (
+                  <span className="pane__aside">
+                    edited {new Date(message.updatedAt).toLocaleDateString()}
+                    {message.updatedBy ? ` by ${message.updatedBy}` : ""}
+                  </span>
+                )}
+              </div>
 
-            <section className="block">
-              <h3>
-                {canEdit ? <label htmlFor="override">Custom {language}</label> : `Custom ${language}`}
-              </h3>
-              {/* Without permission this is something to read, so it is presented as the other two
-                  readings are. A field that cannot be saved is an invitation to waste an hour. */}
+              {/* Without permission this is something to read, presented as a reading. A field that
+                  cannot be saved is an invitation to waste an hour. */}
               {canEdit ? (
                 <textarea
                   id="override"
                   ref={field}
-                  className="control"
+                  className="pane__field"
                   rows={3}
-                  aria-label={`Custom text in ${language}`}
+                  aria-label={`Your text in ${language}`}
                   aria-invalid={problem !== null}
                   aria-describedby={problem ? "override-problem" : "override-state"}
-                  placeholder="Leave blank to use the application text"
+                  placeholder={leadsWithReference
+                    ? `Write the ${language} text`
+                    : "Leave blank to use the application text"}
                   value={value}
                   onChange={(event) => setDraft(event.target.value)}
                 />
               ) : (
-                <p className="reading">
-                  {message.overrideValue || <em>No custom text</em>}
+                <p className="pane__reading">{message.overrideValue || <em>Nothing written here</em>}</p>
+              )}
+
+              {/* What the application will substitute, beside the text that has to contain them.
+                  Shown whether or not the draft is currently valid, because the one thing an
+                  editor needs when it is not is the list of what was supposed to be in it, with
+                  the missing ones picked out. */}
+              {Object.keys(message.arguments).length > 0 && (
+                <p className="placeholders">
+                  <span className="placeholders__lead">Placeholders</span>
+                  {Object.entries(message.arguments).map(([name, kind]) => (
+                    <span
+                      key={name}
+                      className={problem?.missing.includes(name) ? "token token--missing" : "token"}
+                    >
+                      {`{${name}}`}
+                      <span className="token__kind">{kind}</span>
+                    </span>
+                  ))}
                 </p>
               )}
+
               {problem ? (
                 <p id="override-problem" className="notice notice--error" role="alert">{problem.message}</p>
               ) : (
-                <p id="override-state" className="hint">
-                  {message.overrideValue === null ? "Using application text" : "Custom text"}
+                <p id="override-state" className="visually-hidden">
+                  {message.overrideValue === null ? "Using the application text" : "Your own text"}
                 </p>
               )}
             </section>
 
-            <section className="block">
-              <h3>Required placeholders</h3>
-              {Object.keys(message.arguments).length === 0 ? (
-                <p className="hint">None</p>
-              ) : (
-                <ul className="arguments">
-                  {Object.entries(message.arguments).map(([name, kind]) => (
-                    <li key={name} className={problem?.missing.includes(name) ? "tag tag--missing" : "tag"}>
-                      {`{${name}}`}
-                      <span className="tag__kind">{kind}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {/* What the application ships, and the way back to it. Reverting is here rather than in
+                the footer because it is a fact about this text, not one of the two things somebody
+                came to the pane to press. */}
+            {message.defaultValue !== "" && (
+              <section className="pane__block">
+                <h3>{language} · from the application</h3>
+                <div className="pane__default">
+                  <span className="pane__reading">{message.defaultValue}</span>
+                  {canEdit && message.overrideValue !== null && (
+                    <Button label="Revert to the application text" disabled={revert.isPending} onClick={() => revert.mutate()}>
+                      Revert to this
+                    </Button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {locales.length > 1 && (
+              <KeyLocales
+                row={others.data}
+                locales={locales}
+                editing={target.locale}
+                term={term}
+                loading={others.isLoading}
+                onEdit={switchLocale}
+              />
+            )}
 
             {/* Everything a developer might need and an editor never does. */}
             <details className="technical">
               <summary>Technical details</summary>
               <dl>
-                <dt>Key</dt>
+                <dt>Full key</dt>
                 <dd>
-                  <code>{message.namespace}.{message.key}</code>
+                  <code>{fullKey(target)}</code>
                   <Button
-                    look="secondary"
                     label="Copy full key"
-                    onClick={() => void navigator.clipboard?.writeText(`${message.namespace}.${message.key}`)}
+                    className="button--small"
+                    onClick={() => void navigator.clipboard?.writeText(fullKey(target))}
                   >
                     Copy
                   </Button>
                 </dd>
                 <dt>Language</dt>
-                <dd>{message.locale}</dd>
+                <dd>{target.locale}</dd>
                 <dt>Format</dt>
                 <dd>{message.format}</dd>
-                <dt>Source revision</dt>
-                <dd><code>{message.sourceRevision}</code></dd>
+                {message.sourceRevision && (
+                  <>
+                    <dt>Source revision</dt>
+                    <dd><code>{message.sourceRevision}</code></dd>
+                  </>
+                )}
                 {message.updatedAt && (
                   <>
                     <dt>Last changed</dt>
-                    <dd>{new Date(message.updatedAt).toLocaleString()}{message.updatedBy ? ` by ${message.updatedBy}` : ""}</dd>
+                    <dd>
+                      {new Date(message.updatedAt).toLocaleString()}
+                      {message.updatedBy ? ` by ${message.updatedBy}` : ""}
+                    </dd>
                   </>
                 )}
               </dl>
@@ -291,66 +455,87 @@ export const TranslationDetail = ({
       </div>
 
       {/*
-        No Cancel button. Leaving without saving is the close control in the header and Escape,
-        both of which already ask about unsaved text, and a third way to do it was crowding the one
-        action anybody came here to press. Save sits last, where the eye ends up.
+        No Cancel button. Leaving without saving is the close control in the header and Escape, both
+        of which already ask about unsaved text, and a third way to do it was crowding the one action
+        anybody came here to press.
 
-        Without permission there are no actions at all, so the footer says why rather than showing
-        a row of buttons that are permanently dimmed and never explain themselves.
+        Which action is the obvious one depends on the job. Correcting a reported string ends with
+        Save; working down a queue ends with the next item, so there Save & next is the primary and
+        Skip is the way past a row that needs somebody else.
       */}
-      <div className="drawer__foot">
+      <div className="pane__foot">
         {pending ? (
           <>
-            <p className="hint">
+            <p className="pane__state">
               {pending === "close" ? "Close without saving your changes?" : "Open another translation without saving?"}
             </p>
-            <span className="drawer__actions">
+            <span className="pane__actions">
               <Button look="primary" onClick={onKeepEditing}>Keep editing</Button>
               <Button look="danger" onClick={onDiscard}>Discard</Button>
             </span>
           </>
         ) : canEdit ? (
           <>
-            <Button
-              look="secondary"
-              label="Reset to application text"
-              disabled={!message || message.overrideValue === null || reset.isPending}
-              onClick={() => reset.mutate()}
-            >
-              Reset
-            </Button>
-            <span className="drawer__actions">
-              {/* Not a second primary button: two of them side by side leave neither reading as the
-                  obvious one, and this is the shortcut for a long review rather than the usual exit. */}
-              {next && (
-                <Button disabled={!savable} onClick={() => commit("next")}>
-                  Save &amp; next
-                </Button>
+            <p className="pane__state">
+              {dirty ? "Unsaved changes"
+                : message?.overrideValue != null ? "Your text is saved"
+                : "Nothing written here yet"}
+            </p>
+            <span className="pane__actions">
+              {mode === "queue" && next ? (
+                <>
+                  <Button onClick={() => select(next)}>Skip</Button>
+                  <Button look="primary" disabled={!savable} onClick={() => commit("next")}>
+                    {save.isPending ? "Saving…" : "Save & next"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {/* Not a second primary: two of them side by side leave neither reading as the
+                      obvious one, and this is the shortcut for a long review rather than the usual exit. */}
+                  {next && (
+                    <Button disabled={!savable} onClick={() => commit("next")}>
+                      Save &amp; next
+                    </Button>
+                  )}
+                  <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
+                    {save.isPending ? "Saving…" : "Save"}
+                  </Button>
+                </>
               )}
-              <Button look="primary" disabled={!savable} onClick={() => commit("close")}>
-                {save.isPending ? "Saving…" : "Save"}
-              </Button>
             </span>
           </>
         ) : (
-          <p className="hint">You have view-only access to translations.</p>
+          <p className="pane__state">You have view-only access to translations.</p>
         )}
       </div>
     </aside>
   );
 };
 
-/** The heading is the text as it stands today, which is what the row showed and what is being changed. */
-const effective = (message?: MessageDetail): string | undefined =>
-  message && (message.overrideValue ?? message.defaultValue) || undefined;
-
-const NAMES = new Intl.DisplayNames(undefined, { type: "language" });
-
-/** Falls back to the code, which is what an unknown or private-use tag deserves. */
-const nameOf = (locale: string): string => {
-  try {
-    return NAMES.of(locale) ?? locale;
-  } catch {
-    return locale;
-  }
-};
+/**
+ * A translation that does not exist yet, described the way a saved one would be.
+ *
+ * The application ships nothing for this language and key, so there is no row, no version and no
+ * revision -- but the key still decides the format and the placeholders any text written here has
+ * to satisfy, and those come from the row the pane was opened from. Everything else is honestly
+ * empty rather than absent, which keeps one shape for the pane to render.
+ */
+const unwritten = (target: EditTarget, row: MessageKey): MessageDetail => ({
+  id: "",
+  sourceId: target.sourceId,
+  namespace: target.namespace,
+  key: target.key,
+  locale: target.locale,
+  defaultValue: "",
+  overrideValue: null,
+  format: row.format,
+  arguments: row.arguments,
+  needsReview: false,
+  state: "Absent",
+  sourceRevision: "",
+  defaultChecksum: "",
+  version: null,
+  updatedAt: null,
+  updatedBy: null,
+});

@@ -11,19 +11,19 @@ const cell = (state: MessageLocaleState, hasOverride = false): MessageCell => ({
 describe("cellStatus", () => {
   it("says nothing for a row using the application text", () => {
     // The common case. Annotating it on every row buries the few rows that differ.
-    expect(cellStatus(cell("Default"))).toEqual({ custom: false, text: null, warning: false });
+    expect(cellStatus(cell("Default"))).toEqual({ custom: false, text: null, warning: false, state: "Default" });
   });
 
   it("marks custom text rather than labelling it, because most rows would carry the label", () => {
-    expect(cellStatus(cell("Overridden", true))).toEqual({ custom: true, text: null, warning: false });
+    expect(cellStatus(cell("Overridden", true))).toEqual({ custom: true, text: null, warning: false, state: "Overridden" });
   });
 
   it("leaves an untranslated row to the value, which already says so", () => {
-    expect(cellStatus(undefined)).toEqual({ custom: false, text: null, warning: false });
+    expect(cellStatus(undefined)).toEqual({ custom: false, text: null, warning: false, state: null });
   });
 
   it("uses words only where the editor has something to decide", () => {
-    expect(cellStatus(cell("NeedsReview", true)).text).toBe("Needs review");
+    expect(cellStatus(cell("NeedsReview", true)).text).toBe("App text changed");
     expect(cellStatus(cell("Removed", true)).text).toBeTruthy();
   });
 

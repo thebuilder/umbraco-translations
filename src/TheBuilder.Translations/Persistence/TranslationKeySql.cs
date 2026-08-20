@@ -52,10 +52,34 @@ internal static class TranslationKeySql
               ELSE 4 END)
         """;
 
-    private const string SearchMatches = $"""
-        MAX(CASE WHEN m.[Key] LIKE @search{SqlLikePattern.EscapeClause}
-                   OR m.DefaultValue LIKE @search{SqlLikePattern.EscapeClause}
-                   OR o.Value LIKE @search{SqlLikePattern.EscapeClause} THEN 1 ELSE 0 END) = 1
+    /// <summary>
+    /// The text a single row contributes to a search: the key it belongs to, the application's
+    /// default and the editor's override.
+    /// </summary>
+    private static string TextMatches(string message, string over) => $"""
+        {message}.[Key] LIKE @search{SqlLikePattern.EscapeClause}
+                   OR {message}.DefaultValue LIKE @search{SqlLikePattern.EscapeClause}
+                   OR {over}.Value LIKE @search{SqlLikePattern.EscapeClause}
+        """;
+
+    /// <summary>
+    /// Whether the term appears anywhere in this key, in any locale.
+    ///
+    /// An EXISTS over the key's own rows rather than an aggregate over the grouped ones, because
+    /// the key set already confined those to the reference and target locales: an aggregate could
+    /// only ever see two languages, so a sentence somebody was handed in a third would find
+    /// nothing. The subquery correlates on the grouping columns, which is what makes it legal in
+    /// HAVING and what keeps it from widening the key set -- a key still has to be grouped before
+    /// it can be asked this question, so a third language's text finds keys, never adds them.
+    /// </summary>
+    private static string SearchMatches() => $"""
+        EXISTS (SELECT 1
+                FROM {Constants.Tables.Messages} sm
+                LEFT JOIN {Constants.Tables.Overrides} so ON so.MessageId = sm.Id
+                WHERE sm.SourceId = m.SourceId
+                  AND sm.Namespace = m.Namespace
+                  AND sm.[Key] = m.[Key]
+                  AND ({TextMatches("sm", "so")}))
         """;
 
     /// <summary>The page of keys. Pass <paramref name="ordered"/> as false when wrapping for a count.</summary>
@@ -108,6 +132,10 @@ internal static class TranslationKeySql
     /// Three IN lists rather than an OR-chain of triples, because that seeks the leading columns of
     /// IX_TranslationMessage_Identity where a long OR-chain degrades to a scan. The cross product
     /// can over-fetch, so callers narrow to the exact triples afterwards.
+    ///
+    /// The rows are already here and already span every locale, so testing each one against the
+    /// search costs a predicate and no payload at all: it is what lets the response say which
+    /// language a key was found in, including one whose text is never returned.
     /// </summary>
     public static Sql LocaleRows(
         MessageKeyQuery query,
@@ -116,6 +144,27 @@ internal static class TranslationKeySql
         IReadOnlyCollection<string> keys)
     {
         ArgumentOutOfRangeException.ThrowIfZero(keys.Count);
+
+        var arguments = new Dictionary<string, object>
+        {
+            ["detailLocales"] = query.DetailLocales,
+            ["sourceIds"] = sourceIds,
+            ["namespaces"] = namespaces,
+            ["keys"] = keys,
+        };
+
+        // Only this locale's own text, never the key: the key is the same string on every row, so
+        // including it would report a hit in all of them and answer "which language" with "all of
+        // them". A key match is the row's own business and the client already marks it in place.
+        var matched = "0";
+        if (!string.IsNullOrWhiteSpace(query.Query))
+        {
+            matched = $"""
+                CASE WHEN m.DefaultValue LIKE @search{SqlLikePattern.EscapeClause}
+                             OR o.Value LIKE @search{SqlLikePattern.EscapeClause} THEN 1 ELSE 0 END
+                """;
+            arguments["search"] = SqlLikePattern.Contains(query.Query);
+        }
 
         const string detail = "m.Locale IN (@detailLocales)";
         return new Sql($"""
@@ -129,6 +178,7 @@ internal static class TranslationKeySql
                    CASE WHEN {detail} THEN m.DefaultValue END AS DefaultValue,
                    CASE WHEN {detail} THEN m.ArgumentSignature END AS ArgumentSignature,
                    CASE WHEN {detail} THEN o.Value END AS OverrideValue,
+                   {matched} AS Matched,
                    CASE WHEN o.MessageId IS NULL THEN 0 ELSE 1 END AS HasOverride,
                    CASE WHEN o.MessageId IS NOT NULL AND o.SourceChecksumAtEdit <> m.DefaultChecksum THEN 1 ELSE 0 END AS NeedsReview,
                    o.Version AS Version,
@@ -141,13 +191,7 @@ internal static class TranslationKeySql
               AND m.[Key] IN (@keys)
             ORDER BY m.Namespace, m.[Key], m.Locale
             """,
-            new Dictionary<string, object>
-            {
-                ["detailLocales"] = query.DetailLocales,
-                ["sourceIds"] = sourceIds,
-                ["namespaces"] = namespaces,
-                ["keys"] = keys,
-            });
+            arguments);
     }
 
     private static void AppendScope(StringBuilder sql, Dictionary<string, object> arguments, MessageKeyQuery query)
@@ -180,7 +224,7 @@ internal static class TranslationKeySql
 
         if (!string.IsNullOrWhiteSpace(query.Query))
         {
-            clauses.Add(SearchMatches);
+            clauses.Add(SearchMatches());
             arguments["search"] = SqlLikePattern.Contains(query.Query);
         }
 

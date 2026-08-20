@@ -118,7 +118,15 @@ public sealed record MessageKeyQuery(
             .ToArray();
 }
 
-/// <summary>One key, with the locales the caller asked to see and a state for every locale.</summary>
+/// <summary>
+/// One key, with the locales the caller asked to see and a state for every locale.
+///
+/// <paramref name="MatchedLocales"/> is the locales whose text contains the search term, in locale
+/// order, and is empty when nothing was searched for. Search is locale-blind, so a key can be a
+/// result on the strength of a language the caller never asked to see; this is what lets the row
+/// say so rather than looking unrelated. A match in the key itself is not a locale and is not
+/// reported here.
+/// </summary>
 public sealed record TranslationMessageKeyView(
     Guid SourceId,
     string Namespace,
@@ -126,7 +134,8 @@ public sealed record TranslationMessageKeyView(
     MessageFormat Format,
     IReadOnlyDictionary<string, string> Arguments,
     IReadOnlyDictionary<string, TranslationMessageLocaleView> Locales,
-    IReadOnlyDictionary<string, MessageLocaleState> Coverage)
+    IReadOnlyDictionary<string, MessageLocaleState> Coverage,
+    IReadOnlyList<string> MatchedLocales)
 {
     public MessageLocaleState StateOf(string locale) =>
         Coverage.TryGetValue(locale, out var state) ? state : MessageLocaleState.Absent;

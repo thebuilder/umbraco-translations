@@ -16,6 +16,18 @@ export default defineConfig({
       },
       {
         plugins: [react()],
+        // Everything that calls a React hook has to be pre-bundled together, or Vite optimises the
+        // table and the virtualizer into their own bundles with their own copy of React and every
+        // hook they call reads from a null dispatcher. This surfaces as "Cannot read properties of
+        // null (reading 'useReducer')" the first time a test renders the grid.
+        optimizeDeps: {
+          include: [
+            "react", "react-dom", "react/jsx-dev-runtime",
+            "@testing-library/react",
+            "@tanstack/react-query", "@tanstack/react-table", "@tanstack/react-virtual",
+          ],
+        },
+        resolve: { dedupe: ["react", "react-dom"] },
         test: {
           name: "dom",
           include: ["src/**/*.dom.test.tsx"],
