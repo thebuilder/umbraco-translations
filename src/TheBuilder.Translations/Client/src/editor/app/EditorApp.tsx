@@ -247,7 +247,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
               </span>
             )}
             <span className="results__spacer" />
-            {syncing && <span role="status">Synchronising…</span>}
+            {syncing && <span role="status">Syncing…</span>}
             {permissions.data && !permissions.data.canEdit && <span>View-only access</span>}
             <Shortcuts editing={selected !== undefined && row !== undefined} />
           </div>

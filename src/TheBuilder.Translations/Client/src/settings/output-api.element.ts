@@ -99,7 +99,7 @@ export class TranslationOutputApiElement extends UmbElementMixin(LitElement) {
 
     return html`
       <uui-box headline="Translation output API" headline-variant="h2">
-        <p class="intro">Choose the dictionary you need, then copy or open its URL.</p>
+        <p class="intro">Pick a language and namespace, then copy or open the URL.</p>
         ${this.conflicts.map(conflict => html`
           <div class="conflict" role="status">
             <uui-icon name="icon-alert" aria-hidden="true"></uui-icon>
@@ -107,7 +107,7 @@ export class TranslationOutputApiElement extends UmbElementMixin(LitElement) {
           </div>
         `)}
         ${this.endpoints.length === 0 && this.conflicts.length === 0
-          ? html`<p class="empty">Synchronize a source to create output endpoints.</p>`
+          ? html`<p class="empty">Sync a source to create output endpoints.</p>`
           : outputUrl ? html`
             <div class="builder">
               <uui-form-layout-item><uui-label slot="label" for="output-content">Contents</uui-label><uui-select id="output-content" label="Output contents" .options=${contentOptions} @change=${(event: Event) => {
@@ -116,11 +116,11 @@ export class TranslationOutputApiElement extends UmbElementMixin(LitElement) {
               }}></uui-select></uui-form-layout-item>
               <uui-form-layout-item><uui-label slot="label" for="output-language">Language</uui-label><uui-select id="output-language" label="Output language" .options=${localeOptions} @change=${(event: Event) => this.#selectLocale(String((event.currentTarget as UUISelectElement).value))}></uui-select></uui-form-layout-item>
               <uui-form-layout-item><uui-label slot="label" for="output-namespace">Namespace</uui-label><uui-select id="output-namespace" label="Output namespace" .options=${namespaceOptions} @change=${(event: Event) => this.#selectNamespace(String((event.currentTarget as UUISelectElement).value))}></uui-select></uui-form-layout-item>
-              <uui-form-layout-item><uui-label slot="label" for="output-format">Consumer format</uui-label><uui-select id="output-format" label="Consumer format" .options=${formatOptions} @change=${(event: Event) => this.#selectFormat(String((event.currentTarget as UUISelectElement).value))}></uui-select></uui-form-layout-item>
+              <uui-form-layout-item><uui-label slot="label" for="output-format">Format</uui-label><uui-select id="output-format" label="Output format" .options=${formatOptions} @change=${(event: Event) => this.#selectFormat(String((event.currentTarget as UUISelectElement).value))}></uui-select></uui-form-layout-item>
             </div>
             <p class="summary">${this._deliveryMode === "overrides"
-              ? "Editorial overrides only — merge these over the application’s bundled defaults."
-              : "Every synchronized message, with editorial overrides applied."}</p>
+              ? "Only the editorial overrides. Merge these over the defaults your app already ships."
+              : "Every synced message, with editorial overrides applied."}</p>
             <div class="result">
               <code>${outputUrl}</code>
               <div class="actions">
@@ -128,7 +128,7 @@ export class TranslationOutputApiElement extends UmbElementMixin(LitElement) {
                 <uui-button look="primary" label="Open translation output URL" href=${outputUrl} target="_blank" rel="noopener noreferrer">Open<uui-icon name="icon-out" aria-hidden="true"></uui-icon></uui-button>
               </div>
             </div>
-            ${this.languages.some(language => language.unique === selected?.locale) ? "" : html`<p class="language-warning"><uui-icon name="icon-alert" aria-hidden="true"></uui-icon> ${selected?.locale} is no longer configured as an Umbraco language.</p>`}
+            ${this.languages.some(language => language.unique === selected?.locale) ? "" : html`<p class="language-warning"><uui-icon name="icon-alert" aria-hidden="true"></uui-icon> Umbraco no longer lists ${selected?.locale} as a language.</p>`}
           ` : ""}
       </uui-box>
     `;
