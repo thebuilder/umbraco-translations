@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc && vite build",
-    "check": "tsc --noEmit && ultracite check",
+    "check": "pnpm typecheck && pnpm lint",
     "fix": "ultracite fix",
     "generate-client": "node scripts/generate-openapi.js",
     "lint": "ultracite check",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "watch": "tsc && vite build --watch"
   },
   "dependencies": {
