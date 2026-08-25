@@ -87,15 +87,27 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
         // belongs, because a value may be split over as many lines as it likes.
         var id = new StringBuilder();
         var value = new StringBuilder();
+        // A context is read so its continuation lines have somewhere to go, and never read back.
+        var context = new StringBuilder();
         var fuzzy = false;
         StringBuilder? field = null;
         var started = false;
+
+        /*
+         * Flags belong to the entry after them, not the one before. Held apart from the entry being
+         * built and claimed by the msgid that starts the next one, because a catalogue written
+         * without blank lines between entries puts "#, fuzzy" directly after a finished msgstr.
+         * Read as part of that entry it marked the wrong one, so a confirmed translation was
+         * dropped and the guess below it was imported in its place.
+         */
+        var fuzzyNext = false;
 
         void Flush()
         {
             if (started) entries.Add(new PoEntry(id.ToString(), value.ToString(), fuzzy));
             id.Clear();
             value.Clear();
+            context.Clear();
             fuzzy = false;
             field = null;
             started = false;
@@ -112,13 +124,11 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
 
             if (line[0] == '#')
             {
-                // Flags are the only comment that changes what an entry means.
+                // Flags are the only comment that changes what an entry means. Obsolete entries are
+                // commented out with "#~" and fall in here too, which is where they belong.
                 if (line.StartsWith("#,", StringComparison.Ordinal) &&
                     line[2..].Split(',').Any(flag => flag.Trim().Equals("fuzzy", StringComparison.Ordinal)))
-                {
-                    fuzzy = true;
-                    started = true;
-                }
+                    fuzzyNext = true;
                 continue;
             }
 
@@ -128,12 +138,16 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
                     "This catalogue uses gettext plural entries. next-intl writes plurals as ICU inside the " +
                     "message, not as msgid_plural and msgstr[n].");
 
-            if (Keyword(line, "msgctxt", out _))
+            if (Keyword(line, "msgctxt", out var contextText))
             {
-                // Read and dropped: next-intl does not emit a context, and a key that only differs
-                // by one collides on the duplicate check below rather than silently overwriting.
-                field = null;
+                // Read and dropped. next-intl emits no context, and a key that differs only by one
+                // collides on the duplicate check rather than silently overwriting. It still needs
+                // somewhere to go: a context may be split over lines like any other string, and
+                // sending those nowhere made a valid catalogue fail as unexpected text.
+                context.Clear();
+                field = context;
                 started = true;
+                field.Append(contextText);
                 continue;
             }
 
@@ -141,6 +155,8 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
             {
                 // A second msgid without a blank line between is still a new entry.
                 if (id.Length > 0 || value.Length > 0) Flush();
+                fuzzy = fuzzyNext;
+                fuzzyNext = false;
                 field = id;
                 started = true;
                 field.Append(idText);

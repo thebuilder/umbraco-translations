@@ -158,6 +158,73 @@ public sealed class PoParserTests
         Assert.Equal("string", Assert.Single(messages).Arguments["name"]);
     }
 
+    /*
+     * A flag belongs to the entry after it. Catalogues are normally written with a blank line
+     * between entries, and without one the flag was read as part of the entry above: the confirmed
+     * translation was dropped as a guess and the actual guess was imported in its place. Silent
+     * both ways, which is what makes it worth a test.
+     */
+    [Fact]
+    public async Task Marks_the_entry_a_fuzzy_flag_precedes_rather_than_the_one_above_it()
+    {
+        var messages = await Parse("""
+            msgid "cart.total"
+            msgstr "I alt"
+            #, fuzzy
+            msgid "cart.checkout"
+            msgstr "Til kassen"
+            """);
+
+        Assert.Equal(["total"], messages.Select(message => message.Key));
+    }
+
+    [Fact]
+    public async Task Reads_a_context_it_has_no_use_for_without_choking_on_it()
+    {
+        // The context is dropped, but it has to be read: like any PO string it may be split over
+        // lines, and sending those continuations nowhere failed a perfectly valid catalogue.
+        var messages = await Parse("""
+            msgctxt ""
+            "a context long enough to wrap"
+            msgid "cart.empty"
+            msgstr "Kurven er tom"
+            """);
+
+        Assert.Equal("Kurven er tom", Assert.Single(messages).Value);
+    }
+
+    [Fact]
+    public async Task Leaves_entries_the_catalogue_has_commented_out_where_they_are()
+    {
+        // gettext keeps removed entries as "#~" rather than deleting them. They are history, not
+        // content, and importing them would resurrect keys the application stopped shipping.
+        var messages = await Parse("""
+            #~ msgid "cart.gone"
+            #~ msgstr "Fjernet"
+
+            msgid "cart.empty"
+            msgstr "Kurven er tom"
+            """);
+
+        Assert.Equal(["empty"], messages.Select(message => message.Key));
+    }
+
+    [Fact]
+    public async Task Reads_a_catalogue_written_on_windows()
+    {
+        var messages = await Parse("msgid \"cart.empty\"\r\nmsgstr \"Kurven er tom\"\r\n");
+
+        Assert.Equal("Kurven er tom", Assert.Single(messages).Value);
+    }
+
+    [Fact]
+    public async Task Reads_the_last_entry_when_the_file_does_not_end_in_a_newline()
+    {
+        var messages = await Parse("msgid \"cart.empty\"\nmsgstr \"Kurven er tom\"");
+
+        Assert.Single(messages);
+    }
+
     private async Task<IReadOnlyList<TranslationSourceMessage>> Parse(
         string po,
         NamespaceMode namespaceMode = NamespaceMode.FirstSegment)
