@@ -7,11 +7,16 @@ namespace TheBuilder.Translations.Core.Sources;
 /// <summary>
 /// Gettext PO, in the dialect next-intl writes.
 ///
-/// The one thing worth knowing about that dialect is that <c>msgid</c> holds the message *key*,
-/// where ordinary gettext holds the source text. A catalogue is therefore a flat list of keys and
-/// values, which is what the nested JSON parser produces after flattening. Both namespace modes
-/// mean the same thing here as they do there, and plural forms never come into it, because
-/// next-intl keeps plurals as ICU inside the value.
+/// The dialect holds the message *key* where ordinary gettext holds the source text, and it splits
+/// that key across two fields: everything before the last dot goes in <c>msgctxt</c> and only the
+/// final segment stays in <c>msgid</c>. So <c>cart.items.count</c> is written as a context of
+/// <c>cart.items</c> and an id of <c>count</c>, and the two are joined back here. next-intl's own
+/// decoder refuses a catalogue without a context for exactly this reason: without it the key cannot
+/// be rebuilt.
+///
+/// A catalogue is therefore a flat list of keys and values, which is what the nested JSON parser
+/// produces after flattening. Both namespace modes mean the same thing here as they do there, and
+/// plural forms never come into it, because next-intl keeps plurals as ICU inside the value.
 ///
 /// What the format adds beyond a key and a value is metadata: <c>#.</c> descriptions and <c>#:</c>
 /// file references. There is nowhere to keep those, so they are read and dropped rather than
@@ -39,7 +44,7 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
              */
             if (entry.Id.Length == 0 || entry.Value.Length == 0 || entry.Fuzzy) continue;
 
-            var (messageNamespace, key) = Split(entry.Id, options);
+            var (messageNamespace, key) = Split(entry.Key, options);
             var identity = $"{messageNamespace}\0{key}";
             if (!identities.Add(identity))
                 throw new TranslationSourceFormatException($"Duplicate key '{messageNamespace}.{key}'.");
@@ -104,7 +109,7 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
 
         void Flush()
         {
-            if (started) entries.Add(new PoEntry(id.ToString(), value.ToString(), fuzzy));
+            if (started) entries.Add(new PoEntry(id.ToString(), context.ToString(), value.ToString(), fuzzy));
             id.Clear();
             value.Clear();
             context.Clear();
@@ -140,10 +145,8 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
 
             if (Keyword(line, "msgctxt", out var contextText))
             {
-                // Read and dropped. next-intl emits no context, and a key that differs only by one
-                // collides on the duplicate check rather than silently overwriting. It still needs
-                // somewhere to go: a context may be split over lines like any other string, and
-                // sending those nowhere made a valid catalogue fail as unexpected text.
+                // The leading segments of the key, which is what next-intl puts here. Like any PO
+                // string it may be split over lines, so it needs a field of its own to collect in.
                 context.Clear();
                 field = context;
                 started = true;
@@ -251,5 +254,12 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
         _ => format.ToString(),
     };
 
-    private sealed record PoEntry(string Id, string Value, bool Fuzzy);
+    private sealed record PoEntry(string Id, string Context, string Value, bool Fuzzy)
+    {
+        /// <summary>
+        /// The key, rebuilt from the two fields next-intl splits it across. A context with no id is
+        /// not half a key, so the id alone decides whether there is a message here at all.
+        /// </summary>
+        public string Key => Id.Length == 0 || Context.Length == 0 ? Id : $"{Context}.{Id}";
+    }
 }

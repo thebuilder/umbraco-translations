@@ -178,19 +178,73 @@ public sealed class PoParserTests
         Assert.Equal(["total"], messages.Select(message => message.Key));
     }
 
+    /*
+     * How next-intl actually writes a catalogue, as opposed to the shortened form in its docs. The
+     * key is split across two fields: everything before the last dot in msgctxt, the final segment
+     * in msgid. Dropping the context lost the namespace, so every key arrived as a bare word that
+     * first-key mode then refused for having no dot, and any two namespaces sharing a final segment
+     * collided as duplicates. Its own decoder throws without a context, for the same reason.
+     */
     [Fact]
-    public async Task Reads_a_context_it_has_no_use_for_without_choking_on_it()
+    public async Task Rebuilds_a_key_that_next_intl_split_across_msgctxt_and_msgid()
     {
-        // The context is dropped, but it has to be read: like any PO string it may be split over
-        // lines, and sending those continuations nowhere failed a perfectly valid catalogue.
+        var messages = await Parse("""
+            msgctxt "cart"
+            msgid "empty"
+            msgstr "Kurven er tom"
+
+            msgctxt "checkout"
+            msgid "empty"
+            msgstr "Intet at betale"
+            """);
+
+        Assert.Equal(
+            [("cart", "empty"), ("checkout", "empty")],
+            messages.Select(message => (message.Namespace, message.Key)));
+    }
+
+    [Fact]
+    public async Task Keeps_the_inner_segments_of_a_key_with_more_than_one_dot()
+    {
+        // next-intl moves everything before the *last* dot into the context, so the middle segments
+        // arrive there and belong back on the key.
+        var messages = await Parse("""
+            msgctxt "cart.items"
+            msgid "count"
+            msgstr "{count} varer"
+            """);
+
+        var message = Assert.Single(messages);
+        Assert.Equal(("cart", "items.count"), (message.Namespace, message.Key));
+    }
+
+    [Fact]
+    public async Task Reads_a_context_that_wraps_over_lines()
+    {
+        // Like any PO string a context may be split, and sending the continuations nowhere failed a
+        // perfectly valid catalogue as unexpected text.
         var messages = await Parse("""
             msgctxt ""
-            "a context long enough to wrap"
+            "cart"
+            msgid "empty"
+            msgstr "Kurven er tom"
+            """);
+
+        var message = Assert.Single(messages);
+        Assert.Equal(("cart", "empty"), (message.Namespace, message.Key));
+    }
+
+    [Fact]
+    public async Task Still_reads_a_whole_key_left_in_msgid_alone()
+    {
+        // The form next-intl's documentation shows, and what a hand-written catalogue looks like.
+        var messages = await Parse("""
             msgid "cart.empty"
             msgstr "Kurven er tom"
             """);
 
-        Assert.Equal("Kurven er tom", Assert.Single(messages).Value);
+        var message = Assert.Single(messages);
+        Assert.Equal(("cart", "empty"), (message.Namespace, message.Key));
     }
 
     [Fact]
