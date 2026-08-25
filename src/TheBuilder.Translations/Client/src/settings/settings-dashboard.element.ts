@@ -62,7 +62,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
       this._outputEndpoints = facets.outputEndpoints;
       this._outputConflicts = facets.outputConflicts ?? [];
     } catch (error) {
-      this._loadError = this.#message(error, "Translation settings could not be loaded.");
+      this._loadError = this.#message(error, "Could not load translation settings.");
     } finally {
       this._loading = false;
     }
@@ -106,7 +106,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     if (source.alias === "." || source.alias === ".." || !/^[a-z0-9._~-]+$/.test(source.alias)) return "Use only lowercase letters, numbers, hyphens, periods, underscores, or tildes in the source identifier.";
     if (!hasLocaleToken(source.endpointTemplate)) return "The messages endpoint must contain {locale} or {language}.";
     if (source.locales.length === 0) return "Choose at least one site language.";
-    if (source.namespaceMode === "Fixed" && !source.namespace.trim()) return "Enter the namespace used for every message.";
+    if (source.namespaceMode === "Fixed" && !source.namespace.trim()) return "Enter a namespace.";
     if (!Number.isFinite(source.timeoutSeconds) || source.timeoutSeconds < 1 || source.timeoutSeconds > 120) return "Request timeout must be between 1 and 120 seconds.";
     if (!Number.isFinite(source.maximumResponseBytes) || source.maximumResponseBytes < 1_000_000 || source.maximumResponseBytes > 50_000_000) return "Largest accepted response must be between 1 and 50 MB.";
     if (source.headers.some(header => !header.name.trim() || !header.valueConfigurationKey.trim())) return "Complete or remove every request header row.";
@@ -129,10 +129,10 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
       this._sources = this._editing
         ? this._sources.map(source => source.id === saved.id ? saved : source)
         : [...this._sources, saved];
-      this.#notification?.peek("positive", { data: { message: "Translation source saved." } });
+      this.#notification?.peek("positive", { data: { message: "Source saved." } });
       this.#cancelEdit();
     } catch (error) {
-      this._formError = this.#message(error, "The translation source could not be saved.");
+      this._formError = this.#message(error, "Could not save the source.");
     } finally {
       this._saving = false;
     }
@@ -151,14 +151,14 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
       const result = await api.testSourceConfiguration(this._draft);
       this.#notification?.peek(result.success ? "positive" : "warning", {
         data: {
-          headline: result.success ? "Connection ready" : "No messages found",
+          headline: result.success ? "Endpoint responded" : "No messages found",
           message: result.success
-            ? `${result.messageCount} messages found for ${result.locales.join(", ")}.`
+            ? `Found ${result.messageCount} messages for ${result.locales.join(", ")}.`
             : result.warnings.join(" ") || "The endpoint returned no messages.",
         },
       });
     } catch (error) {
-      this.#notification?.peek("danger", { data: { headline: "Connection test failed", message: this.#message(error, "The source could not be tested.") } });
+      this.#notification?.peek("danger", { data: { headline: "Could not reach the endpoint", message: this.#message(error, "Could not test the source.") } });
     } finally {
       this._running = undefined;
     }
@@ -170,7 +170,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     try {
       const result = await api.syncSource(source.id);
       this.#notification?.peek("positive", {
-        data: { headline: "Synchronization complete", message: `${result.addedCount} added, ${result.changedCount} changed, ${result.missingCount} removed.` },
+        data: { headline: "Sync complete", message: `${result.addedCount} added, ${result.changedCount} changed, ${result.missingCount} removed.` },
       });
       try {
         const [updated, history, facets] = await Promise.all([
@@ -183,10 +183,10 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
         this._outputEndpoints = facets.outputEndpoints;
         this._outputConflicts = facets.outputConflicts ?? [];
       } catch (error) {
-        this.#notification?.peek("warning", { data: { headline: "Synchronization completed", message: this.#message(error, "Refresh the page to see the latest source status.") } });
+        this.#notification?.peek("warning", { data: { headline: "Sync complete", message: this.#message(error, "Refresh the page to see the latest source status.") } });
       }
     } catch (error) {
-      this.#notification?.peek("danger", { data: { headline: "Synchronization failed", message: this.#message(error, "The source could not be synchronized.") } });
+      this.#notification?.peek("danger", { data: { headline: "Sync failed", message: this.#message(error, "Could not sync the source.") } });
     } finally {
       this._running = undefined;
     }
@@ -204,17 +204,17 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
       const { [source.id]: _removedLocale, ...sourceApiLocales } = this._sourceApiLocales;
       this._histories = histories;
       this._sourceApiLocales = sourceApiLocales;
-      this.#notification?.peek("positive", { data: { headline: "Source deleted", message: `${source.displayName} and its synchronized translations were deleted.` } });
+      this.#notification?.peek("positive", { data: { headline: "Source deleted", message: `Removed ${source.displayName} and every message it had synced.` } });
 
       try {
         const facets = await api.facets();
         this._outputEndpoints = facets.outputEndpoints;
         this._outputConflicts = facets.outputConflicts ?? [];
       } catch (error) {
-        this.#notification?.peek("warning", { data: { headline: "Output APIs could not be refreshed", message: this.#message(error, "Reload Settings to refresh them.") } });
+        this.#notification?.peek("warning", { data: { headline: "Could not refresh the output APIs", message: this.#message(error, "Reload Settings to refresh them.") } });
       }
     } catch (error) {
-      this.#notification?.peek("danger", { data: { headline: "Source could not be deleted", message: this.#message(error, "Try again.") } });
+      this.#notification?.peek("danger", { data: { headline: "Could not delete the source", message: this.#message(error, "Try again.") } });
     } finally {
       this._running = undefined;
     }
@@ -225,7 +225,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     try {
       await umbConfirmModal(this, {
         headline: `Delete ${source.displayName}?`,
-        content: "This permanently deletes the source, its synchronized messages, editorial overrides, and synchronization history. This action cannot be undone.",
+        content: "This permanently removes the source, every message it synced, the editorial overrides on those messages, and the sync history.",
         color: "danger",
         confirmLabel: "Delete source",
         cancelLabel: "Cancel",
@@ -252,7 +252,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
       const history = await api.syncHistory(sourceId);
       this._histories = { ...this._histories, [sourceId]: history };
     } catch (error) {
-      this.#notification?.peek("danger", { data: { headline: "History could not be loaded", message: this.#message(error, "Try again.") } });
+      this.#notification?.peek("danger", { data: { headline: "Could not load the history", message: this.#message(error, "Try again.") } });
     } finally {
       this._running = undefined;
     }
@@ -297,29 +297,29 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
           </div>
           <div class="actions">
             <uui-button type="button" look="secondary" label=${`Edit ${source.displayName}`} ?disabled=${Boolean(this._running)} @click=${() => this.#editSource(source)}>Edit</uui-button>
-            <uui-button type="button" look="secondary" color="positive" label=${`Synchronize ${source.displayName}`} ?disabled=${Boolean(this._running) || !source.enabled} @click=${() => this.#sync(source)}>${this.#isRunning("sync", source.id) ? "Syncing…" : "Sync now"}</uui-button>
-            <uui-button type="button" look="secondary" label=${`${historyOpen ? "Hide" : "Show"} synchronization history for ${source.displayName}`} ?disabled=${Boolean(this._running)} @click=${() => this.#toggleHistory(source.id)}>${historyOpen ? "Hide history" : "History"}</uui-button>
+            <uui-button type="button" look="secondary" color="positive" label=${`Sync ${source.displayName} now`} ?disabled=${Boolean(this._running) || !source.enabled} @click=${() => this.#sync(source)}>${this.#isRunning("sync", source.id) ? "Syncing…" : "Sync now"}</uui-button>
+            <uui-button type="button" look="secondary" label=${`${historyOpen ? "Hide" : "Show"} sync history for ${source.displayName}`} ?disabled=${Boolean(this._running)} @click=${() => this.#toggleHistory(source.id)}>${historyOpen ? "Hide history" : "History"}</uui-button>
           </div>
         </div>
-        ${source.lastSuccessfulSync ? html`<p class="last-sync">Last synchronized ${new Date(source.lastSuccessfulSync).toLocaleString()} · revision ${source.lastSuccessfulRevision?.slice(0, 10)}</p>` : ""}
+        ${source.lastSuccessfulSync ? html`<p class="last-sync">Last synced ${new Date(source.lastSuccessfulSync).toLocaleString()} · revision ${source.lastSuccessfulRevision?.slice(0, 10)}</p>` : ""}
         <div class="source-apis">
-          <strong>Upstream source API</strong>
+          <strong>Messages endpoint</strong>
           <uui-select
             class="source-api-locale"
-            label=${`Locale for ${source.displayName} upstream source API`}
+            label=${`Locale for the ${source.displayName} messages endpoint`}
             .options=${apiLocaleOptions}
             @change=${(event: Event) => this.#selectSourceApiLocale(source.id, String((event.currentTarget as UUISelectElement).value))}>
           </uui-select>
           <uui-button
             look="secondary"
-            label=${`Open ${source.displayName} source API for ${apiLocale}`}
+            label=${`Open the ${source.displayName} messages endpoint for ${apiLocale}`}
             href=${sourceEndpoint(source.transport.endpointTemplate, apiLocale)}
             target="_blank"
             rel="noopener noreferrer">
-            Open API<uui-icon name="icon-out" aria-hidden="true"></uui-icon>
+            Open<uui-icon name="icon-out" aria-hidden="true"></uui-icon>
           </uui-button>
           ${source.transport.headers.length > 0 || source.transport.secretName
-            ? html`<small>Opening directly does not include the server-side authentication configured for synchronization.</small>`
+            ? html`<small>Your browser will not send the headers that sync uses, so this may come back unauthorized.</small>`
             : ""}
         </div>
         ${historyOpen ? this.#renderHistory(source.id, history) : ""}
@@ -328,8 +328,8 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
   }
 
   #renderHistory(sourceId: string, history?: SyncResult[]) {
-    if (this.#isRunning("history", sourceId)) return html`<p>Loading synchronization history…</p>`;
-    if (!history?.length) return html`<p>No synchronization attempts yet.</p>`;
+    if (this.#isRunning("history", sourceId)) return html`<p>Loading history…</p>`;
+    if (!history?.length) return html`<p>No syncs yet.</p>`;
     return html`
       <div class="table-frame">
         <uui-table>
@@ -347,7 +347,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
         ${this._loading
           ? html`<div class="loading"><uui-loader></uui-loader><span>Loading translation settings…</span></div>`
           : this._loadError
-            ? html`<uui-box headline="Could not load translation settings" headline-variant="h2"><p class="error" role="alert">${this._loadError}</p><uui-button look="primary" label="Try loading translation settings again" @click=${() => this.#load()}>Try again</uui-button></uui-box>`
+            ? html`<uui-box headline="Could not load translation settings" headline-variant="h2"><p class="error" role="alert">${this._loadError}</p><uui-button look="primary" label="Load translation settings again" @click=${() => this.#load()}>Try again</uui-button></uui-box>`
             : this._draft ? html`
           <thebuilder-translations-source-editor
             .value=${this._draft}
@@ -367,7 +367,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
           <uui-box class="sources-box" headline="Sources" headline-variant="h2">
             <div class="sources-content">
               ${this._sources.length === 0
-                ? html`<div class="empty-state"><uui-icon name="icon-globe" aria-hidden="true"></uui-icon><h3>No translation sources yet</h3><p>Add a source to retrieve and validate messages for this site’s configured languages.</p></div>`
+                ? html`<div class="empty-state"><uui-icon name="icon-globe" aria-hidden="true"></uui-icon><h3>No translation sources yet</h3><p>Add a source to pull JSON messages into the languages this site is set up for.</p></div>`
                 : html`<div class="source-list">${this._sources.map(source => this.#renderSource(source))}</div>`}
             </div>
             <div class="sources-footer">
