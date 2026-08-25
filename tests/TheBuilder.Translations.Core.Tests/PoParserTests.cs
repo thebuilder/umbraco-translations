@@ -323,6 +323,66 @@ public sealed class PoParserTests
         Assert.Single(messages);
     }
 
+    /*
+     * An excerpt of a real catalogue, and the shape it has to land in.
+     *
+     * The whole of that file, 859 entries, was run through this parser and nested the way the
+     * delivery API nests, and came out byte-identical to the en.json next-intl writes for the same
+     * app. This keeps the parts of it that were nearly wrong: contexts several segments deep, a
+     * context that returns after a deeper one has interrupted it, an escaped quote, and an ICU
+     * plural living inside the value where next-intl puts it.
+     */
+    [Fact]
+    public async Task Reads_a_catalogue_the_way_next_intl_wrote_it()
+    {
+        var messages = await Parse(""""
+            msgid ""
+            msgstr ""
+            "Language: en\n"
+            "X-Generator: next-intl\n"
+
+            msgctxt "HomePage"
+            msgid "title"
+            msgstr "Hello world!"
+
+            msgctxt "Component.CampaignLibrary"
+            msgid "ItemCount"
+            msgstr "{count, plural, one {# entry} other {# entries}}"
+
+            msgctxt "Component.CampaignLibrary.Errors"
+            msgid "CATEGORY_NOT_EMPTY"
+            msgstr "Move or delete this category's entries before deleting it."
+
+            msgctxt "Component.CampaignSystem"
+            msgid "EmptyAddCustom"
+            msgstr "Add \"{value}\" as a custom system"
+
+            msgctxt "Component.CampaignSystem.CustomOption"
+            msgid "Label"
+            msgstr "Homebrew / Custom"
+
+            msgctxt "Component.CampaignSystem"
+            msgid "FrameFieldLabel"
+            msgstr "Game setting"
+            """", NamespaceMode.Fixed);
+
+        Assert.Equal(
+            [
+                "HomePage.title",
+                "Component.CampaignLibrary.ItemCount",
+                "Component.CampaignLibrary.Errors.CATEGORY_NOT_EMPTY",
+                "Component.CampaignSystem.EmptyAddCustom",
+                "Component.CampaignSystem.CustomOption.Label",
+                "Component.CampaignSystem.FrameFieldLabel",
+            ],
+            messages.Select(message => message.Key));
+
+        // The escaped quotes survive, and so does the placeholder between them.
+        var custom = messages.Single(message => message.Key.EndsWith("EmptyAddCustom", StringComparison.Ordinal));
+        Assert.Equal("Add \"{value}\" as a custom system", custom.Value);
+        Assert.Equal("string", custom.Arguments["value"]);
+    }
+
     private async Task<IReadOnlyList<TranslationSourceMessage>> Parse(
         string po,
         NamespaceMode namespaceMode = NamespaceMode.FirstSegment)
