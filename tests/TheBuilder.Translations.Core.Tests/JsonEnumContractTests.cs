@@ -31,7 +31,7 @@ public sealed class JsonEnumContractTests
     [Fact]
     public void Source_parser_serializes_enum_values_as_strings()
     {
-        var parser = new NestedJsonParserOptions(["da", "en"], "website", NamespaceMode.FirstSegment, MessageFormat.Icu);
+        var parser = new TranslationParserOptions(["da", "en"], "website", NamespaceMode.FirstSegment, MessageFormat.Icu);
 
         var json = JsonSerializer.Serialize(parser);
 

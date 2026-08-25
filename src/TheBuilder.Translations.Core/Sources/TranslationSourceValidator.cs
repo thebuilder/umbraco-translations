@@ -31,7 +31,15 @@ public static class TranslationSourceValidator
             if (HttpTranslationRequestHeaderPolicy.IsTransportManaged(header.Name)) return $"Request header '{header.Name}' is managed by the translation transport and cannot be configured.";
             if (!HttpTranslationRequestHeaderPolicy.CanAddToRequest(header.Name)) return $"Request header '{header.Name}' is not supported for translation requests.";
             if (!headerNames.Add(header.Name)) return $"Request header '{header.Name}' is configured more than once.";
-            if (string.IsNullOrWhiteSpace(header.ValueConfigurationKey) || header.ValueConfigurationKey.Length > 200) return $"Request header '{header.Name}' must reference a server configuration key.";
+            // One source of the value or the other, never both and never neither: two filled fields
+            // is a question about which one wins that nobody should have to know the answer to.
+            var named = !string.IsNullOrWhiteSpace(header.ValueConfigurationKey);
+            if (named == header.IsLiteral) return $"Request header '{header.Name}' needs either a value or the name of a configuration setting, and not both.";
+            if (named && header.ValueConfigurationKey!.Length > 200) return $"The configuration setting named by request header '{header.Name}' is too long.";
+            if (header.IsLiteral && header.Value!.Length > 1000) return $"The value of request header '{header.Name}' is too long.";
+            // Checked at the source rather than only at the request, so a header that could never be
+            // sent is refused where it is typed instead of failing every sync from then on.
+            if (header.IsLiteral && header.Value!.IndexOfAny(['\r', '\n']) >= 0) return $"The value of request header '{header.Name}' contains line breaks, which cannot be sent.";
         }
         if (source.Transport.SecretName is not null && headerNames.Contains("Authorization")) return "Authorization cannot use both the Bearer token setting and a custom request header.";
         if (source.Parser.Locales.Count == 0) return "At least one locale is required.";

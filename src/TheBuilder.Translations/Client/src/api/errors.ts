@@ -78,13 +78,31 @@ const codeOf = (body: unknown): string | undefined =>
 // ASP.NET returns bare strings from BadRequest(string) and objects from ProblemDetails, so both
 // shapes have to be unwrapped before falling back to the status text.
 const messageOf = (body: unknown): string => {
-  if (typeof body === "string") return body;
-  if (body instanceof Error) return body.message;
+  if (typeof body === "string") return summarise(body);
+  if (body instanceof Error) return summarise(body.message);
   if (isRecord(body)) {
     for (const key of ["message", "detail", "title"] as const) {
       const value = body[key];
-      if (typeof value === "string" && value.length > 0) return value;
+      if (typeof value === "string" && value.length > 0) return summarise(value);
     }
   }
   return "";
+};
+
+/** Longer than a sentence somebody wrote for a person to read, and shorter than a paragraph. */
+const READABLE = 300;
+
+/**
+ * The first line of it, and not too much of that.
+ *
+ * An unhandled server exception puts its whole stack trace in ProblemDetails' `detail`, and this
+ * message ends up in a notification a couple of lines tall: a synchronization that hit a 429
+ * reported four thousand characters of middleware frames, with the one sentence explaining it
+ * scrolled off the top. Every message the API means to be read is a single short line, so keeping
+ * the first line loses nothing that was written for a person -- and the whole body is still on
+ * `ApiError.body` for anything that wants it.
+ */
+const summarise = (message: string): string => {
+  const first = message.split("\n", 1)[0]!.trim();
+  return first.length > READABLE ? `${first.slice(0, READABLE - 1).trimEnd()}…` : first;
 };

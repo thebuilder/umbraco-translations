@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { ReactNode, Ref } from "react";
 import type { MessageKeyStatus } from "../../api/generated/models.js";
 import type { SelectOption } from "../../bridge/uui/index.js";
-import { Caret, Picker } from "../components/Picker.js";
+import { Cross } from "../components/Glyphs.js";
+import { Picker } from "../components/Picker.js";
 import { defaultFilters, type EditorFilters, type SortDirection, type SortField } from "../state/filters.js";
 import { clearedFilters, hasNarrowingFilters } from "../state/list-state.js";
 
@@ -90,16 +91,15 @@ export const FilterBar = ({ filters, namespaces, update, searchRef }: {
               update({ query: "" });
             }}
           >
-            <span aria-hidden="true">✕</span>
+            <Cross className="search__cross" />
           </button>
         )}
       </div>
 
-      <div className="chips">
-        <span className="chips__lead">Filters</span>
-
+      <div className="chips" role="group" aria-label="Filters">
         <Chip
           label="Namespace"
+          prefix="Namespace"
           picker="Namespace"
           options={namespaceOptions}
           value={filters.namespace ?? ""}
@@ -115,11 +115,13 @@ export const FilterBar = ({ filters, namespaces, update, searchRef }: {
         {/* No menu: a dotted path arrives from a link or from somebody typing it, and the useful
             thing to offer here is a way back out of it. */}
         {filters.keyPrefix && (
-          <Chip label="Under" onRemove={() => update({ keyPrefix: null })}>
+          <Chip label="Under" prefix="Under" onRemove={() => update({ keyPrefix: null })}>
             <span className="chip__code">{filters.keyPrefix}.</span>
           </Chip>
         )}
 
+        {/* No prefix on either of these: "Not written" and "Needing attention first" already say
+            which dimension they are, and "Showing" in front of one is a word that adds nothing. */}
         <Chip
           label="Showing"
           picker="Status"
@@ -178,8 +180,14 @@ export const FilterBar = ({ filters, namespaces, update, searchRef }: {
  * a dashed outline offering to add it. Both are the same control underneath, so a filter is changed
  * where it is read rather than by finding the menu it came from.
  */
-const Chip = ({ label, picker, options, value, onChange, onRemove, children }: {
+const Chip = ({ label, prefix, picker, options, value, onChange, onRemove, children }: {
+  /** Names the dimension to a screen reader and to the remove button, whether or not it is drawn. */
   label: string;
+  /**
+   * The dimension spelled out on the chip, for a value that does not name its own. A namespace is
+   * an opaque word and needs one; "Not written" is a whole sentence about itself and does not.
+   */
+  prefix?: string;
   /** The word the dashed outline offers, when there is a menu behind it. */
   picker?: string;
   options?: readonly SelectOption[];
@@ -200,24 +208,29 @@ const Chip = ({ label, picker, options, value, onChange, onRemove, children }: {
 
   const face = (
     <>
-      <span className="chip__label">{label}</span>
+      {prefix && <span className="chip__label">{prefix}</span>}
       <span className="chip__value">{children}</span>
     </>
   );
 
+  /*
+   * No caret. The chip already carries a mark -- the one that takes the filter off -- and a second
+   * one on a pill this size is what made a row of three of them read as clutter. What is left is
+   * the value, and the single control that acts on it; that the words open a menu is carried by the
+   * pointer and the underline on hover, which is where somebody goes looking for it anyway.
+   */
   return (
     <span className="chip">
       {options !== undefined && onChange !== undefined ? (
         <Picker className="picker--chip" label={picker ?? label} options={options} value={value ?? ""} onChange={onChange}>
           {face}
-          <Caret />
         </Picker>
       ) : (
         <span className="chip__face">{face}</span>
       )}
       {onRemove && (
         <button type="button" className="chip__remove" aria-label={`Remove ${label.toLowerCase()} filter`} onClick={onRemove}>
-          <span aria-hidden="true">✕</span>
+          <Cross className="chip__cross" />
         </button>
       )}
     </span>

@@ -37,7 +37,11 @@ public sealed class TranslationsComposer : IComposer
         builder.Services.AddSingleton<IAuthorizationHandler, TranslationSectionAccessHandler>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IMessageFormatValidator, MessageFormatValidator>();
-        builder.Services.AddSingleton<ITranslationSourceParser, NestedJsonParser>();
+        // The concrete parsers are registered as themselves; only the one that chooses between them
+        // answers to the interface, so nothing downstream has to know a choice was made.
+        builder.Services.AddSingleton<NestedJsonParser>();
+        builder.Services.AddSingleton<PoParser>();
+        builder.Services.AddSingleton<ITranslationSourceParser, TranslationCatalogParser>();
         builder.Services.AddHttpClient<ITranslationSourceTransport, HttpTranslationSourceTransport>()
             .ConfigurePrimaryHttpMessageHandler(services => TranslationSourceHttpHandler.Create(
                 services.GetRequiredService<IOptions<TranslationSourceSecurityOptions>>().Value));

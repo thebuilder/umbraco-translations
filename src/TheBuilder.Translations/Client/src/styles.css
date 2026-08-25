@@ -94,12 +94,19 @@ h1, h2, h3, p { margin-top: 0; }
    whatever font the platform found a triangle in. */
 .picker__caret { flex: none; align-self: center; inline-size: .625rem; block-size: .375rem; color: var(--uui-color-text-alt); }
 .picker:hover .picker__face { color: var(--uui-color-selected); }
+/* A language stated rather than offered, where the site has only the one. It keeps the type scale
+   of the menu it replaces and gives up everything that promises somewhere to go. */
+.picker--fixed { cursor: default; }
+.picker--fixed:hover .picker__face { color: inherit; }
 .picker:has(.picker__control:focus-visible) .picker__face { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; }
 
-/* The language being edited. Set as a heading because that is what it is. */
-.picker--lead .picker__name { font-size: 1.5rem; font-weight: 600; letter-spacing: -.015em; line-height: 1.15; }
-.picker--lead .picker__code { font-size: 12px; }
-.picker--lead .picker__caret { inline-size: .75rem; block-size: .4375rem; }
+/* The two languages, at the size the strip is a sentence at.
+   The one being edited is the heavier of the two rather than the larger: it is the word that
+   changes what every row below means, and weight says that without the strip becoming a title. Set
+   as a heading it was half again the size of the phrase it sits in, which made "Editing" and
+   "compared with" read as captions under a banner rather than as the sentence they belong to.
+   Their codes and carets are the base size, so the two clauses balance. */
+.picker--lead .picker__name { font-size: 1rem; font-weight: 600; }
 .picker--quiet .picker__name { font-size: 1rem; font-weight: 500; }
 
 /* ---- Search, and the qualifiers around it ------------------------------------------------- */
@@ -128,6 +135,7 @@ h1, h2, h3, p { margin-top: 0; }
   border: 0; border-radius: 50%; background: var(--uui-color-surface-alt);
   color: var(--uui-color-text-alt); font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
 }
+.search__cross { inline-size: .5625rem; block-size: .5625rem; }
 .search__clear:hover { background: var(--uui-color-divider); color: var(--uui-color-text); }
 .search__clear:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 
@@ -135,14 +143,16 @@ h1, h2, h3, p { margin-top: 0; }
    dashed outline offering to start. The failure mode of a row of quiet dropdowns is an editor
    staring at an incomplete list without noticing that a status filter is still on. */
 .chips { display: flex; align-items: center; flex-wrap: wrap; gap: var(--uui-size-space-2); }
-.chips__lead { font-family: var(--edit-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--uui-color-text-alt); }
 .chips__spacer { flex: 1 1 auto; }
 
+/* No border. The fill and the outline were drawing the same boundary twice, so the fill takes it
+   over on its own and comes up enough to hold the shape without one. */
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
   block-size: 1.75rem; padding-inline: .6875rem .375rem;
-  border: 1px solid var(--edit-tint-line); border-radius: 999px;
-  background: var(--edit-tint); color: var(--uui-color-selected);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--uui-color-selected) 13%, var(--uui-color-surface));
+  color: var(--uui-color-selected);
   font-size: var(--uui-type-small-size); max-inline-size: 100%;
 }
 .chip:not(:has(.chip__remove)) { padding-inline-end: .6875rem; }
@@ -162,6 +172,7 @@ h1, h2, h3, p { margin-top: 0; }
   border: 0; border-radius: 50%; background: none; color: inherit; opacity: .65;
   font: inherit; font-size: 10px; line-height: 1; cursor: pointer;
 }
+.chip__cross { inline-size: .5rem; block-size: .5rem; }
 .chip__remove:hover { background: var(--edit-tint-line); opacity: 1; }
 .chip__remove:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
 
@@ -224,7 +235,6 @@ h1, h2, h3, p { margin-top: 0; }
 /* Square and sized to the glyph. Text-button padding leaves a single character wedged into a box
    built for a word. */
 .button--icon { inline-size: 1.75rem; min-block-size: 1.75rem; padding: 0; font-size: 12px; font-weight: 400; color: var(--uui-color-text-alt); }
-.button--apart { margin-inline-start: var(--uui-size-space-2); }
 
 .checkbox { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); cursor: pointer; }
 .tag { display: inline-flex; align-items: center; padding: 2px var(--uui-size-space-2); border-radius: 999px; background: var(--uui-color-surface-alt); border: 1px solid var(--uui-color-divider); font-size: 11px; font-family: var(--edit-mono); }
@@ -353,12 +363,17 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .row__key { display: flex; align-items: baseline; min-inline-size: 0; font-family: var(--edit-mono); font-size: 11.5px; color: var(--uui-color-text-alt); }
 .row__namespace { flex: none; opacity: .5; }
 .row__id { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Why a row that looks unrelated is a result. */
-.row__source { font-family: var(--edit-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--uui-color-text-alt); }
+/* Why a row that looks unrelated is a result. A sentence in the row's own voice rather than a
+   uppercase mono tag: this is the one line on a result that has to be read rather than scanned
+   past, and it was set smaller and harder to read than everything it was explaining. */
+.row__source { min-inline-size: 0; font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .row__custom, .row__plain { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; }
 .row__dot { inline-size: 5px; block-size: 5px; border-radius: 50%; background: var(--uui-color-selected); }
 .row__write { font-size: 12px; font-weight: 600; color: var(--uui-color-selected); white-space: nowrap; }
+/* The row already in the pane. The accent without the weight: it reports where you are rather than
+   offering something to do, and a queue of bold blue offers with one more among them says nothing. */
+.row__open { font-size: 12px; font-weight: 500; color: var(--uui-color-selected); white-space: nowrap; }
 
 /* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
    as a hit even to somebody who cannot tell the two backgrounds apart. */
@@ -370,8 +385,12 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 /* Whatever the list has instead of rows. Centred in the card rather than pinned to the top,
    because there is nothing above it for the eye to start from. */
 .state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--uui-size-space-3); padding: var(--uui-size-layout-1); text-align: center; }
-.state h2 { margin: 0; font-size: 15px; }
-.state__detail { margin: 0; max-inline-size: 34rem; color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
+/* Centred prose strands its last word without help: "before anything appears / here." reads as a
+   broken sentence rather than a wrapped one. `pretty` pulls a word down to keep the last line from
+   being an orphan; `balance` evens a short heading across its lines instead, which is the better of
+   the two for something only ever a few words long. Both are ignored where unsupported. */
+.state h2 { margin: 0; font-size: 15px; text-wrap: balance; }
+.state__detail { margin: 0; max-inline-size: 34rem; color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); text-wrap: pretty; }
 
 /* Loading is the exception: it draws the shape of the list, so it aligns with the list. */
 .state--loading { align-items: stretch; justify-content: flex-start; gap: 0; padding: 0; }
@@ -388,13 +407,28 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
   background: var(--uui-color-surface);
 }
 
-.pane__head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+/* The key and the controls sit on one line together. Aligned to the top they read as two things
+   that happen to be in the same box, and the position text beside the buttons made the mismatch
+   plain: three items on a row, none of them level with each other. */
+.pane__head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
 .pane__identity { display: flex; flex-direction: column; align-items: flex-start; gap: var(--uui-size-space-2); min-inline-size: 0; }
 .pane__key { margin: 0; font-family: var(--edit-mono); font-size: 12px; color: var(--uui-color-text-alt); overflow-wrap: anywhere; }
 .pane__key:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
 .pane__namespace { opacity: .5; }
-.pane__controls { flex: none; display: flex; align-items: center; gap: var(--uui-size-space-2); }
-.pane__position { font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; margin-inline-end: var(--uui-size-space-2); }
+/* One gap between the things on this row, set once. It was three different gaps -- a margin on the
+   position, the flex gap between the arrows, and a second margin before the close -- so nothing
+   lined up with anything and the spacing said nothing about what belonged together. The pair of
+   arrows is one control with two directions, so it closes up and the single gap around it is what
+   marks it off from the position on one side and the close on the other. */
+.pane__controls { flex: none; display: flex; align-items: center; gap: var(--uui-size-space-3); }
+.pane__step { display: flex; align-items: center; gap: 2px; }
+.pane__position { font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; }
+.pane__shortcut { color: var(--uui-color-selected); font-weight: 500; }
+
+/* Sized here rather than by whatever font the platform found an arrow in. The chevrons keep the
+   proportions of their 10x6 box; the cross is square. */
+.pane__chevron { inline-size: .6875rem; block-size: .4125rem; }
+.pane__cross { inline-size: .625rem; block-size: .625rem; }
 
 .pane__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
 .pane__note { margin: 0; font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
@@ -406,6 +440,16 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .pane__block label { font: inherit; color: inherit; }
 .pane__blockhead { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3); min-block-size: 1.625rem; }
 .pane__aside { font-size: 12px; color: var(--uui-color-text-alt); text-align: end; }
+/* A section that is reference material rather than part of the editing, set apart from it. */
+.pane__block--apart { padding-block-start: var(--uui-size-space-4); border-block-start: 1px solid var(--uui-color-divider); gap: var(--uui-size-space-3); }
+
+/* The other languages as a reading, for somebody writing this key from scratch and wondering how
+   the rest of them worded it. No controls: leaving a queue to correct German is not the job, and an
+   offer to do it is an offer to lose your place. */
+.elsewhere { display: flex; flex-direction: column; gap: var(--uui-size-space-2); margin: 0; }
+.elsewhere__row { display: grid; grid-template-columns: minmax(0, 6rem) minmax(0, 1fr); align-items: baseline; gap: var(--uui-size-space-3); }
+.elsewhere dt { min-inline-size: 0; font-size: 13px; color: var(--uui-color-text-alt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elsewhere dd { margin: 0; min-inline-size: 0; font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
 
 /* Text to read, not a field that happens to be switched off. A disabled input says "you could have
    typed here but may not", which is the wrong idea about the application's own text. */
@@ -436,7 +480,7 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 .token--missing { border-color: var(--uui-color-danger); background: var(--edit-danger-tint); color: var(--uui-color-danger); font-weight: 600; }
 
 /* Said in full, once, where the decision is made. */
-.callout { display: flex; gap: var(--uui-size-space-3); margin: 0; padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); border: 1px solid transparent; font-size: 13.5px; line-height: 1.45; }
+.callout { display: flex; gap: var(--uui-size-space-3); margin: 0; padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); border: 1px solid transparent; font-size: 13.5px; line-height: 1.45; text-wrap: pretty; }
 .callout__mark { flex: none; }
 .callout--warning { background: var(--edit-warning-tint); border-color: var(--edit-warning-line); color: var(--edit-warning); }
 .callout--danger { background: var(--edit-danger-tint); border-color: var(--edit-danger-line); color: var(--uui-color-danger); }
@@ -495,10 +539,6 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
     box-shadow: -10px 0 28px rgb(0 0 0 / .12);
     z-index: 2;
   }
-}
-
-@container shell (max-width: 34rem) {
-  .picker--lead .picker__name { font-size: 1.25rem; }
 }
 
 /* What the bars give up, in the order they can afford to. The counts go first: the strip at the top

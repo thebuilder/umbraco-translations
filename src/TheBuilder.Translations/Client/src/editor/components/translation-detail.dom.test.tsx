@@ -352,6 +352,47 @@ describe("a translation that does not exist yet", () => {
     await waitFor(() => expect(field.value).toBe("Your basket is empty"));
   });
 
+  /*
+   * A different question from the one the search job asks. Nobody authoring Norwegian from English
+   * wonders which languages still need this key -- every one of them does, that is what the queue is
+   * -- they wonder how the others worded it. So it is a reading, and only of the ones there is
+   * something to read in.
+   */
+  it("shows how the other languages worded it, and offers nowhere to go", async () => {
+    const swedish = {
+      ...written.cells.da!, id: "m3", locale: "sv",
+      defaultValue: "Varukorgen är tom", overrideValue: "Varukorgen är tom",
+    };
+    vi.mocked(client.api).messageKeys.mockResolvedValue({
+      items: [{
+        sourceId: "s1", namespace: "website", key: "cart.empty", format: "Icu", arguments: {},
+        coverage: {}, matchedLocales: [],
+        cells: { en: empty.cells.en!, da: written.cells.da!, sv: swedish },
+      }],
+      page: 1, pageSize: 50, total: 1, referenceLocale: "en", targetLocale: "nb", compareLocales: [],
+    } as never);
+
+    const { container } = queue({
+      locales: [
+        locale("nb", "Norwegian", { messageCount: 0 }),
+        locale("en", "English"),
+        locale("da", "Danish"),
+        locale("sv", "Swedish"),
+        locale("de", "German"),
+      ],
+    });
+
+    expect(await screen.findByText("Same key elsewhere")).toBeTruthy();
+
+    // Not the two already on screen above it, and not the ones with nothing to read.
+    const named = [...container.querySelectorAll(".elsewhere dt")].map((term) => term.textContent);
+    expect(named).toEqual(["Danish", "Swedish"]);
+    expect(screen.getByText("Varukorgen är tom")).toBeTruthy();
+
+    // And nothing to click: leaving the queue to correct Danish is an offer to lose your place.
+    expect(screen.queryByRole("button", { name: /^Edit this key in/ })).toBeNull();
+  });
+
   it("ends on the next item, because a queue is worked down rather than closed", async () => {
     queue({ next: { ...target, locale: "nb", key: "cart.checkout" } });
     await screen.findByRole("textbox");

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
@@ -87,7 +88,10 @@ public sealed class HttpTranslationSourceTransportTests
             new TranslationFetchContext("da"),
             CancellationToken.None));
 
-        Assert.Contains("Translations:MissingApiKey", exception.Message, StringComparison.Ordinal);
+        // The header, not the setting it named: see the leak test below for why the message will not
+        // repeat a field that so often turns out to hold the secret itself.
+        Assert.Contains("X-Api-Key", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Translations:MissingApiKey", exception.Message, StringComparison.Ordinal);
         Assert.Null(handler.RequestUri);
     }
 
@@ -116,6 +120,146 @@ public sealed class HttpTranslationSourceTransportTests
             CancellationToken.None));
     }
 
+    /*
+     * What an editor is shown when the endpoint answers with something that is not a translation
+     * file. EnsureSuccessStatusCode said "Response status code does not indicate success: 429 (Too
+     * Many Requests)", which names neither the address nor anything to do about it -- and this
+     * message is the whole of what the synchronization history and the failure notification carry.
+     */
+    [Fact]
+    public async Task Names_the_address_and_what_to_check_when_the_endpoint_refuses()
+    {
+        var transport = CreateTransport(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var failure = await Assert.ThrowsAsync<TranslationSourceResponseException>(() => transport.FetchAsync(
+            Source(),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        // The expanded address, not the template: the locale it expanded to is half of what makes a
+        // 404 a 404, and it is not what the editor typed.
+        Assert.Contains("https://translations.example/en.json", failure.Message);
+        Assert.Contains("404", failure.Message);
+        Assert.Contains("endpoint template", failure.Message);
+        Assert.Equal(HttpStatusCode.NotFound, failure.Status);
+    }
+
+    [Fact]
+    public async Task Passes_on_how_long_a_rate_limiter_asked_to_be_left_alone()
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(90));
+        var transport = CreateTransport(response);
+
+        var failure = await Assert.ThrowsAsync<TranslationSourceResponseException>(() => transport.FetchAsync(
+            Source(),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        // Pressing sync again immediately is what got them rate limited; the wait is the one piece
+        // of advice the endpoint itself supplied.
+        Assert.Contains("rate limiting", failure.Message);
+        Assert.Contains("2 minutes", failure.Message);
+    }
+
+    /*
+     * The case that sent me looking: sst.dk sits behind Vercel's bot protection, which answers every
+     * request with an HTML challenge page under a 429. Read as a rate limit that is somebody waiting
+     * for a window that never opens, so the content type wins over the status -- no working
+     * translation source returns HTML.
+     */
+    [Fact]
+    public async Task Calls_a_challenge_page_what_it_is_rather_than_a_rate_limit()
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("<!DOCTYPE html><title>Vercel Security Checkpoint</title>", Encoding.UTF8, "text/html"),
+        };
+        var transport = CreateTransport(response);
+
+        var failure = await Assert.ThrowsAsync<TranslationSourceResponseException>(() => transport.FetchAsync(
+            Source(),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        Assert.Contains("web page rather than a translation file", failure.Message);
+        Assert.Contains("bot protection", failure.Message);
+        Assert.DoesNotContain("rate limiting", failure.Message);
+    }
+
+    [Fact]
+    public async Task Says_nothing_it_cannot_stand_behind_about_an_unremarkable_status()
+    {
+        var transport = CreateTransport(new HttpResponseMessage(HttpStatusCode.BadRequest));
+
+        var failure = await Assert.ThrowsAsync<TranslationSourceResponseException>(() => transport.FetchAsync(
+            Source(),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        Assert.EndsWith("answered 400 (Bad Request).", failure.Message);
+    }
+
+    /*
+     * Both header fields hold the *name* of an application setting, and somebody who pastes the
+     * secret itself into one gets this failure. The message must not then repeat what they typed:
+     * it is shown in a notification and written verbatim into the synchronization history, which is
+     * a table that keeps it, so echoing the field turns one mistake into a stored plaintext secret.
+     */
+    [Fact]
+    public async Task Never_repeats_a_configuration_key_that_might_be_the_secret_itself()
+    {
+        const string pasted = "kgTQidXpihPiVxxeswAqF3vTVcQEDaPP";
+        var transport = CreateTransport(new HttpResponseMessage(HttpStatusCode.OK));
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => transport.FetchAsync(
+            Source(headers: [new HttpTranslationHeaderOptions("x-vercel-protection-bypass", pasted)]),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        Assert.DoesNotContain(pasted, failure.Message);
+        // The header names the row to go and fix, and is safe to say.
+        Assert.Contains("x-vercel-protection-bypass", failure.Message);
+        // And it names the misunderstanding, because a missing setting and a pasted secret fail
+        // identically and the second is far the likelier of the two.
+        Assert.Contains("reads its value from an application setting", failure.Message);
+        Assert.Contains("give the header a value directly", failure.Message);
+    }
+
+    [Fact]
+    public async Task Says_nothing_about_a_bearer_token_setting_beyond_that_it_is_missing()
+    {
+        const string pasted = "sk-live-3f9a2b7c";
+        var transport = CreateTransport(new HttpResponseMessage(HttpStatusCode.OK));
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => transport.FetchAsync(
+            Source(secretName: pasted),
+            new TranslationFetchContext("en"),
+            CancellationToken.None));
+
+        Assert.DoesNotContain(pasted, failure.Message);
+        Assert.Contains("name of a setting", failure.Message);
+    }
+
+    /*
+     * Not every header is a secret. An Accept header, a tenant id, a client name: making somebody
+     * invent an appsettings key for those is friction that buys no safety, and it is what pushed
+     * the value into the setting-name field in the first place.
+     */
+    [Fact]
+    public async Task Sends_a_header_value_written_on_the_source_without_going_near_configuration()
+    {
+        var handler = new RecordingHandler(new HttpResponseMessage(HttpStatusCode.OK));
+        var transport = new HttpTranslationSourceTransport(new HttpClient(handler), new ConfigurationBuilder().Build());
+
+        await transport.FetchAsync(
+            Source(headers: [new HttpTranslationHeaderOptions("X-Tenant", Value: "acme")]),
+            new TranslationFetchContext("en"),
+            CancellationToken.None);
+
+        Assert.Equal("acme", handler.Headers["X-Tenant"]);
+    }
+
     private static HttpTranslationSourceTransport CreateTransport(HttpResponseMessage response) =>
         new(new HttpClient(new RecordingHandler(response)), new ConfigurationBuilder().Build());
 
@@ -132,7 +276,7 @@ public sealed class HttpTranslationSourceTransportTests
             {
                 Headers = headers ?? [],
             },
-            new NestedJsonParserOptions(["en", "da"], "website"));
+            new TranslationParserOptions(["en", "da"], "website", NamespaceMode.Fixed));
 
     private sealed class RecordingHandler(HttpResponseMessage response) : HttpMessageHandler
     {

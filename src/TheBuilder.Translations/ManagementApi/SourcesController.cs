@@ -110,8 +110,10 @@ public sealed class SourcesController(ITranslationSourceRepository store, Transl
     [HttpPost("sources/{id:guid}/sync")]
     [Authorize(Policy = TranslationPolicies.Sync)]
     [ProducesResponseType(typeof(TranslationSyncResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<ActionResult<TranslationSyncResult>> SyncSource(Guid id, CancellationToken cancellationToken)
     {
         var source = await store.GetSourceAsync(id, cancellationToken);
@@ -123,6 +125,27 @@ public sealed class SourcesController(ITranslationSourceRepository store, Transl
         catch (TranslationSynchronizationInProgressException exception)
         {
             return Conflict(exception.Message);
+        }
+        /*
+         * The endpoint would not answer, or answered with something that is not a translation file.
+         * That is a fact about somebody's configuration rather than a fault in this server, and it
+         * has a sentence attached that says which source and which locale -- so it is reported as
+         * one. Unhandled, it reached the editor as a five hundred and a page of middleware frames
+         * in a notification, with the one useful line scrolled off the top.
+         *
+         * The engine has already recorded the failed run, so the synchronization history says the
+         * same thing without the editor having to keep the notification open.
+         */
+        catch (Exception exception)
+            when (exception is TranslationSourceFetchException or TranslationSourceFormatException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, exception.Message);
+        }
+        // A source that is switched off, which is the one failure the fetch never gets far enough
+        // to report.
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(exception.Message);
         }
     }
 

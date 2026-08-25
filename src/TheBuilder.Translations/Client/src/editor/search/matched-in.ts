@@ -60,6 +60,11 @@ export const matchedElsewhere = (
  * gets the key back, and nothing on screen would otherwise say why. Those languages have no column
  * to be marked in, so naming them is the whole explanation -- all of them, when the sentence turns
  * up in more than one.
+ *
+ * A whole sentence rather than a fragment for the row to frame. This is the one line on a result
+ * that answers "why am I looking at this", and it is read, not scanned past: "matched in German
+ * and Swedish" is something somebody could have said out loud, where "MATCHED · GERMAN, SWEDISH"
+ * is a tag that has to be decoded first.
  */
 export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | null => {
   const { term, mode } = options;
@@ -81,18 +86,31 @@ export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | 
    * that the words are further along than the ones on screen.
    */
   if (matched.some((locale) => sameLocale(locale, lead)))
-    return truncated(row, lead) ? `${leadName}, further in` : null;
+    return truncated(row, lead) ? `matched further along in ${leadName}` : null;
 
   if (second !== null && !sameLocale(second, lead) && matched.some((locale) => sameLocale(locale, second)))
-    return truncated(row, second) ? `${secondName}, further in` : secondName;
+    return truncated(row, second)
+      ? `matched further along in ${secondName}`
+      : `matched in ${secondName}`;
 
   const elsewhere = matchedElsewhere(row, term, [lead, second]);
-  if (elsewhere.length > 0)
-    return elsewhere.map(options.nameOf).sort((one, other) => one.localeCompare(other)).join(", ");
+  if (elsewhere.length > 0) return `matched in ${listOf(elsewhere.map(options.nameOf))}`;
 
-  return matchesTerm(`${row.namespace}.${row.key}`, term) ? "the key" : null;
+  return matchesTerm(`${row.namespace}.${row.key}`, term) ? "matched in the key" : null;
 };
 
 /** Whether the row is showing a cut-down preview of this language rather than the whole message. */
 const truncated = (row: MessageKey, locale: string | null): boolean =>
   localeIn(row.cells, locale)?.truncated === true;
+
+/**
+ * Languages the way somebody would say them: "German and Swedish", not "German, Swedish". The
+ * platform's own joiner rather than a hand-rolled one, because the last separator is not a comma
+ * and the rule for three or more is not the rule for two.
+ *
+ * Built once. It is constructed per call otherwise, on every row of every keystroke.
+ */
+const conjunction = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
+const listOf = (names: readonly string[]): string =>
+  conjunction.format([...names].sort((one, other) => one.localeCompare(other)));

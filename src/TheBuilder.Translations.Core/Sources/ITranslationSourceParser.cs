@@ -4,6 +4,6 @@ public interface ITranslationSourceParser
 {
     IAsyncEnumerable<TranslationSourceMessage> ParseAsync(
         TranslationSourcePayload payload,
-        NestedJsonParserOptions options,
+        TranslationParserOptions options,
         CancellationToken cancellationToken);
 }

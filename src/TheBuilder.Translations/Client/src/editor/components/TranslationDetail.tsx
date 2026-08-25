@@ -11,6 +11,7 @@ import { localeIn, localeName } from "../state/locales.js";
 import { fullKey, type EditTarget } from "../state/target.js";
 import { describeOverride } from "../validation/override.js";
 import { cellStatus } from "./cell-status.js";
+import { Chevron, Cross } from "./Glyphs.js";
 import { KeyLocales } from "./KeyLocales.js";
 import { MODIFIER } from "./Shortcuts.js";
 import { valueOf } from "./key-columns.js";
@@ -256,30 +257,40 @@ export const TranslationDetail = ({
           {position && (
             <span className="pane__position">
               {position.index.toLocaleString()} of {position.total.toLocaleString()}
+              {/* The queue is worked an item at a time, and the keystroke that does it is the
+                  difference between typing and reaching for the mouse a thousand times. Said beside
+                  how much is left, because that is where somebody looks to ask how long this takes. */}
+              {mode === "queue" && next && (
+                <span className="pane__shortcut"> · ⇧{MODIFIER}↵ next</span>
+              )}
             </span>
           )}
-          <Button
-            icon
-            label="Previous translation"
-            title={`Previous translation (${MODIFIER}↑)`}
-            keyShortcuts="Meta+ArrowUp Control+ArrowUp"
-            disabled={!previous}
-            onClick={() => previous && select(previous)}
-          >
-            <span aria-hidden="true">↑</span>
-          </Button>
-          <Button
-            icon
-            label="Next translation"
-            title={`Next translation (${MODIFIER}↓)`}
-            keyShortcuts="Meta+ArrowDown Control+ArrowDown"
-            disabled={!next}
-            onClick={() => next && select(next)}
-          >
-            <span aria-hidden="true">↓</span>
-          </Button>
-          <Button icon label="Close editor" className="button--apart" onClick={close}>
-            <span aria-hidden="true">✕</span>
+          {/* The pair is one control with two directions, so it is spaced as one and the close
+              button keeps the gap that says it does something else entirely. */}
+          <span className="pane__step">
+            <Button
+              icon
+              label="Previous translation"
+              title={`Previous translation (${MODIFIER}↑)`}
+              keyShortcuts="Meta+ArrowUp Control+ArrowUp"
+              disabled={!previous}
+              onClick={() => previous && select(previous)}
+            >
+              <Chevron direction="up" className="pane__chevron" />
+            </Button>
+            <Button
+              icon
+              label="Next translation"
+              title={`Next translation (${MODIFIER}↓)`}
+              keyShortcuts="Meta+ArrowDown Control+ArrowDown"
+              disabled={!next}
+              onClick={() => next && select(next)}
+            >
+              <Chevron direction="down" className="pane__chevron" />
+            </Button>
+          </span>
+          <Button icon label="Close editor" onClick={close}>
+            <Cross className="pane__cross" />
           </Button>
         </div>
       </div>
@@ -408,6 +419,8 @@ export const TranslationDetail = ({
                 row={others.data}
                 locales={locales}
                 editing={target.locale}
+                reference={reference?.locale}
+                mode={mode}
                 term={term}
                 loading={others.isLoading}
                 onEdit={switchLocale}

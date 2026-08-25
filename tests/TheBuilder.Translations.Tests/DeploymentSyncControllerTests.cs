@@ -120,7 +120,7 @@ public sealed class DeploymentSyncControllerTests
         "Sample",
         enabled,
         new HttpTranslationTransportOptions("https://translations.example/{locale}.json"),
-        new NestedJsonParserOptions(["en"], "website"));
+        new TranslationParserOptions(["en"], "website", NamespaceMode.Fixed));
 
     private sealed class FakeTransport : ITranslationSourceTransport
     {

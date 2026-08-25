@@ -4,6 +4,44 @@ namespace TheBuilder.Translations.Core.Tests;
 
 public sealed class TranslationSourceValidatorTests
 {
+    /*
+     * Translation files are nested under their own first key far more often than they are flat, so
+     * that is what a source assumes unless somebody says otherwise -- and it is the mode that needs
+     * no namespace typed to be valid, which is what makes it a workable default.
+     */
+    /*
+     * A header value comes from configuration or is written on the source, and it has to be one of
+     * the two. Both filled is a question about which wins that nobody should have to know the answer
+     * to; neither is a header that can never be sent, refused where it is typed rather than failing
+     * every synchronization from then on.
+     */
+    [Fact]
+    public void Takes_a_header_value_either_from_a_setting_or_written_directly_but_not_both()
+    {
+        Assert.Null(Validate(new HttpTranslationHeaderOptions("X-Tenant", Value: "acme")));
+        Assert.Null(Validate(new HttpTranslationHeaderOptions("X-Api-Key", "Translations:ApiKey")));
+
+        Assert.NotNull(Validate(new HttpTranslationHeaderOptions("X-Tenant")));
+        Assert.NotNull(Validate(new HttpTranslationHeaderOptions("X-Tenant", "Translations:ApiKey", "acme")));
+        // Header injection, refused at the source rather than at the request.
+        Assert.NotNull(Validate(new HttpTranslationHeaderOptions("X-Tenant", Value: "acme\r\nX-Admin: true")));
+    }
+
+    private static string? Validate(HttpTranslationHeaderOptions header) =>
+        TranslationSourceValidator.Validate(Source() with
+        {
+            Transport = Source().Transport with { Headers = [header] },
+        });
+
+    [Fact]
+    public void Defaults_to_taking_the_namespace_from_the_first_json_key()
+    {
+        var parser = new TranslationParserOptions(["en-US"], "");
+
+        Assert.Equal(NamespaceMode.FirstSegment, parser.NamespaceMode);
+        Assert.Null(TranslationSourceValidator.Validate(Source() with { Parser = parser }));
+    }
+
     [Fact]
     public void Accepts_a_valid_source() =>
         Assert.Null(TranslationSourceValidator.Validate(Source()));
@@ -46,8 +84,8 @@ public sealed class TranslationSourceValidatorTests
     [Fact]
     public void Requires_a_namespace_only_in_fixed_mode()
     {
-        var fixedSource = Source() with { Parser = new NestedJsonParserOptions(["en-US"], "", NamespaceMode.Fixed) };
-        var segmentedSource = Source() with { Parser = new NestedJsonParserOptions(["en-US"], "", NamespaceMode.FirstSegment) };
+        var fixedSource = Source() with { Parser = new TranslationParserOptions(["en-US"], "", NamespaceMode.Fixed) };
+        var segmentedSource = Source() with { Parser = new TranslationParserOptions(["en-US"], "", NamespaceMode.FirstSegment) };
 
         Assert.NotNull(TranslationSourceValidator.Validate(fixedSource));
         Assert.Null(TranslationSourceValidator.Validate(segmentedSource));
@@ -124,5 +162,5 @@ public sealed class TranslationSourceValidatorTests
         "Website messages",
         true,
         new HttpTranslationTransportOptions("https://translations.example/{locale}.json"),
-        new NestedJsonParserOptions(["en-US"], "website"));
+        new TranslationParserOptions(["en-US"], "website"));
 }

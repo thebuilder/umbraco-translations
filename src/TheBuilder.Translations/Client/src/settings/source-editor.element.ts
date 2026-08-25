@@ -15,7 +15,8 @@ import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import type { UmbLanguageDetailModel } from "@umbraco-cms/backoffice/language";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import type { HttpHeaderOptions } from "../api/generated/models.js";
-import { parseMessageFormat, parseNamespaceMode, sourceAlias, unavailableLocales, type SourceDraft } from "./app/source-form.js";
+import { headerValueSource, parseMessageFormat, parseNamespaceMode, parseSourceFormat, sourceAlias, unavailableLocales,
+  withHeaderValueSource, type HeaderValueSource, type SourceDraft } from "./app/source-form.js";
 import { messageFormatOptions } from "./app/format-options.js";
 
 @customElement("thebuilder-translations-source-editor")
@@ -55,12 +56,22 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
 
   #headerText(index: number, field: keyof HttpHeaderOptions, event: Event): void {
     const headers = [...this.value.headers];
-    headers[index] = { ...headers[index], [field]: String((event.target as UUIInputElement).value ?? "") };
+    headers[index] = { ...headers[index]!, [field]: String((event.target as UUIInputElement).value ?? "") };
+    this.#patch({ headers });
+  }
+
+  /** Switching where a header's value comes from clears the field it is moving away from. */
+  #headerSource(index: number, source: HeaderValueSource): void {
+    const headers = [...this.value.headers];
+    headers[index] = withHeaderValueSource(headers[index]!, source);
     this.#patch({ headers });
   }
 
   #addHeader(): void {
-    this.#patch({ headers: [...this.value.headers, { name: "", valueConfigurationKey: "" }] });
+    // A plain value is the common case and the one that cannot go wrong: somebody with a secret
+    // switches deliberately, rather than everybody meeting a settings-key box first and a few of
+    // them pasting the secret straight into it.
+    this.#patch({ headers: [...this.value.headers, { name: "", value: "" }] });
   }
 
   #removeHeader(index: number): void {
@@ -87,10 +98,15 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
   render() {
     const removedLocales = unavailableLocales(this.languages.map(language => language.unique), this.value.locales);
     const namespaceOptions = [
-      { name: "Use one namespace for every message", value: "Fixed", selected: this.value.namespaceMode === "Fixed" },
       { name: "Use the first JSON key as the namespace", value: "FirstSegment", selected: this.value.namespaceMode === "FirstSegment" },
+      { name: "Use one namespace for every message", value: "Fixed", selected: this.value.namespaceMode === "Fixed" },
     ];
     const formatOptions = messageFormatOptions(this.value.messageFormat);
+    // What the file is, as opposed to what a message inside it is: both can hold ICU.
+    const catalogOptions = [
+      { name: "Nested JSON", value: "NestedJson", selected: this.value.sourceFormat === "NestedJson" },
+      { name: "Gettext PO", value: "Po", selected: this.value.sourceFormat === "Po" },
+    ];
     const headers = this.value.headers;
 
     return html`
@@ -128,7 +144,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
           <section class="headers-section" aria-labelledby="request-headers-heading">
             <div>
               <h3 id="request-headers-heading">Request headers</h3>
-              <p class="help">Optional headers sent to the messages endpoint. Values are read from server configuration and are never stored with the source.</p>
+              <p class="help">Optional headers sent to the messages endpoint. Each one either carries its value or names a server setting to read it from.</p>
             </div>
 
             ${this.value.secretName ? html`
@@ -144,9 +160,12 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
             ${headers.length > 0 ? html`
               <div class="headers-list" role="group" aria-label="Custom request headers">
                 <div class="header-row headers-heading" aria-hidden="true">
-                  <strong>Name</strong><strong>Value configuration key</strong><span></span>
+                  <strong>Name</strong><strong>Value</strong><span></span>
                 </div>
-                ${headers.map((header, index) => html`
+                ${headers.map((header, index) => {
+                  const source = headerValueSource(header);
+                  const secret = source === "setting";
+                  return html`
                   <div class="header-row">
                     <div class="header-field">
                       <span class="row-label">Name</span>
@@ -159,20 +178,38 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                       </uui-input>
                     </div>
                     <div class="header-field">
-                      <span class="row-label">Value configuration key</span>
-                      <uui-input
-                        label=${`Value configuration key ${index + 1}`}
-                        placeholder="Translations:SourceApiKey"
-                        maxlength="200"
-                        .value=${header.valueConfigurationKey}
-                        @input=${(event: Event) => this.#headerText(index, "valueConfigurationKey", event)}>
-                      </uui-input>
+                      <span class="row-label">${secret ? "Setting name" : "Value"}</span>
+                      ${secret ? html`
+                        <uui-input
+                          label=${`Value setting name ${index + 1}`}
+                          placeholder="Translations:SourceApiKey"
+                          maxlength="200"
+                          .value=${header.valueConfigurationKey ?? ""}
+                          @input=${(event: Event) => this.#headerText(index, "valueConfigurationKey", event)}>
+                        </uui-input>
+                      ` : html`
+                        <uui-input
+                          label=${`Header value ${index + 1}`}
+                          placeholder="application/json"
+                          maxlength="1000"
+                          .value=${header.value ?? ""}
+                          @input=${(event: Event) => this.#headerText(index, "value", event)}>
+                        </uui-input>
+                      `}
+                      <!-- The switch sits under the field it changes, so what it does is visible
+                           before it is pressed rather than after. -->
+                      <button
+                        class="header-source"
+                        type="button"
+                        @click=${() => this.#headerSource(index, secret ? "value" : "setting")}>
+                        ${secret ? "Enter a value directly" : "Read it from a setting instead"}
+                      </button>
                     </div>
                     <uui-button type="button" look="default" color="default" label=${`Remove request header ${index + 1}`} @click=${() => this.#removeHeader(index)}>Remove</uui-button>
                   </div>
-                `)}
+                `;})}
               </div>
-              <p class="help">For example, use <code>X-Api-Key</code> with <code>Translations:SourceApiKey</code>. For bearer authentication, use <code>Authorization</code> and configure its value as <code>Bearer your-token</code>.</p>
+              <p class="help">A header that carries nothing secret can hold its value here. Anything that <em>is</em> secret should be read from a setting instead: whatever is typed on the source is stored in the database in plain text, and a synchronization failure that mentions it is kept in the history. Put those in <code>appsettings.json</code> or user secrets and name the setting, for example <code>X-Api-Key</code> with <code>Translations:SourceApiKey</code>. For bearer authentication, use <code>Authorization</code> with a setting whose value is <code>Bearer your-token</code>.</p>
             ` : ""}
 
             <uui-button id="add" type="button" look="placeholder" color="default" label="Add request header" @click=${() => this.#addHeader()}>Add</uui-button>
@@ -205,6 +242,14 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
           </fieldset>
 
           <div class="two-column">
+            <uui-form-layout-item>
+              <uui-label slot="label" for="catalog-format">Catalogue format</uui-label>
+              <div class="field-control">
+                <uui-select id="catalog-format" label="Catalogue format" .options=${catalogOptions} @change=${(event: Event) => this.#patch({ sourceFormat: parseSourceFormat(String((event.target as UUISelectElement).value)) })}></uui-select>
+                <span class="help">How the endpoint writes its catalogue. In a PO file the <code>msgid</code> is the message key, the way next-intl writes them, and <code>#.</code> descriptions and <code>#:</code> references are read and discarded.</span>
+              </div>
+            </uui-form-layout-item>
+
             <uui-form-layout-item>
               <uui-label slot="label" for="namespace-mode">Namespace handling</uui-label>
               <div class="field-control">
@@ -307,10 +352,23 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
     .legacy-auth { align-items: center; background: var(--uui-color-warning-standalone); border-radius: var(--uui-border-radius); display: flex; gap: var(--uui-size-space-4); justify-content: space-between; padding: var(--uui-size-space-4); }
     .legacy-auth p { margin-block-start: var(--uui-size-space-1); }
     .headers-list { border: 1px solid var(--uui-color-divider); border-radius: var(--uui-border-radius); overflow: hidden; }
-    .header-row { align-items: center; display: grid; gap: var(--uui-size-space-3); grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1fr) auto; padding: var(--uui-size-space-3); }
+    /* Aligned to the top, not the middle. The value column is two rows tall -- the field and the
+       switch under it -- so centring hung the name input half a line below the value it sits beside.
+       The value column is the wider of the two: a header name is a word, a value can be a token. */
+    .header-row { align-items: start; display: grid; gap: var(--uui-size-space-3); grid-template-columns: minmax(10rem, 0.8fr) minmax(16rem, 1.2fr) auto; padding: var(--uui-size-space-3); }
     .header-row + .header-row { border-block-start: 1px solid var(--uui-color-divider); }
-    .headers-heading { background: var(--uui-color-surface-alt); }
-    .header-field { min-inline-size: 0; }
+    .headers-heading { align-items: center; background: var(--uui-color-surface-alt); }
+    /* The field and the switch under it are one column: what a row is currently asking for, and the
+       one press that changes what it asks for. */
+    .header-field { min-inline-size: 0; display: grid; gap: var(--uui-size-space-1); }
+    .header-source {
+      justify-self: start; padding: 0; border: 0; background: none;
+      color: var(--uui-color-interactive); cursor: pointer;
+      font: inherit; font-size: var(--uui-type-small-size);
+      text-decoration: underline; text-underline-offset: 2px;
+    }
+    .header-source:hover { color: var(--uui-color-interactive-emphasis); }
+    .header-source:focus-visible { border-radius: 2px; outline: 2px solid var(--uui-color-focus); outline-offset: 2px; }
     .row-label { display: none; font-weight: 700; }
     #add { inline-size: 100%; }
     .inline-unit { align-items: center; grid-template-columns: minmax(7rem, 1fr) auto; }
@@ -318,7 +376,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
     .delete-action { margin-inline-start: auto; }
     .error { align-items: center; color: var(--uui-color-danger); display: flex; gap: var(--uui-size-space-2); margin: var(--uui-size-space-4) 0 0; }
     .empty { color: var(--uui-color-danger); }
-    @media (max-width: 800px) { .primary-grid, .two-column, .advanced-grid { grid-template-columns: 1fr; } .legacy-auth { align-items: stretch; flex-direction: column; } .header-row { align-items: stretch; grid-template-columns: 1fr; } .headers-heading { display: none; } .header-field { display: grid; gap: var(--uui-size-space-2); } .row-label { display: inline; } .delete-action { margin-inline-start: 0; } }
+    @media (max-width: 800px) { .primary-grid, .two-column, .advanced-grid { grid-template-columns: 1fr; } .legacy-auth { align-items: stretch; flex-direction: column; } .header-row { align-items: stretch; grid-template-columns: 1fr; } .headers-heading { display: none; } .row-label { display: inline; } .delete-action { margin-inline-start: 0; } }
   `];
 }
 

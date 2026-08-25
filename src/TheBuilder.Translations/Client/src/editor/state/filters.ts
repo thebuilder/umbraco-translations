@@ -1,4 +1,5 @@
 import type { MessageKeyStatus } from "../../api/generated/models.js";
+import { sameLocale } from "./locales.js";
 
 /**
  * The editor's filter state, normalised. Every field is present and uses `null` rather than
@@ -43,6 +44,36 @@ export const defaultFilters: EditorFilters = {
   status: "All",
   sort: "key",
   direction: "asc",
+};
+
+/**
+ * Moving the view to another language, with the pair kept sensible.
+ *
+ * Three cases and only one of them is obvious. With no comparison set, "none" is expressed as the
+ * two being equal, so it has to travel with the language or the one just left behind silently
+ * becomes the thing being compared against.
+ *
+ * Picking the language currently being compared against swaps the two. The alternative is comparing
+ * a language with itself, which reads as "no comparison" and takes the reference column away at the
+ * exact moment somebody asked to look at that language -- and having asked to edit English while
+ * reading Danish, what they want beside it is the Danish they were just reading.
+ *
+ * Anything else leaves the reference where it is.
+ *
+ * Lives here rather than at either call site because there are two of them: the strip's language
+ * menu and opening a translation in the reference language from the pane. They disagreed, and the
+ * one that did not swap was the one people used.
+ */
+export const editingLocale = (
+  filters: Pick<EditorFilters, "locale" | "referenceLocale">,
+  locale: string,
+): Pick<EditorFilters, "locale" | "referenceLocale"> => {
+  const comparing = filters.referenceLocale !== null && !sameLocale(filters.referenceLocale, filters.locale);
+  if (!comparing) return { locale, referenceLocale: locale };
+
+  return sameLocale(locale, filters.referenceLocale)
+    ? { locale, referenceLocale: filters.locale ?? locale }
+    : { locale, referenceLocale: filters.referenceLocale };
 };
 
 const oneOf = <T extends string>(allowed: readonly T[], value: string | null, fallback: T): T =>

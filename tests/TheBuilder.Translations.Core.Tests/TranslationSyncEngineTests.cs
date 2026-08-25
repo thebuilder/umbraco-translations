@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
@@ -82,10 +83,51 @@ public sealed class TranslationSyncEngineTests
         Assert.Empty(store.Failures);
     }
 
+    /*
+     * Somebody presses "test" precisely because they suspect the address is wrong, so the endpoint
+     * refusing is the answer to the question rather than an error in answering it. Thrown instead,
+     * it left the management API with an unhandled exception and put a page of middleware frames in
+     * the editor's notification where the reason should have been.
+     */
+    [Fact]
+    public async Task A_test_reports_a_broken_endpoint_instead_of_throwing_it()
+    {
+        var source = Source(["da", "en"]);
+        var transport = new FailingTransport(new Dictionary<string, string>
+        {
+            ["en"] = """{"navigation":{"home":"Home"}}""",
+        });
+        var engine = new TranslationSyncEngine(
+            transport, new NestedJsonParser(new MessageFormatValidator()), new RecordingStore(), TimeProvider.System);
+
+        var result = await engine.TestAsync(source, CancellationToken.None);
+
+        // Half of it working is not it working: reporting ready would hide the very locale the test
+        // was run to check.
+        Assert.False(result.Success);
+        Assert.Equal(["en"], result.Locales);
+        Assert.Contains(result.Warnings, warning => warning.Contains("'da'") && warning.Contains("nothing here"));
+    }
+
+    [Fact]
+    public async Task A_test_that_reaches_everything_and_finds_nothing_says_so()
+    {
+        var source = Source(["en"]);
+        var transport = new FixtureTransport(new Dictionary<string, string> { ["en"] = "{}" });
+        var engine = new TranslationSyncEngine(
+            transport, new NestedJsonParser(new MessageFormatValidator()), new RecordingStore(), TimeProvider.System);
+
+        var result = await engine.TestAsync(source, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(["en"], result.Locales);
+        Assert.Equal(["The source produced no messages."], result.Warnings);
+    }
+
     private static TranslationSourceDefinition Source(IReadOnlyList<string> locales) => new(
         Guid.NewGuid(), "fixture", "Fixture", true,
         new("https://example.test/{locale}.json"),
-        new(locales, "website"));
+        new(locales, "website", NamespaceMode.Fixed));
 
     private sealed class FixtureTransport(IReadOnlyDictionary<string, string> payloads) : ITranslationSourceTransport
     {
@@ -97,6 +139,26 @@ public sealed class TranslationSyncEngineTests
             CancellationToken cancellationToken)
         {
             var json = payloads[context.Locale];
+            TranslationSourcePayload payload = new(
+                new MemoryStream(Encoding.UTF8.GetBytes(json)), context.Locale, "application/json", null, null, $"revision-{context.Locale}");
+            return Task.FromResult(payload);
+        }
+    }
+
+    /// <summary>Answers for the locales it has a payload for, and refuses the rest.</summary>
+    private sealed class FailingTransport(IReadOnlyDictionary<string, string> payloads) : ITranslationSourceTransport
+    {
+        public string Kind => "http";
+
+        public Task<TranslationSourcePayload> FetchAsync(
+            TranslationSourceDefinition source,
+            TranslationFetchContext context,
+            CancellationToken cancellationToken)
+        {
+            if (!payloads.TryGetValue(context.Locale, out var json))
+                throw new TranslationSourceResponseException(
+                    $"https://example.test/{context.Locale}.json", HttpStatusCode.NotFound, "nothing here");
+
             TranslationSourcePayload payload = new(
                 new MemoryStream(Encoding.UTF8.GetBytes(json)), context.Locale, "application/json", null, null, $"revision-{context.Locale}");
             return Task.FromResult(payload);

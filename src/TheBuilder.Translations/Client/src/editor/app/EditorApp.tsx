@@ -8,8 +8,9 @@ import { TranslationDetail } from "../components/TranslationDetail.js";
 import { matchedElsewhere } from "../search/matched-in.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
 import { editingMode } from "../state/editing-mode.js";
+import { defaultFilters, editingLocale } from "../state/filters.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
-import { facetFor, localeName } from "../state/locales.js";
+import { defaultLocale, facetFor, localeName } from "../state/locales.js";
 import { sameTarget, targetOf, targetId, type EditTarget } from "../state/target.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { ContextStrip } from "./ContextStrip.js";
@@ -52,13 +53,24 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const rows = useKeyRows(filters);
 
   const locales = facets.data?.locales ?? [];
-  // The server resolves the pair when the URL names neither and reports what it chose, so the strip
-  // reflects that decision rather than duplicating the rules.
+  /*
+   * The server resolves the pair when the URL names neither and reports what it chose, so the strip
+   * reflects that decision rather than duplicating the rules.
+   *
+   * Empty rather than absent is how it answers before anything has been synchronised, and an empty
+   * string is not a language: `??` kept it, so the strip was working from a code that names no
+   * facet -- it read "Choose a language" beside a menu already sitting on the only entry it had,
+   * and picking that entry changed nothing. `||` treats it as the nothing it is, and the site's own
+   * default stands in until the server has something to say.
+   */
   const page = rows.query.data?.pages[0];
   const shown: typeof filters = {
     ...filters,
-    locale: filters.locale ?? page?.targetLocale ?? null,
-    referenceLocale: filters.referenceLocale ?? page?.referenceLocale ?? null,
+    locale: filters.locale || page?.targetLocale || defaultLocale(locales),
+    // No fallback for the comparison: with nothing synchronised there is nothing to read this
+    // language against, and "None" is the honest answer rather than a language picked for the sake
+    // of filling the slot.
+    referenceLocale: filters.referenceLocale || page?.referenceLocale || null,
   };
 
   const current = facetFor(locales, shown.locale);
@@ -76,12 +88,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
    */
   const go = useCallback((target: EditTarget) => {
     setSelected(target);
-    if (target.locale !== shown.locale) {
-      update({
-        locale: target.locale,
-        referenceLocale: target.locale === shown.referenceLocale ? shown.locale : shown.referenceLocale,
-      });
-    }
+    if (target.locale !== shown.locale) update(editingLocale(shown, target.locale));
   }, [shown.locale, shown.referenceLocale, update]);
 
   // Both routes out of an open translation: picking another row, and closing altogether.
@@ -117,6 +124,17 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     // is debounced, so without this a ten-character search walks a thousand-row list ten times.
     [rows.keys, shown.query, shown.locale, shown.referenceLocale],
   );
+
+  /*
+   * A queue in the order the application defines its keys, which is the order it is meant to be
+   * worked in and the only one that makes "the next one" mean anything. True only when nothing else
+   * is deciding the order or the contents: a search or another sort is named in the bar above, and
+   * this one is the absence of anything there to read.
+   */
+  const queued = mode === "queue" &&
+    shown.query === "" &&
+    shown.sort === defaultFilters.sort &&
+    shown.direction === defaultFilters.direction;
 
   const listState = describeListState({
     error: rows.query.error ?? undefined,
@@ -163,6 +181,10 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
               <span>
                 <strong>{rows.total.toLocaleString()}</strong> {rows.total === 1 ? "key" : "keys"}
                 {shown.query && <> matching “{shown.query}”</>}
+                {/* A queue is worked from the top down, so what decides the top is part of what it
+                    is. Said only where it is unstated: any other order is a chip in the bar above,
+                    and this one is the absence of a chip. */}
+                {queued && <>, in the order the application defines them</>}
               </span>
               {/* Said once here rather than only row by row, so the shape of the result is legible
                   before scrolling it: a search that mostly hit a language nobody is looking at is

@@ -39,6 +39,20 @@ export const facetFor = (
 ): LocaleFacet | undefined => locales.find((locale) => sameLocale(locale.code, code));
 
 /**
+ * The language to edit when nothing else has said which.
+ *
+ * The server normally decides the pair and reports what it chose, but it has nothing to decide from
+ * until something has been synchronised, and answers with empty strings. An editor looking at an
+ * empty list still has to be told which language the screen is about -- and "none" is not a state
+ * the rest of the editor can work in, because a row with no language to open cannot be opened.
+ *
+ * The site's own default, or the only language there is. This is the same choice the server makes
+ * as soon as it is able to make one, not a second rule that disagrees with it.
+ */
+export const defaultLocale = (locales: readonly LocaleFacet[]): string | null =>
+  (locales.find((locale) => locale.isDefault) ?? locales[0])?.code ?? null;
+
+/**
  * The language an editor recognises. Falls back to the code, which is what a language the facets
  * do not know about deserves -- naming it badly is better than dropping it from the sentence.
  */

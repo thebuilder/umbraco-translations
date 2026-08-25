@@ -42,7 +42,7 @@ internal static class TranslationRowMapper
             row.DisplayName,
             row.Enabled,
             Deserialize<HttpTranslationTransportOptions>(row.TransportConfiguration, "transport configuration"),
-            Deserialize<NestedJsonParserOptions>(row.ParserConfiguration, "parser configuration"),
+            Deserialize<TranslationParserOptions>(row.ParserConfiguration, "parser configuration"),
             row.LastSuccessfulRevision,
             row.LastSuccessfulSync is null ? null : AsOffset(row.LastSuccessfulSync.Value));
     }

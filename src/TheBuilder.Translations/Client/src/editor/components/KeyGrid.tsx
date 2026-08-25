@@ -5,7 +5,7 @@ import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
 import { localeName } from "../state/locales.js";
-import { sameTarget, targetOf, type EditTarget } from "../state/target.js";
+import { keyId, sameTarget, targetOf, type EditTarget } from "../state/target.js";
 import { keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
 
@@ -38,6 +38,10 @@ export const KeyGrid = ({
 
   const nameOf = useCallback((code: string | null) => localeName(locales, code), [locales]);
 
+  // Which row the pane is on, as the list's own identity rather than the pane's: the pane is open on
+  // one language of one key, and the row it belongs to is the key regardless of which.
+  const openKey = selected === undefined ? null : keyId(selected);
+
   const columns = useMemo(() => keyColumns({
     editing: filters.locale,
     comparison: filters.referenceLocale,
@@ -47,13 +51,14 @@ export const KeyGrid = ({
     showNamespace: namespaceCount > 1 || filters.namespace === null,
     term: filters.query,
     mode,
-  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, mode, nameOf]);
+    openKey,
+  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, mode, nameOf, openKey]);
 
   const table = useTable({
     features: keyTableFeatures,
     columns,
     data: keys,
-    getRowId: (key) => `${key.sourceId}|${key.namespace}|${key.key}`,
+    getRowId: keyId,
     // The server filters, orders and pages the whole result. The table owns the column model.
     state: { columnVisibility: { second: comparing } },
   });
