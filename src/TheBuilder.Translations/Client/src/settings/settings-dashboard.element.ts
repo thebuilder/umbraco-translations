@@ -13,7 +13,7 @@ import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { api } from "../api/generated/client.js";
 import type { OutputConflict, OutputEndpoint, Source, SyncResult } from "../api/generated/models.js";
-import { createEmptySource, sourceEndpoint, sourceRequest, type SourceDraft, hasLocaleToken } from "./app/source-form.js";
+import { createEmptySource, headerIsComplete, sourceEndpoint, sourceRequest, type SourceDraft, hasLocaleToken } from "./app/source-form.js";
 import { messageFormatLabel } from "./app/format-options.js";
 import "./source-editor.element.js";
 
@@ -109,7 +109,7 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     if (source.namespaceMode === "Fixed" && !source.namespace.trim()) return "Enter a namespace.";
     if (!Number.isFinite(source.timeoutSeconds) || source.timeoutSeconds < 1 || source.timeoutSeconds > 120) return "Request timeout must be between 1 and 120 seconds.";
     if (!Number.isFinite(source.maximumResponseBytes) || source.maximumResponseBytes < 1_000_000 || source.maximumResponseBytes > 50_000_000) return "Largest accepted response must be between 1 and 50 MB.";
-    if (source.headers.some(header => !header.name.trim() || !header.valueConfigurationKey.trim())) return "Complete or remove every request header row.";
+    if (source.headers.some(header => !headerIsComplete(header))) return "Complete or remove every request header row.";
     return undefined;
   }
 
@@ -149,9 +149,13 @@ export class TranslationsSettingsDashboardElement extends UmbElementMixin(LitEle
     this._running = { name: "test", sourceId: this._editing?.id ?? "draft" };
     try {
       const result = await api.testSourceConfiguration(this._draft);
-      this.#notification?.peek(result.success ? "positive" : "warning", {
+      // A test that could not reach every locale failed, and one that reached them all and found
+      // nothing is a different problem with a different fix. Saying "no messages found" about an
+      // endpoint that never answered sends somebody to look at their JSON instead of their URL.
+      const reached = result.locales.length === this._draft.locales.length;
+      this.#notification?.peek(result.success ? "positive" : reached ? "warning" : "danger", {
         data: {
-          headline: result.success ? "Endpoint responded" : "No messages found",
+          headline: result.success ? "Endpoint responded" : reached ? "No messages found" : "Could not reach the endpoint",
           message: result.success
             ? `Found ${result.messageCount} messages for ${result.locales.join(", ")}.`
             : result.warnings.join(" ") || "The endpoint returned no messages.",

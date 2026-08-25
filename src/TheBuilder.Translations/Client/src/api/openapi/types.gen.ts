@@ -18,7 +18,9 @@ export type FacetResponse = {
 
 export type HttpTranslationHeaderOptions = {
     name: string;
-    valueConfigurationKey: string;
+    valueConfigurationKey?: string | null;
+    value?: string | null;
+    readonly isLiteral: boolean;
 };
 
 export type HttpTranslationTransportOptions = {
@@ -155,13 +157,6 @@ export type MessageStatusFilter = 'All' | 'Default' | 'Overridden' | 'NeedsRevie
 
 export type NamespaceMode = 'Fixed' | 'FirstSegment';
 
-export type NestedJsonParserOptions = {
-    locales: Array<string>;
-    namespace: string;
-    namespaceMode: NamespaceMode;
-    messageFormat: MessageFormat;
-};
-
 export type OutputConflictResponse = {
     locale: string;
     namespace: string;
@@ -200,6 +195,8 @@ export type ResetOverrideRequest = {
 
 export type SortDirection = 'Ascending' | 'Descending';
 
+export type SourceFormat = 'NestedJson' | 'Po';
+
 export type SourceRequest = {
     alias: string;
     displayName: string;
@@ -213,6 +210,7 @@ export type SourceRequest = {
     namespaceMode: NamespaceMode;
     messageFormat: MessageFormat;
     headers?: Array<HttpTranslationHeaderOptions> | null;
+    sourceFormat: SourceFormat;
 };
 
 export type SourceResponse = {
@@ -221,7 +219,7 @@ export type SourceResponse = {
     displayName: string;
     enabled: boolean;
     transport: HttpTranslationTransportOptions;
-    parser: NestedJsonParserOptions;
+    parser: TranslationParserOptions;
     lastSuccessfulRevision?: string | null;
     lastSuccessfulSync?: string | null;
     syncInProgress: boolean;
@@ -230,6 +228,14 @@ export type SourceResponse = {
 };
 
 export type TranslationOutputFormat = 'next-intl' | 'i18next-v4';
+
+export type TranslationParserOptions = {
+    locales: Array<string>;
+    namespace: string;
+    namespaceMode: NamespaceMode;
+    messageFormat: MessageFormat;
+    sourceFormat: SourceFormat;
+};
 
 export type TranslationSourceMessage = {
     namespace: string;
@@ -267,6 +273,50 @@ export type TranslationSyncResult = {
 };
 
 export type TranslationSyncStatus = 'Running' | 'Succeeded' | 'Failed' | 'NotModified';
+
+export type HttpTranslationHeaderOptionsWritable = {
+    name: string;
+    valueConfigurationKey?: string | null;
+    value?: string | null;
+};
+
+export type HttpTranslationTransportOptionsWritable = {
+    endpointTemplate: string;
+    secretName?: string | null;
+    timeoutSeconds: number;
+    maximumResponseBytes: number;
+    headers: Array<HttpTranslationHeaderOptionsWritable>;
+};
+
+export type SourceRequestWritable = {
+    alias: string;
+    displayName: string;
+    enabled: boolean;
+    endpointTemplate: string;
+    secretName?: string | null;
+    timeoutSeconds: number;
+    maximumResponseBytes: number;
+    locales: Array<string>;
+    namespace: string;
+    namespaceMode: NamespaceMode;
+    messageFormat: MessageFormat;
+    headers?: Array<HttpTranslationHeaderOptionsWritable> | null;
+    sourceFormat: SourceFormat;
+};
+
+export type SourceResponseWritable = {
+    id: string;
+    alias: string;
+    displayName: string;
+    enabled: boolean;
+    transport: HttpTranslationTransportOptionsWritable;
+    parser: TranslationParserOptions;
+    lastSuccessfulRevision?: string | null;
+    lastSuccessfulSync?: string | null;
+    syncInProgress: boolean;
+    syncLeaseExpiresAt?: string | null;
+    lastSync?: TranslationSyncResult;
+};
 
 export type MessagesGetMessageFacetsData = {
     body?: never;
@@ -564,7 +614,7 @@ export type SourcesListSourcesResponses = {
 export type SourcesListSourcesResponse = SourcesListSourcesResponses[keyof SourcesListSourcesResponses];
 
 export type SourcesCreateSourceData = {
-    body?: SourceRequest;
+    body?: SourceRequestWritable;
     path?: never;
     query?: never;
     url: '/umbraco/management/api/v1/translations/sources';
@@ -653,7 +703,7 @@ export type SourcesGetSourceResponses = {
 export type SourcesGetSourceResponse = SourcesGetSourceResponses[keyof SourcesGetSourceResponses];
 
 export type SourcesUpdateSourceData = {
-    body?: SourceRequest;
+    body?: SourceRequestWritable;
     path: {
         id: string;
     };
@@ -704,6 +754,10 @@ export type SourcesSyncSourceData = {
 
 export type SourcesSyncSourceErrors = {
     /**
+     * Bad Request
+     */
+    400: unknown;
+    /**
      * The resource is protected and requires an authentication token
      */
     401: unknown;
@@ -719,6 +773,10 @@ export type SourcesSyncSourceErrors = {
      * Conflict
      */
     409: unknown;
+    /**
+     * Bad Gateway
+     */
+    502: unknown;
 };
 
 export type SourcesSyncSourceResponses = {
@@ -789,7 +847,7 @@ export type SourcesTestSourceResponses = {
 export type SourcesTestSourceResponse = SourcesTestSourceResponses[keyof SourcesTestSourceResponses];
 
 export type SourcesTestSourceConfigurationData = {
-    body?: SourceRequest;
+    body?: SourceRequestWritable;
     path?: never;
     query?: never;
     url: '/umbraco/management/api/v1/translations/sources/test';

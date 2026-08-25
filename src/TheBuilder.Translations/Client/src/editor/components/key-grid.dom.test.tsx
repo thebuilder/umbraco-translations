@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LocaleFacet, MessageCell, MessageKey, MessageLocaleState } from "../../api/generated/models.js";
 import { defaultFilters, type EditorFilters } from "../state/filters.js";
+import type { EditTarget } from "../state/target.js";
 import { KeyGrid } from "./KeyGrid.js";
 
 afterEach(cleanup);
@@ -37,7 +38,12 @@ const LOCALES: LocaleFacet[] = [
   { code: "de", name: "German", isDefault: false, isConfigured: true, messageCount: 10, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0 },
 ];
 
-const show = (keys: MessageKey[], filters: Partial<EditorFilters> = {}, mode: "search" | "queue" = "search") =>
+const show = (
+  keys: MessageKey[],
+  filters: Partial<EditorFilters> = {},
+  mode: "search" | "queue" = "search",
+  selected?: EditTarget,
+) =>
   render(
     <KeyGrid
       keys={keys}
@@ -46,6 +52,7 @@ const show = (keys: MessageKey[], filters: Partial<EditorFilters> = {}, mode: "s
       total={keys.length}
       namespaceCount={1}
       mode={mode}
+      selected={selected}
       onSelect={vi.fn()}
       onLoadMore={vi.fn()}
       hasMore={false}
@@ -94,7 +101,7 @@ describe("why a row is a result", () => {
       { query: "Welcome back" },
     );
 
-    expect(screen.getByText("matched · English")).toBeTruthy();
+    expect(screen.getByText("matched in English")).toBeTruthy();
   });
 
   it("says the key when that is the only thing the term is in", () => {
@@ -103,7 +110,7 @@ describe("why a row is a result", () => {
       { query: "greeting" },
     );
 
-    expect(screen.getByText("matched · the key")).toBeTruthy();
+    expect(screen.getByText("matched in the key")).toBeTruthy();
   });
 
   it("stays quiet when the hit is in the words already shown, which are marked", () => {
@@ -124,7 +131,7 @@ describe("why a row is a result", () => {
       { query: "Willkommen" },
     );
 
-    expect(screen.getByText("matched · German")).toBeTruthy();
+    expect(screen.getByText("matched in German")).toBeTruthy();
   });
 
   it("names all of them when the sentence turns up in more than one", () => {
@@ -134,7 +141,7 @@ describe("why a row is a result", () => {
     );
 
     // No facet for Swedish here, so it falls back to the code rather than dropping the language.
-    expect(screen.getByText("matched · German, sv")).toBeTruthy();
+    expect(screen.getByText("matched in German and sv")).toBeTruthy();
   });
 });
 
@@ -150,5 +157,39 @@ describe("a language the application ships nothing for", () => {
     const values = [...row.querySelectorAll(".row__value")].map((value) => value.textContent);
     expect(values[0]).toBe("Your basket is empty");
     expect(values[1]).toBe("Not written");
+  });
+
+  /*
+   * Every row of a queue says the same two things, so the row being worked on has to say something
+   * else or there is nothing on a screenful of identical offers to mark where you are -- and the
+   * one offer that is no longer an offer is the one already taken.
+   */
+  it("says which row is being written rather than offering to start it again", () => {
+    const rows = [
+      key("a", { en: cell("en", "Your basket is empty") }),
+      key("b", { en: cell("en", "Continue to checkout") }),
+    ];
+
+    show(rows, { locale: "nb", referenceLocale: "en" }, "queue", {
+      sourceId: "s1", namespace: "website", key: "a", locale: "nb",
+    });
+
+    expect(screen.getByText("Writing now…")).toBeTruthy();
+    expect(screen.getByText("Open")).toBeTruthy();
+    // The row beside it is untouched: only the open one changes what it says.
+    expect(screen.getByText("Not written")).toBeTruthy();
+    expect(screen.getByText("Write")).toBeTruthy();
+  });
+
+  it("leaves a status alone in search mode, where it is the thing worth reading", () => {
+    // Opening a row must not take its badge away: that badge is why the row was opened.
+    show(
+      [key("a", { da: cell("da", "Tekst", "NeedsReview"), en: cell("en", "Text") })],
+      {},
+      "search",
+      { sourceId: "s1", namespace: "website", key: "a", locale: "da" },
+    );
+
+    expect(screen.getByText("App text changed")).toBeTruthy();
   });
 });

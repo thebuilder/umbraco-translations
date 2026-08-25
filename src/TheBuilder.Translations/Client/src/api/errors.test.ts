@@ -50,6 +50,40 @@ describe("unwrap", () => {
     expect(error.isForbidden).toBe(true);
     expect(error.message).toContain("403");
   });
+
+  /*
+   * An unhandled server exception puts its whole stack trace in ProblemDetails' `detail`, and this
+   * message goes straight into a notification a couple of lines tall. A synchronization that hit a
+   * rate limit reported four thousand characters of middleware frames with the one sentence
+   * explaining it scrolled off the top.
+   */
+  it("keeps a message to the part somebody wrote for a person to read", async () => {
+    const trace = [
+      "An unhandled exception occurred.",
+      "   at Umbraco.Cms.Web.Common.Middleware.ProtectRecycleBin(HttpContext context)",
+      "   at Microsoft.AspNetCore.Builder.UseMiddlewareExtensions.MoveNext()",
+    ].join("\n");
+    const error = await failure(500, { detail: trace });
+
+    expect(error.message).toBe("An unhandled exception occurred.");
+    // Still all there for anything that wants it -- this trims what is shown, not what is known.
+    expect((error.body as { detail: string }).detail).toBe(trace);
+  });
+
+  it("cuts a single line that runs on rather than letting it fill the screen", async () => {
+    const error = await failure(500, "x".repeat(400));
+
+    expect(error.message).toHaveLength(300);
+    expect(error.message.endsWith("\u2026")).toBe(true);
+  });
+
+  it("leaves a message written to be read exactly as it is", async () => {
+    const reported = "https://www.sst.dk/api/sync/translations/da answered 429 (Too Many Requests). " +
+      "The endpoint is rate limiting this site. Wait before synchronizing again.";
+    const error = await failure(502, reported);
+
+    expect(error.message).toBe(reported);
+  });
 });
 
 describe("conflictOf", () => {

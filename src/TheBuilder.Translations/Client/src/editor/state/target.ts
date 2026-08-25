@@ -33,6 +33,14 @@ export const sameTarget = (a: EditTarget | undefined, b: EditTarget | undefined)
 export const targetId = (target: EditTarget): string =>
   `${target.sourceId}|${target.namespace}|${target.key}|${target.locale}`;
 
+/**
+ * The same identity without a language, which is what the list is a list of: one row per key, with
+ * a cell per language on it. Named here beside `targetId` so the row's id and the pane's cannot
+ * drift into two different spellings of the same thing.
+ */
+export const keyId = (key: { sourceId: string; namespace: string; key: string }): string =>
+  `${key.sourceId}|${key.namespace}|${key.key}`;
+
 /** The key as an editor would say it, with the namespace kept as the quieter half. */
 export const fullKey = (target: { namespace: string; key: string }): string =>
   `${target.namespace}.${target.key}`;

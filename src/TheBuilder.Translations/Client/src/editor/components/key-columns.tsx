@@ -9,6 +9,7 @@ import { Highlight } from "../search/Highlight.js";
 import { matchedIn, type MatchedInOptions } from "../search/matched-in.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { localeIn } from "../state/locales.js";
+import { keyId } from "../state/target.js";
 import { cellStatus } from "./cell-status.js";
 
 /**
@@ -51,10 +52,22 @@ export const valueOf = (cell: MessageCell | undefined): string | null =>
 export interface KeyColumnOptions extends MatchedInOptions {
   /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
   showNamespace: boolean;
+  /**
+   * The row the editing pane is open on, as `keyId`, or null.
+   *
+   * Only the queue reads it. Working down a queue every row says the same two things, "Not
+   * written" and an offer to write it, so the row being written says something else. The highlight
+   * marks where you are in the list; this marks what you are doing there. In search mode a row
+   * keeps its own status while open, because a badge that vanished on opening would be the one
+   * thing worth reading disappearing at the moment of reading.
+   */
+  openKey: string | null;
 }
 
 export const keyColumns = (options: KeyColumnOptions) => {
-  const { editing, comparison, showNamespace, term, mode } = options;
+  const { editing, comparison, showNamespace, term, mode, openKey } = options;
+  /** Whether this row is the one in the pane, which only changes what the queue says. */
+  const writing = (key: MessageKey): boolean => mode === "queue" && keyId(key) === openKey;
   // In queue mode the two languages swap roles: the reference is the text being read and the
   // language being edited is the empty space beside it.
   const lead = mode === "queue" ? comparison : editing;
@@ -97,15 +110,19 @@ export const keyColumns = (options: KeyColumnOptions) => {
         return (
           <>
             <span className="row__line">
-              <Value
-                cell={info.getValue()}
-                term={term}
-                quiet
-                absent={mode === "queue" ? "Not written" : `Not written in ${secondName}`}
-              />
+              {writing(info.row.original) && info.getValue() === undefined ? (
+                <span className="row__value row__value--absent">Writing now…</span>
+              ) : (
+                <Value
+                  cell={info.getValue()}
+                  term={term}
+                  quiet
+                  absent={mode === "queue" ? "Not written" : `Not written in ${secondName}`}
+                />
+              )}
             </span>
             {/* Why this row is a result, when the reason is not in the words above it. */}
-            {source && <span className="row__source">matched · {source}</span>}
+            {source && <span className="row__source">{source}</span>}
           </>
         );
       },
@@ -116,7 +133,11 @@ export const keyColumns = (options: KeyColumnOptions) => {
       header: () => <span className="visually-hidden">Status</span>,
       meta: { width: "8.5rem" },
       cell: (info) => (
-        <Status cell={cellOf(info.row.original, editing)} mode={mode} />
+        <Status
+          cell={cellOf(info.row.original, editing)}
+          mode={mode}
+          writing={writing(info.row.original)}
+        />
       ),
     }),
   ]);
@@ -156,7 +177,16 @@ const Value = ({ cell, quiet, term, absent }: {
  * nothing recede to a word: saying "custom text" loudly on most of a list is a label repeated down
  * a column that buries the rows that actually need attention.
  */
-const Status = ({ cell, mode }: { cell: MessageCell | undefined; mode: EditingMode }) => {
+const Status = ({ cell, mode, writing }: {
+  cell: MessageCell | undefined;
+  mode: EditingMode;
+  /** The row in the pane, which in a queue of identical offers is the one thing worth marking. */
+  writing: boolean;
+}) => {
+  // Already the row in the pane, so the offer to start on it has been taken and repeating it is an
+  // invitation to do what is already being done.
+  if (writing) return <span className="row__open">Open</span>;
+
   // Nothing here yet, so the useful thing to offer is the way to start. The whole row opens the
   // pane; this names the action for somebody scanning the last column for what to do next.
   if (!cell) return <span className="row__write">Write</span>;

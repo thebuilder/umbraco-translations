@@ -13,7 +13,7 @@ public sealed class NestedJsonParserTests
     public async Task Flattens_nested_unicode_and_empty_messages()
     {
         await using var payload = Payload("""{"navigation":{"home":"Hjem","empty":""},"welcome":"Hej 👋 {name}"}""");
-        var messages = await Parse(payload, new(["da"], "website"));
+        var messages = await Parse(payload, new(["da"], "website", NamespaceMode.Fixed));
 
         Assert.Collection(messages,
             message => Assert.Equal(("website", "navigation.home", "Hjem"), (message.Namespace, message.Key, message.Value)),
@@ -35,7 +35,7 @@ public sealed class NestedJsonParserTests
     public async Task Preserves_i18next_v4_plural_keys_and_extracts_interpolation()
     {
         await using var payload = Payload("""{"cart":{"items_one":"{{count}} item","items_other":"{{count}} items","place_ordinal_one":"{{position}}st"}}""");
-        var messages = await Parse(payload, new(["en"], "website", MessageFormat: MessageFormat.I18NextV4));
+        var messages = await Parse(payload, new(["en"], "website", NamespaceMode.Fixed, MessageFormat.I18NextV4));
 
         Assert.Equal(["cart.items_one", "cart.items_other", "cart.place_ordinal_one"], messages.Select(message => message.Key));
         Assert.All(messages, message => Assert.Equal(MessageFormat.I18NextV4, message.Format));
@@ -50,21 +50,21 @@ public sealed class NestedJsonParserTests
     public async Task Rejects_invalid_messages(string json)
     {
         await using var payload = Payload(json);
-        await Assert.ThrowsAsync<TranslationSourceFormatException>(() => Parse(payload, new(["en"], "website")));
+        await Assert.ThrowsAsync<TranslationSourceFormatException>(() => Parse(payload, new(["en"], "website", NamespaceMode.Fixed)));
     }
 
     [Fact]
     public async Task Rejects_duplicate_json_properties_after_flattening()
     {
         await using var payload = Payload("""{"navigation":{"home":"Home","home":"Start"}}""");
-        await Assert.ThrowsAsync<TranslationSourceFormatException>(() => Parse(payload, new(["en"], "website")));
+        await Assert.ThrowsAsync<TranslationSourceFormatException>(() => Parse(payload, new(["en"], "website", NamespaceMode.Fixed)));
     }
 
     [Fact]
     public async Task Parses_deterministic_ten_thousand_message_fixture()
     {
         await using var payload = new TranslationSourcePayload(LargeDictionaryFixture.Create(10_000), "en", "application/json", null, null, "large-fixture");
-        var messages = await Parse(payload, new(["en"], "website"));
+        var messages = await Parse(payload, new(["en"], "website", NamespaceMode.Fixed));
 
         Assert.Equal(10_000, messages.Count);
         Assert.Equal("generated.message-00000", messages[0].Key);
@@ -72,7 +72,7 @@ public sealed class NestedJsonParserTests
         Assert.All(messages, message => Assert.Equal("string", message.Arguments["name"]));
     }
 
-    private async Task<IReadOnlyList<TranslationSourceMessage>> Parse(TranslationSourcePayload payload, NestedJsonParserOptions options)
+    private async Task<IReadOnlyList<TranslationSourceMessage>> Parse(TranslationSourcePayload payload, TranslationParserOptions options)
     {
         var result = new List<TranslationSourceMessage>();
         await foreach (var message in _parser.ParseAsync(payload, options, CancellationToken.None))

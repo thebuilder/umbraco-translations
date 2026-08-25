@@ -8,7 +8,7 @@ public sealed class NestedJsonParser(IMessageFormatValidator validator) : ITrans
 {
     public async IAsyncEnumerable<TranslationSourceMessage> ParseAsync(
         TranslationSourcePayload payload,
-        NestedJsonParserOptions options,
+        TranslationParserOptions options,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using var document = await JsonDocument.ParseAsync(payload.Content, cancellationToken: cancellationToken);

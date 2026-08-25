@@ -93,20 +93,53 @@ public sealed class TranslationSyncEngine(
         }
     }
 
+    /// <summary>
+    /// Whether this source works, reported rather than thrown.
+    ///
+    /// Every other caller of <see cref="FetchLocaleAsync"/> is a sync, where an endpoint that will
+    /// not answer is an error. Here it is the answer to the question. Somebody pressed "test"
+    /// because they suspect the address is wrong, and letting the exception out turned that into a
+    /// server fault, showing a page of middleware frames where the reason should have been.
+    ///
+    /// A partial success is not a success. One locale of three answering means the source is
+    /// misconfigured for the other two, and reporting it as ready hides exactly what the test was
+    /// run to find.
+    /// </summary>
     public async Task<TranslationSourceTestResult> TestAsync(
         TranslationSourceDefinition source,
         CancellationToken cancellationToken)
     {
-        var localeTasks = source.Parser.Locales.Select(locale => FetchLocaleAsync(source, locale, cancellationToken));
-        var localeResults = await Task.WhenAll(localeTasks);
-        var messages = localeResults.SelectMany(result => result.Messages).ToArray();
+        var attempts = await Task.WhenAll(
+            source.Parser.Locales.Select(locale => AttemptLocaleAsync(source, locale, cancellationToken)));
+        var fetched = attempts.Select(attempt => attempt.Result).OfType<LocaleResult>().ToArray();
+        var failures = attempts.Select(attempt => attempt.Failure).OfType<string>().ToArray();
+        var messages = fetched.SelectMany(result => result.Messages).ToArray();
+
         return new TranslationSourceTestResult(
-            messages.Length > 0,
-            CombinedRevision(localeResults.Select(result => result.Revision)),
-            localeResults.Select(result => result.Locale).ToArray(),
+            failures.Length == 0 && messages.Length > 0,
+            CombinedRevision(fetched.Select(result => result.Revision)),
+            fetched.Select(result => result.Locale).ToArray(),
             messages.Length,
             messages.Take(5).ToArray(),
-            messages.Length == 0 ? ["The source produced no messages."] : []);
+            failures.Length > 0
+                ? failures
+                : messages.Length == 0 ? ["The source produced no messages."] : []);
+    }
+
+    private async Task<LocaleAttempt> AttemptLocaleAsync(
+        TranslationSourceDefinition source,
+        string locale,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return new LocaleAttempt(await FetchLocaleAsync(source, locale, cancellationToken), null);
+        }
+        // A cancelled test is the caller giving up, not a verdict on the source.
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new LocaleAttempt(null, exception.Message);
+        }
     }
 
     private async Task<LocaleResult> FetchLocaleAsync(
@@ -148,6 +181,9 @@ public sealed class TranslationSyncEngine(
               "Each endpoint responded, but held no translatable values. The previous snapshot was retained.";
 
     private sealed record LocaleResult(string Locale, string Revision, IReadOnlyList<TranslationSourceMessage> Messages);
+
+    /// <summary>One locale's outcome when the failure is the answer rather than an error.</summary>
+    private sealed record LocaleAttempt(LocaleResult? Result, string? Failure);
 }
 
 public sealed record TranslationSynchronizationLeasePolicy(TimeSpan Duration, TimeSpan RenewalInterval)

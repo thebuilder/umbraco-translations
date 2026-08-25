@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { SelectOption } from "../../bridge/uui/index.js";
+import { Chevron } from "./Glyphs.js";
 
 /**
  * A menu that reads as the sentence it belongs to rather than as a form control.
@@ -14,49 +15,48 @@ import type { SelectOption } from "../../bridge/uui/index.js";
  * The select carries the label and the value, so it is the control by every measure that matters.
  * The face is `aria-hidden` because it is the same information said twice.
  */
-export const Picker = ({ label, options, value, onChange, className, children }: {
+export const Picker = ({ label, options, value, onChange, className, placeholder, children }: {
   label: string;
   options: readonly SelectOption[];
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /** What the face says when nothing is chosen, so the control can say the same thing. */
+  placeholder?: string;
   /** The drawn face. */
   children: ReactNode;
-}) => (
-  <span className={["picker", className ?? ""].filter(Boolean).join(" ")}>
-    <span className="picker__face" aria-hidden="true">{children}</span>
-    <select
-      className="picker__control"
-      aria-label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value} disabled={option.disabled}>
-          {option.name}
-        </option>
-      ))}
-    </select>
-  </span>
-);
+}) => {
+  /*
+   * A value naming none of the options is not "nothing chosen" to a native select. It shows the
+   * first option instead, as though that one were picked, and choosing it fires no change event
+   * because to the select nothing changed. So the face read "Choose a language" while the menu
+   * claimed one was already chosen, and the only language on the list could not be picked at all.
+   * An option the select can honestly sit on makes every real one a change.
+   */
+  const unmatched = !options.some((option) => option.value === value);
 
-/**
- * The caret, drawn rather than typed.
- *
- * `▾` is a text glyph, so its size and its vertical metrics come from whichever font in the stack
- * happens to carry it -- which is not the one the rest of the face is set in. It renders large in
- * some and tiny in others, and it sits on the text baseline rather than beside the words, so it
- * lands somewhere different in every theme. A path is the same shape everywhere and can be centred.
- */
-export const Caret = () => (
-  <svg className="picker__caret" viewBox="0 0 10 6" aria-hidden="true" focusable="false">
-    <path
-      d="M1 1.25 5 4.75 9 1.25"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+  return (
+    <span className={["picker", className ?? ""].filter(Boolean).join(" ")}>
+      <span className="picker__face" aria-hidden="true">{children}</span>
+      <select
+        className="picker__control"
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {/* Disabled rather than hidden: it is where the control currently is, and a menu that
+            silently omits its own selected entry is harder to make sense of than one that shows
+            it greyed. */}
+        {unmatched && <option value={value} disabled>{placeholder ?? "Choose one"}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+};
+
+/** The mark that says a menu is behind the words. Drawn, for the reasons in Glyphs. */
+export const Caret = () => <Chevron direction="down" className="picker__caret" />;

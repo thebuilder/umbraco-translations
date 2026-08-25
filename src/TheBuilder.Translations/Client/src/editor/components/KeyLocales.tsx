@@ -1,5 +1,6 @@
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/Highlight.js";
+import type { EditingMode } from "../state/editing-mode.js";
 import { localeIn, sameLocale } from "../state/locales.js";
 import { valueOf } from "./key-columns.js";
 
@@ -17,18 +18,55 @@ import { valueOf } from "./key-columns.js";
  *
  * Switching to one is switching the whole view to it, not a second editor inside the first. Two
  * fields for two languages open at once is a way to save text into the wrong one.
+ *
+ * Working down a queue it answers a different question, so it says less. Nobody authoring
+ * Norwegian from English wonders which languages still need this key, because every one of them
+ * does. They want to know how the others worded it. So the languages with nothing to read are left
+ * out, along with the two already on screen, and there is nowhere to click. Leaving the queue to
+ * correct German is not the job, and offering it is offering to lose your place.
  */
-export const KeyLocales = ({ row, locales, editing, term, loading, onEdit }: {
+export const KeyLocales = ({ row, locales, editing, reference, mode, term, loading, onEdit }: {
   /** The key with a cell per language, or undefined while that is still being fetched. */
   row: MessageKey | null | undefined;
   locales: readonly LocaleFacet[];
   editing: string;
+  /** The language being written from, which the pane already shows above and need not repeat. */
+  reference?: string;
+  mode: EditingMode;
   term: string;
   loading: boolean;
   onEdit: (locale: string) => void;
 }) => {
   if (loading) return <p className="pane__note">Looking up the other languages…</p>;
   if (!row) return null;
+
+  if (mode === "queue") {
+    const elsewhere = locales
+      .filter((locale) =>
+        !sameLocale(locale.code, editing) &&
+        !sameLocale(locale.code, reference ?? editing))
+      .map((locale) => ({ locale, text: valueOf(localeIn(row.cells, locale.code)) }))
+      .filter((entry): entry is { locale: LocaleFacet; text: string } =>
+        entry.text !== null && entry.text !== "");
+
+    // Nothing anybody has worded yet, so there is no reading to offer and a heading over an empty
+    // box would only say so twice.
+    if (elsewhere.length === 0) return null;
+
+    return (
+      <section className="pane__block pane__block--apart">
+        <h3>Same key elsewhere</h3>
+        <dl className="elsewhere">
+          {elsewhere.map(({ locale, text }) => (
+            <div key={locale.code} className="elsewhere__row">
+              <dt>{locale.name || locale.code}</dt>
+              <dd title={text}><Highlight text={text} term={term} /></dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    );
+  }
 
   const unwritten = locales.filter((locale) => localeIn(row.cells, locale.code) === undefined).length;
 

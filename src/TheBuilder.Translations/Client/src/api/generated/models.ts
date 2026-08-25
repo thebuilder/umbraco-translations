@@ -14,7 +14,10 @@ export type {
   PermissionsResponse as Permissions,
   LocaleFacetResponse as LocaleFacet,
   SortDirection,
-  HttpTranslationHeaderOptions as HttpHeaderOptions,
+  // The writable shapes for anything the editor sends. `isLiteral` is the server's derived view of
+  // whether a header carries its value or names a setting, so it comes back on a response and is
+  // never something a client computes and submits.
+  HttpTranslationHeaderOptionsWritable as HttpHeaderOptions,
   HttpTranslationTransportOptions as HttpTransportOptions,
   MessageDetailResponse as MessageDetail,
   MessageFormat,
@@ -22,10 +25,11 @@ export type {
   MessageListResponse,
   MessageStatusFilter as MessageStatus,
   NamespaceMode,
-  NestedJsonParserOptions,
+  SourceFormat,
+  TranslationParserOptions,
   OutputConflictResponse as OutputConflict,
   OutputEndpointResponse as OutputEndpoint,
-  SourceRequest,
+  SourceRequestWritable as SourceRequest,
   SourceResponse as Source,
   TranslationSourceTestResult as SourceTestResult,
   TranslationSyncResult as SyncResult,

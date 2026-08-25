@@ -18,22 +18,27 @@ public sealed record SourceRequest(
     string Namespace,
     NamespaceMode NamespaceMode,
     MessageFormat MessageFormat,
-    IReadOnlyList<HttpTranslationHeaderOptions>? Headers = null)
+    IReadOnlyList<HttpTranslationHeaderOptions>? Headers = null,
+    SourceFormat SourceFormat = SourceFormat.NestedJson)
 {
     public TranslationSourceDefinition ToDefinition(Guid id) => new(
         id, Alias.Trim(), DisplayName.Trim(), Enabled,
         new HttpTranslationTransportOptions(EndpointTemplate.Trim(), NullIfEmpty(SecretName), TimeoutSeconds, MaximumResponseBytes)
         {
-            Headers = Headers?.Select(header => new HttpTranslationHeaderOptions(header.Name.Trim(), header.ValueConfigurationKey.Trim())).ToArray() ?? [],
+            // The value is not trimmed: a header value is sent verbatim, and deciding that a trailing
+            // space was a typo is not this layer's call. The two names around it are.
+            Headers = Headers?.Select(header => new HttpTranslationHeaderOptions(
+                header.Name.Trim(), NullIfEmpty(header.ValueConfigurationKey), NullIfEmpty(header.Value, trim: false))).ToArray() ?? [],
         },
-        new(Locales.Select(locale => locale.Trim()).Where(locale => locale.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), Namespace.Trim(), NamespaceMode, MessageFormat));
+        new(Locales.Select(locale => locale.Trim()).Where(locale => locale.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), Namespace.Trim(), NamespaceMode, MessageFormat, SourceFormat));
 
-    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NullIfEmpty(string? value, bool trim = true) =>
+        string.IsNullOrWhiteSpace(value) ? null : trim ? value.Trim() : value;
 }
 
 public sealed record SourceResponse(
     Guid Id, string Alias, string DisplayName, bool Enabled,
-    HttpTranslationTransportOptions Transport, NestedJsonParserOptions Parser,
+    HttpTranslationTransportOptions Transport, TranslationParserOptions Parser,
     string? LastSuccessfulRevision, DateTimeOffset? LastSuccessfulSync,
     bool SyncInProgress, DateTimeOffset? SyncLeaseExpiresAt, TranslationSyncResult? LastSync)
 {

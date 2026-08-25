@@ -3,6 +3,7 @@ import { hashKey } from "@tanstack/react-query";
 import { queryKeys } from "../api/keys.js";
 import {
   defaultFilters,
+  editingLocale,
   isNavigationalChange,
   normalizeFilters,
   parseFilters,
@@ -132,5 +133,37 @@ describe("isNavigationalChange", () => {
 
     expect(isNavigationalChange(base, { ...base, query: "cart" })).toBe(false);
     expect(isNavigationalChange(base, { ...base, sort: "updatedAt" })).toBe(false);
+  });
+});
+
+/**
+ * Moving the view to another language. The interesting case is picking the one already on the other
+ * side of the sentence: collapsing the pair reads as "no comparison" and takes the reference column
+ * away at the moment somebody asked to look at that language.
+ */
+describe("editingLocale", () => {
+  const pair = { locale: "da-DK", referenceLocale: "en-US" };
+
+  it("swaps the two when the comparison becomes the language being edited", () => {
+    expect(editingLocale(pair, "en-US")).toEqual({ locale: "en-US", referenceLocale: "da-DK" });
+  });
+
+  it("swaps on a code the server cased differently, because that is the same language", () => {
+    expect(editingLocale(pair, "EN-us")).toEqual({ locale: "EN-us", referenceLocale: "da-DK" });
+  });
+
+  it("leaves a comparison alone when moving somewhere else entirely", () => {
+    expect(editingLocale(pair, "de-DE")).toEqual({ locale: "de-DE", referenceLocale: "en-US" });
+  });
+
+  it("carries no comparison across, rather than leaving the old language as one", () => {
+    // "None" is the two being equal, so a reference left behind silently becomes the comparison.
+    expect(editingLocale({ locale: "da-DK", referenceLocale: "da-DK" }, "de-DE"))
+      .toEqual({ locale: "de-DE", referenceLocale: "de-DE" });
+  });
+
+  it("has nothing to swap with before a language has been settled on", () => {
+    expect(editingLocale({ locale: null, referenceLocale: "en-US" }, "en-US"))
+      .toEqual({ locale: "en-US", referenceLocale: "en-US" });
   });
 });
