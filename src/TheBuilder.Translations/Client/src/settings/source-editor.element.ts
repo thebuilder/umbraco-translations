@@ -109,10 +109,10 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
             </uui-form-layout-item>
 
             <uui-form-layout-item class="enabled-field">
-              <uui-label slot="label">Synchronization</uui-label>
+              <uui-label slot="label">Sync</uui-label>
               <div class="field-control">
                 <uui-toggle label="Enable this translation source" ?checked=${this.value.enabled} @change=${(event: Event) => this.#patch({ enabled: (event.target as UUIToggleElement).checked })}>Enabled</uui-toggle>
-                <span class="help">Disabled sources can still be edited and tested, but cannot be synchronized.</span>
+                <span class="help">You can still edit and test a disabled source. It just will not sync.</span>
               </div>
             </uui-form-layout-item>
           </div>
@@ -128,14 +128,14 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
           <section class="headers-section" aria-labelledby="request-headers-heading">
             <div>
               <h3 id="request-headers-heading">Request headers</h3>
-              <p class="help">Optional headers sent to the messages endpoint. Values are read from server configuration and are never stored with the source.</p>
+              <p class="help">Optional headers sent to the messages endpoint. Each value comes from server configuration at request time, so no secret is stored here.</p>
             </div>
 
             ${this.value.secretName ? html`
               <div class="legacy-auth" role="status">
                 <div>
                   <strong>Legacy bearer authentication</strong>
-                  <p>This source still reads its bearer token from <code>${this.value.secretName}</code>. Remove it before configuring an Authorization header.</p>
+                  <p>This source still reads its bearer token from <code>${this.value.secretName}</code>. Remove it before you add an Authorization header.</p>
                 </div>
                 <uui-button type="button" look="secondary" label="Remove legacy bearer authentication" @click=${() => this.#patch({ secretName: undefined })}>Remove</uui-button>
               </div>
@@ -172,7 +172,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                   </div>
                 `)}
               </div>
-              <p class="help">For example, use <code>X-Api-Key</code> with <code>Translations:SourceApiKey</code>. For bearer authentication, use <code>Authorization</code> and configure its value as <code>Bearer your-token</code>.</p>
+              <p class="help">For example, use <code>X-Api-Key</code> with <code>Translations:SourceApiKey</code>. For bearer authentication, use <code>Authorization</code> and set its value to <code>Bearer your-token</code>.</p>
             ` : ""}
 
             <uui-button id="add" type="button" look="placeholder" color="default" label="Add request header" @click=${() => this.#addHeader()}>Add</uui-button>
@@ -180,9 +180,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
 
           <fieldset>
             <legend>Site languages</legend>
-            <p class="help language-help">New sources include every language configured in Umbraco. Choose fewer languages when an endpoint only supplies part of the site.</p>
+            <p class="help language-help">A new source starts with every Umbraco language ticked. Untick the ones this endpoint does not supply.</p>
             ${this.languages.length === 0
-              ? html`<p class="empty">No Umbraco languages were found.</p>`
+              ? html`<p class="empty">Umbraco has no languages set up.</p>`
               : html`<div class="language-list">${this.languages.map(language => html`
                   <uui-checkbox
                     label=${language.name}
@@ -194,7 +194,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
             ${removedLocales.length > 0 ? html`
               <div class="unavailable-locales" role="status">
                 <p><strong>Languages no longer configured in Umbraco</strong></p>
-                <p class="help">These were previously saved on this source. Clear them before saving if the endpoint no longer supplies them.</p>
+                <p class="help">Saved on this source before someone removed them from Umbraco. Untick them if the endpoint no longer supplies them.</p>
                 <div class="language-list">${removedLocales.map(locale => html`
                   <uui-checkbox label=${locale} checked @change=${(event: Event) => this.#toggleLocale(locale, event)}>
                     <span>${locale}</span><small>Not available on this site</small>
@@ -209,7 +209,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
               <uui-label slot="label" for="namespace-mode">Namespace handling</uui-label>
               <div class="field-control">
                 <uui-select id="namespace-mode" label="Namespace handling" .options=${namespaceOptions} @change=${(event: Event) => this.#patch({ namespaceMode: parseNamespaceMode(String((event.target as UUISelectElement).value)) })}></uui-select>
-                <span class="help">Namespaces group related messages when the overrides are delivered.</span>
+                <span class="help">The namespace becomes part of the output API URL.</span>
               </div>
             </uui-form-layout-item>
 
@@ -218,7 +218,7 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                 <uui-label slot="label" for="namespace" required>Namespace</uui-label>
                 <div class="field-control">
                   <uui-input id="namespace" label="Namespace" required .value=${this.value.namespace} @input=${(event: Event) => this.#text("namespace", event)}></uui-input>
-                  <span class="help">Every message from this source is delivered below this name.</span>
+                  <span class="help">Every message from this source gets this namespace.</span>
                 </div>
               </uui-form-layout-item>
             ` : ""}
@@ -227,19 +227,19 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
               <uui-label slot="label" for="message-format">Message syntax</uui-label>
               <div class="field-control">
                 <uui-select id="message-format" label="Message syntax" .options=${formatOptions} @change=${(event: Event) => this.#patch({ messageFormat: parseMessageFormat(String((event.target as UUISelectElement).value)) })}></uui-select>
-                <span class="help">Choose ICU for <code>{name}</code> messages or i18next v4 for <code>{{name}}</code> interpolation and CLDR plural keys such as <code>item_one</code> and <code>item_other</code>.</span>
+                <span class="help">ICU reads <code>{name}</code> placeholders. i18next v4 reads <code>{{name}}</code> plus CLDR plural keys such as <code>item_one</code> and <code>item_other</code>.</span>
               </div>
             </uui-form-layout-item>
           </div>
 
           <details>
-            <summary><span>Advanced settings</span><small>Identifier and retrieval limits</small></summary>
+            <summary><span>Advanced settings</span><small>Identifier, timeout, and response size</small></summary>
             <div class="advanced-grid">
               <uui-form-layout-item>
                 <uui-label slot="label" for="alias" required>Source identifier</uui-label>
                 <div class="field-control">
                   <uui-input id="alias" label="Source identifier" required maxlength="100" .value=${this.value.alias} @input=${(event: Event) => this.#text("alias", event)}></uui-input>
-                  <span class="help">A stable technical name used by the package. It is filled from the source name for new sources.</span>
+                  <span class="help">A stable name the package uses in URLs and configuration. New sources fill it in from the name above.</span>
                 </div>
               </uui-form-layout-item>
 
