@@ -62,9 +62,9 @@ export const matchedElsewhere = (
  * up in more than one.
  *
  * A whole sentence rather than a fragment for the row to frame. This is the one line on a result
- * that answers "why am I looking at this", and it is read, not scanned past: "matched in German
- * and Swedish" is something somebody could have said out loud, where "MATCHED · GERMAN, SWEDISH"
- * is a tag that has to be decoded first.
+ * that answers "why am I looking at this", and it gets read rather than scanned past. "Matched in
+ * German and Swedish" is something somebody could say out loud. "MATCHED · GERMAN, SWEDISH" has to
+ * be decoded first.
  */
 export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | null => {
   const { term, mode } = options;

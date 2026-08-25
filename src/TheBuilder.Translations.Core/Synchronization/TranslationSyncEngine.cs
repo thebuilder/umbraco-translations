@@ -96,11 +96,10 @@ public sealed class TranslationSyncEngine(
     /// <summary>
     /// Whether this source works, reported rather than thrown.
     ///
-    /// Every other caller of <see cref="FetchLocaleAsync"/> is a synchronization, where an endpoint
-    /// that will not answer is an error. Here it is the answer to the question being asked: somebody
-    /// pressed "test" precisely because they suspect the address is wrong. Letting the exception out
-    /// turned that into a server fault, and the editor was shown a page of middleware frames where
-    /// the reason should have been.
+    /// Every other caller of <see cref="FetchLocaleAsync"/> is a sync, where an endpoint that will
+    /// not answer is an error. Here it is the answer to the question. Somebody pressed "test"
+    /// because they suspect the address is wrong, and letting the exception out turned that into a
+    /// server fault, showing a page of middleware frames where the reason should have been.
     ///
     /// A partial success is not a success. One locale of three answering means the source is
     /// misconfigured for the other two, and reporting it as ready hides exactly what the test was

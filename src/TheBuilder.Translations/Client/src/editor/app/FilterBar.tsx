@@ -214,10 +214,10 @@ const Chip = ({ label, prefix, picker, options, value, onChange, onRemove, child
   );
 
   /*
-   * No caret. The chip already carries a mark -- the one that takes the filter off -- and a second
-   * one on a pill this size is what made a row of three of them read as clutter. What is left is
-   * the value, and the single control that acts on it; that the words open a menu is carried by the
-   * pointer and the underline on hover, which is where somebody goes looking for it anyway.
+   * No caret. The chip already carries one mark, the one that takes the filter off, and a second on
+   * a pill this size is what made a row of three read as clutter. What is left is the value and the
+   * control that removes it. The pointer and the hover underline say the words open a menu, which
+   * is where people reach for it anyway.
    */
   return (
     <span className="chip">

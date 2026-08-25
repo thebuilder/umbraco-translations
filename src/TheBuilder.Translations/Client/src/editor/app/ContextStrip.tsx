@@ -52,11 +52,11 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
   /*
    * The comparison goes when the language does, and only then.
    *
-   * It was hidden whenever nothing qualified as a comparison, which sounded reasonable and was not:
-   * the options are filtered to languages that already have messages, so a site part way through
-   * its first synchronization has several languages and no eligible one, and the whole clause
-   * disappeared with no way to bring it back or to see why it had gone. A control that is empty
-   * says something true about the site; a control that is absent says nothing at all.
+   * It was hidden whenever nothing qualified as a comparison, which sounded reasonable and was
+   * not. The options are filtered to languages that already have messages, so a site part way
+   * through its first sync has several languages and no eligible one, and the whole clause
+   * disappeared with no way to bring it back or see why. An empty control says something true
+   * about the site. An absent one says nothing.
    */
   const comparable = locales.length > 1;
 
@@ -88,8 +88,8 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
       )}
 
       {/* No badge for a language the application ships nothing for. The strip already says it in
-          the words it uses -- written from rather than compared with -- and carries coverage in
-          place of the counts, so a pill repeating it is a third telling of the same fact. */}
+          the words it uses, written from rather than compared with, and carries coverage in place
+          of the counts. A pill would be the third telling of one fact. */}
 
       {comparable && (
         <>

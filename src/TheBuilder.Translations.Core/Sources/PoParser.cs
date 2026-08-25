@@ -7,11 +7,11 @@ namespace TheBuilder.Translations.Core.Sources;
 /// <summary>
 /// Gettext PO, in the dialect next-intl writes.
 ///
-/// The one thing worth knowing about that dialect is that <c>msgid</c> holds the message *key*
-/// rather than the source text it holds in ordinary gettext. A catalogue is therefore a flat list
-/// of keys and values, which is what the nested JSON parser produces after flattening -- so both
-/// namespace modes mean the same thing here as they do there, and nothing about plurals or
-/// language-specific plural forms comes into it. next-intl keeps plurals as ICU inside the value.
+/// The one thing worth knowing about that dialect is that <c>msgid</c> holds the message *key*,
+/// where ordinary gettext holds the source text. A catalogue is therefore a flat list of keys and
+/// values, which is what the nested JSON parser produces after flattening. Both namespace modes
+/// mean the same thing here as they do there, and plural forms never come into it, because
+/// next-intl keeps plurals as ICU inside the value.
 ///
 /// What the format adds beyond a key and a value is metadata: <c>#.</c> descriptions and <c>#:</c>
 /// file references. There is nowhere to keep those, so they are read and dropped rather than
@@ -31,12 +31,11 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
             cancellationToken.ThrowIfCancellationRequested();
 
             /*
-             * Three kinds of entry carry no translation, and all three are ordinary rather than
-             * broken. The header is the one with an empty msgid and holds the file's own metadata.
-             * An empty msgstr is gettext for "not translated yet", which is the absence this
-             * extension already models as a key with no row for the locale. Fuzzy is a translation
-             * somebody or something guessed at, and every gettext tool in existence declines to
-             * use one until it has been confirmed.
+             * Three kinds of entry carry no translation, and none of them is broken. The header
+             * has an empty msgid and holds the file's own metadata. An empty msgstr is gettext for
+             * "not translated yet", which is the absence this already models as a key with no row
+             * for the locale. Fuzzy is a guess, and gettext tools decline to use one until somebody
+             * confirms it.
              */
             if (entry.Id.Length == 0 || entry.Value.Length == 0 || entry.Fuzzy) continue;
 
@@ -63,8 +62,8 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
 
     /// <summary>
     /// The same two modes the nested JSON parser offers, applied to a key that arrives already
-    /// flattened. In first-segment mode a key with no segment to take has no namespace, and saying
-    /// so beats inventing one and burying the messages somewhere nobody looks for them.
+    /// flattened. In first-segment mode a key with no dot has no namespace to take, and saying so
+    /// beats inventing one and filing the messages where nobody will look.
     /// </summary>
     private static (string Namespace, string Key) Split(string id, TranslationParserOptions options)
     {
@@ -73,8 +72,8 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
         var separator = id.IndexOf('.');
         if (separator <= 0 || separator == id.Length - 1)
             throw new TranslationSourceFormatException(
-                $"Message key '{id}' has no namespace segment. In first-key namespace mode every key " +
-                "must read as namespace.key, or the source needs one fixed namespace instead.");
+                $"Message key '{id}' has no dot to split on. Either every key reads as namespace.key, or " +
+                "the source uses one fixed namespace.");
 
         return (id[..separator], id[(separator + 1)..]);
     }
@@ -126,8 +125,8 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
             if (line.StartsWith("msgid_plural", StringComparison.Ordinal) ||
                 line.StartsWith("msgstr[", StringComparison.Ordinal))
                 throw new TranslationSourceFormatException(
-                    "This catalogue uses gettext plural entries. Plurals belong inside the message as ICU, " +
-                    "which is how next-intl writes them, rather than as msgid_plural and msgstr[n].");
+                    "This catalogue uses gettext plural entries. next-intl writes plurals as ICU inside the " +
+                    "message, not as msgid_plural and msgstr[n].");
 
             if (Keyword(line, "msgctxt", out _))
             {

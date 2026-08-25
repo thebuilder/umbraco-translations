@@ -49,20 +49,19 @@ export const defaultFilters: EditorFilters = {
 /**
  * Moving the view to another language, with the pair kept sensible.
  *
- * Three cases and only one of them is obvious. With no comparison set, "none" is expressed as the
- * two being equal, so it has to travel with the language or the one just left behind silently
- * becomes the thing being compared against.
+ * With no comparison set, "none" is the two being equal, so it travels with the language. Left
+ * behind, the old language silently becomes the thing being compared against.
  *
- * Picking the language currently being compared against swaps the two. The alternative is comparing
- * a language with itself, which reads as "no comparison" and takes the reference column away at the
- * exact moment somebody asked to look at that language -- and having asked to edit English while
- * reading Danish, what they want beside it is the Danish they were just reading.
+ * Picking the language already being compared against swaps the two. The alternative is comparing a
+ * language with itself, which reads as "no comparison" and takes the reference column away at the
+ * moment somebody asked to look at that language. Having asked to edit English while reading
+ * Danish, the Danish is what they want beside it.
  *
- * Anything else leaves the reference where it is.
+ * Anything else leaves the reference alone.
  *
- * Lives here rather than at either call site because there are two of them: the strip's language
- * menu and opening a translation in the reference language from the pane. They disagreed, and the
- * one that did not swap was the one people used.
+ * This lives here because there are two call sites, the strip's language menu and opening a
+ * translation in the reference language from the pane. They disagreed, and the one that did not
+ * swap was the one people used.
  */
 export const editingLocale = (
   filters: Pick<EditorFilters, "locale" | "referenceLocale">,

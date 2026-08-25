@@ -1,13 +1,12 @@
 /**
  * Marks drawn rather than typed.
  *
- * `↑`, `↓` and `✕` are text glyphs, so their size and their vertical metrics come from whichever
- * font in the stack happens to carry them, which is rarely the one the rest of the interface is set
- * in. They render large in some faces and tiny in others, and they sit on the text baseline rather
- * than in the middle of the box -- which is how three buttons of identical size ended up holding
- * three marks at three different heights.
+ * `↑`, `↓` and `✕` are text glyphs, so their size and vertical metrics come from whichever font in
+ * the stack carries them, which is rarely the one the rest of the interface uses. They render large
+ * in some faces and tiny in others, and they sit on the text baseline rather than in the middle of
+ * the box. That is how three buttons of identical size held three marks at three different heights.
  *
- * A path is the same shape in every theme on every platform, and it centres on the box it is given.
+ * A path is the same shape everywhere, and it centres on the box it is given.
  */
 export const Chevron = ({ direction, className }: {
   direction: "up" | "down";

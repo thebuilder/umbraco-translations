@@ -27,11 +27,11 @@ export const Picker = ({ label, options, value, onChange, className, placeholder
   children: ReactNode;
 }) => {
   /*
-   * A value naming none of the options is not "nothing chosen" to a native select: it shows the
-   * first option instead, as though that one were already picked. Choosing it then fires no change
-   * event, because to the select nothing changed -- so the face read "Choose a language" while the
-   * menu claimed one was already chosen, and the only language on the list could not be picked at
-   * all. An option the select can honestly be on makes every real one a change.
+   * A value naming none of the options is not "nothing chosen" to a native select. It shows the
+   * first option instead, as though that one were picked, and choosing it fires no change event
+   * because to the select nothing changed. So the face read "Choose a language" while the menu
+   * claimed one was already chosen, and the only language on the list could not be picked at all.
+   * An option the select can honestly sit on makes every real one a change.
    */
   const unmatched = !options.some((option) => option.value === value);
 

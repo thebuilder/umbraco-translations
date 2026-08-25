@@ -37,7 +37,7 @@ public sealed record HttpTranslationTransportOptions(
 /// sends the key.
 ///
 /// Secrets belong in configuration. Anything stored here is in the database in plaintext, and a
-/// failure mentioning it is kept in the synchronization history. But plenty of headers carry nothing
+/// failure mentioning it is kept in the sync history. But plenty of headers carry nothing
 /// worth protecting, and making somebody invent an appsettings key for a tenant id or an Accept
 /// header is friction that buys no safety at all.
 /// </summary>

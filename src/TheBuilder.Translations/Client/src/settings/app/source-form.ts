@@ -48,11 +48,11 @@ export const createEmptySource = (locales: string[]): SourceDraft => ({
 export type HeaderValueSource = "value" | "setting";
 
 /*
- * Which field is present, not whether it has been filled in: a row switched to "value" starts
+ * Which field is present, not whether it has been filled in. A row switched to "value" starts
  * empty, and treating empty as "not a value row" flipped it straight back to the setting box the
- * moment it rendered. The server asks a different question of the same data -- it wants to know
- * whether a value was actually supplied -- and an empty row is incomplete there, which is exactly
- * what `headerIsComplete` reports here before anything can be saved.
+ * moment it rendered. The server asks a different question of the same data, whether a value was
+ * actually supplied, and an empty row is incomplete there too. That is what `headerIsComplete`
+ * reports here, before anything can be saved.
  */
 export const headerValueSource = (header: HttpHeaderOptions): HeaderValueSource =>
   header.value != null ? "value" : "setting";

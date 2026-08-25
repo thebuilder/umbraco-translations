@@ -34,8 +34,8 @@ public static class TranslationSourceValidator
             // One source of the value or the other, never both and never neither: two filled fields
             // is a question about which one wins that nobody should have to know the answer to.
             var named = !string.IsNullOrWhiteSpace(header.ValueConfigurationKey);
-            if (named == header.IsLiteral) return $"Request header '{header.Name}' needs either a value or the name of a configuration setting, and not both.";
-            if (named && header.ValueConfigurationKey!.Length > 200) return $"The configuration setting named by request header '{header.Name}' is too long.";
+            if (named == header.IsLiteral) return $"Request header '{header.Name}' needs a value or a setting name, not both.";
+            if (named && header.ValueConfigurationKey!.Length > 200) return $"The setting name for request header '{header.Name}' is too long.";
             if (header.IsLiteral && header.Value!.Length > 1000) return $"The value of request header '{header.Name}' is too long.";
             // Checked at the source rather than only at the request, so a header that could never be
             // sent is refused where it is typed instead of failing every sync from then on.

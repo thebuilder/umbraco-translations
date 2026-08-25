@@ -57,19 +57,18 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
    * The server resolves the pair when the URL names neither and reports what it chose, so the strip
    * reflects that decision rather than duplicating the rules.
    *
-   * Empty rather than absent is how it answers before anything has been synchronised, and an empty
-   * string is not a language: `??` kept it, so the strip was working from a code that names no
-   * facet -- it read "Choose a language" beside a menu already sitting on the only entry it had,
-   * and picking that entry changed nothing. `||` treats it as the nothing it is, and the site's own
-   * default stands in until the server has something to say.
+   * Empty rather than absent is how it answers before anything has synced, and an empty string is
+   * not a language. `??` kept it, so the strip worked from a code that names no facet. It read
+   * "Choose a language" beside a menu already sitting on the only entry it had, and picking that
+   * entry changed nothing. `||` treats it as the nothing it is, and the site's own default stands
+   * in until the server has something to say.
    */
   const page = rows.query.data?.pages[0];
   const shown: typeof filters = {
     ...filters,
     locale: filters.locale || page?.targetLocale || defaultLocale(locales),
-    // No fallback for the comparison: with nothing synchronised there is nothing to read this
-    // language against, and "None" is the honest answer rather than a language picked for the sake
-    // of filling the slot.
+    // No fallback for the comparison. With nothing synced there is nothing to read this language
+    // against, and "None" is honest where a language picked to fill the slot is not.
     referenceLocale: filters.referenceLocale || page?.referenceLocale || null,
   };
 

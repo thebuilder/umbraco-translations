@@ -55,11 +55,11 @@ export interface KeyColumnOptions extends MatchedInOptions {
   /**
    * The row the editing pane is open on, as `keyId`, or null.
    *
-   * Only the queue reads it. Working down a queue, every row says the same two things -- "Not
-   * written" and an offer to write it -- so the one being written says that instead, and the row is
-   * the place to say it: the highlight marks where you are in the list, and this marks what you are
-   * doing there. In search mode a row keeps its own status while it is open, because a status that
-   * disappeared on opening would be the one thing worth reading vanishing at the moment of reading.
+   * Only the queue reads it. Working down a queue every row says the same two things, "Not
+   * written" and an offer to write it, so the row being written says something else. The highlight
+   * marks where you are in the list; this marks what you are doing there. In search mode a row
+   * keeps its own status while open, because a badge that vanished on opening would be the one
+   * thing worth reading disappearing at the moment of reading.
    */
   openKey: string | null;
 }

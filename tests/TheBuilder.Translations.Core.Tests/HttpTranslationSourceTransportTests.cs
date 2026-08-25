@@ -182,7 +182,7 @@ public sealed class HttpTranslationSourceTransportTests
             new TranslationFetchContext("en"),
             CancellationToken.None));
 
-        Assert.Contains("web page rather than a translation file", failure.Message);
+        Assert.Contains("web page came back instead of a translation file", failure.Message);
         Assert.Contains("bot protection", failure.Message);
         Assert.DoesNotContain("rate limiting", failure.Message);
     }
@@ -222,8 +222,8 @@ public sealed class HttpTranslationSourceTransportTests
         Assert.Contains("x-vercel-protection-bypass", failure.Message);
         // And it names the misunderstanding, because a missing setting and a pasted secret fail
         // identically and the second is far the likelier of the two.
-        Assert.Contains("reads its value from an application setting", failure.Message);
-        Assert.Contains("give the header a value directly", failure.Message);
+        Assert.Contains("names an application setting that does not exist", failure.Message);
+        Assert.Contains("give the header its value directly", failure.Message);
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public sealed class HttpTranslationSourceTransportTests
             CancellationToken.None));
 
         Assert.DoesNotContain(pasted, failure.Message);
-        Assert.Contains("name of a setting", failure.Message);
+        Assert.Contains("takes a setting name", failure.Message);
     }
 
     /*

@@ -19,12 +19,11 @@ import { valueOf } from "./key-columns.js";
  * Switching to one is switching the whole view to it, not a second editor inside the first. Two
  * fields for two languages open at once is a way to save text into the wrong one.
  *
- * Working down a queue it is a different section for a different question, so it says less. Nobody
- * authoring Norwegian from English is asking which languages still need this key -- every one of
- * them does, that is what the queue is -- they are asking how the other languages worded it, which
- * is a reading and not a list of places to go. So the ones with nothing to read are left out, along
- * with the two already on screen, and there is nowhere to click: leaving the queue to correct
- * German is not the job, and an offer to do it is an offer to lose your place.
+ * Working down a queue it answers a different question, so it says less. Nobody authoring
+ * Norwegian from English wonders which languages still need this key, because every one of them
+ * does. They want to know how the others worded it. So the languages with nothing to read are left
+ * out, along with the two already on screen, and there is nowhere to click. Leaving the queue to
+ * correct German is not the job, and offering it is offering to lose your place.
  */
 export const KeyLocales = ({ row, locales, editing, reference, mode, term, loading, onEdit }: {
   /** The key with a cell per language, or undefined while that is still being fetched. */

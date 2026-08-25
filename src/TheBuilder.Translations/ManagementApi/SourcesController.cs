@@ -129,12 +129,12 @@ public sealed class SourcesController(ITranslationSourceRepository store, Transl
         /*
          * The endpoint would not answer, or answered with something that is not a translation file.
          * That is a fact about somebody's configuration rather than a fault in this server, and it
-         * has a sentence attached that says which source and which locale -- so it is reported as
-         * one. Unhandled, it reached the editor as a five hundred and a page of middleware frames
-         * in a notification, with the one useful line scrolled off the top.
+         * carries a sentence naming the source and the locale, so it is reported as one. Unhandled,
+         * it reached the editor as a five hundred and a page of middleware frames in a
+         * notification, with the one useful line scrolled off the top.
          *
-         * The engine has already recorded the failed run, so the synchronization history says the
-         * same thing without the editor having to keep the notification open.
+         * The engine has already recorded the failed run, so the sync history says the same thing
+         * without the editor having to keep the notification open.
          */
         catch (Exception exception)
             when (exception is TranslationSourceFetchException or TranslationSourceFormatException)
