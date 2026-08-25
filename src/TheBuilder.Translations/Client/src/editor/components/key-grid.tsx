@@ -1,3 +1,7 @@
+// biome-ignore-all lint/a11y/useSemanticElements: A <table> cannot be virtualized this way. Rows are positioned by transform inside a fixed-height scroller, and overriding a table element's `display` to do that strips the very semantics the rule is asking for, leaving the explicit roles as the only thing carrying them.
+// biome-ignore-all lint/a11y/useFocusableInteractive: The grid uses roving tabindex over its navigable cells (see cellProps in use-grid-navigation.ts): exactly one cell is tabbable at a time, and rows and status cells are reached through it rather than being tab stops of their own. WAI-ARIA's grid pattern allows cell navigation instead of row navigation.
+// biome-ignore-all lint/a11y/useKeyWithClickEvents: The keyboard equivalent of clicking a row is Enter, handled by the onKeyDown on the grid container so it works from whichever cell holds focus. The rule only looks for a handler on the same element.
+
 import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -5,19 +9,28 @@ import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
 import { localeName } from "../state/locales.js";
-import { keyId, sameTarget, targetOf, type EditTarget } from "../state/target.js";
+import { type EditTarget, keyId, sameTarget, targetOf } from "../state/target.js";
 import { keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
 
 /** Two lines of text and one of key, at a size that can actually be read. */
-export const ROW_HEIGHT = 64;
+const ROW_HEIGHT = 64;
 
 /** Rows left below the fold before the next page is requested. */
 const PREFETCH_MARGIN = 20;
 
 export const KeyGrid = ({
-  keys, filters, locales, total, namespaceCount, mode,
-  selected, onSelect, onLoadMore, hasMore, loadingMore,
+  keys,
+  filters,
+  locales,
+  total,
+  namespaceCount,
+  mode,
+  selected,
+  onSelect,
+  onLoadMore,
+  hasMore,
+  loadingMore,
 }: {
   keys: MessageKey[];
   filters: EditorFilters;
@@ -42,17 +55,30 @@ export const KeyGrid = ({
   // one language of one key, and the row it belongs to is the key regardless of which.
   const openKey = selected === undefined ? null : keyId(selected);
 
-  const columns = useMemo(() => keyColumns({
-    editing: filters.locale,
-    comparison: filters.referenceLocale,
-    editingName: nameOf(filters.locale),
-    comparisonName: nameOf(filters.referenceLocale),
-    nameOf,
-    showNamespace: namespaceCount > 1 || filters.namespace === null,
-    term: filters.query,
-    mode,
-    openKey,
-  }), [filters.locale, filters.referenceLocale, filters.namespace, filters.query, namespaceCount, mode, nameOf, openKey]);
+  const columns = useMemo(
+    () =>
+      keyColumns({
+        editing: filters.locale,
+        comparison: filters.referenceLocale,
+        editingName: nameOf(filters.locale),
+        comparisonName: nameOf(filters.referenceLocale),
+        nameOf,
+        showNamespace: namespaceCount > 1 || filters.namespace === null,
+        term: filters.query,
+        mode,
+        openKey,
+      }),
+    [
+      filters.locale,
+      filters.referenceLocale,
+      filters.namespace,
+      filters.query,
+      namespaceCount,
+      mode,
+      nameOf,
+      openKey,
+    ]
+  );
 
   const table = useTable({
     features: keyTableFeatures,
@@ -63,7 +89,7 @@ export const KeyGrid = ({
     state: { columnVisibility: { second: comparing } },
   });
 
-  const rows = table.getRowModel().rows;
+  const { rows } = table.getRowModel();
   const visible = table.getVisibleLeafColumns();
 
   const virtualizer = useVirtualizer({
@@ -81,7 +107,9 @@ export const KeyGrid = ({
   // Keeps pulling pages until everything matching is in hand, so scrolling never waits on a fetch.
   const last = items.at(-1)?.index ?? 0;
   useEffect(() => {
-    if (hasMore && !loadingMore && last >= rows.length - PREFETCH_MARGIN) onLoadMore();
+    if (hasMore && !loadingMore && last >= rows.length - PREFETCH_MARGIN) {
+      onLoadMore();
+    }
   }, [hasMore, loadingMore, last, rows.length, onLoadMore]);
 
   // Memoised by value rather than by array identity: the column defs are rebuilt whenever the
@@ -94,10 +122,15 @@ export const KeyGrid = ({
   const navigable = useMemo(() => navigableIds.split(",").filter(Boolean), [navigableIds]);
 
   const scrollToRow = useCallback((row: number) => virtualizer.scrollToIndex(row), [virtualizer]);
-  const activate = useCallback(({ row }: { row: number }) => {
-    const key = rows[row]?.original;
-    if (key && filters.locale) onSelect(targetOf(key, filters.locale));
-  }, [rows, filters.locale, onSelect]);
+  const activate = useCallback(
+    ({ row }: { row: number }) => {
+      const key = rows[row]?.original;
+      if (key && filters.locale) {
+        onSelect(targetOf(key, filters.locale));
+      }
+    },
+    [rows, filters.locale, onSelect]
+  );
 
   const { onKeyDown, cellProps, restoreFocus } = useGridNavigation({
     rowCount: rows.length,
@@ -123,10 +156,13 @@ export const KeyGrid = ({
     }
     const target = openedFrom.current;
     openedFrom.current = undefined;
-    if (target === undefined || rows.length === 0) return;
+    if (target === undefined || rows.length === 0) {
+      return;
+    }
 
     const row = rows.findIndex((candidate) =>
-      sameTarget(targetOf(candidate.original, target.locale), target));
+      sameTarget(targetOf(candidate.original, target.locale), target)
+    );
     restoreFocus(row >= 0 ? row : undefined);
   }, [selected, rows, restoreFocus]);
 
@@ -138,26 +174,26 @@ export const KeyGrid = ({
 
   return (
     <div
-      role="grid"
-      aria-rowcount={total}
       aria-colcount={visible.length}
       aria-label="Translations"
+      aria-rowcount={total}
       className="grid"
       onKeyDown={onKeyDown}
+      role="grid"
     >
       {table.getHeaderGroups().map((group) => (
         <div
-          key={group.id}
-          role="row"
           aria-rowindex={1}
           className="grid__row grid__row--head"
+          key={group.id}
+          role="row"
           style={{ gridTemplateColumns: template }}
         >
           {group.headers.map((header) => (
             <span
+              className={`grid__cell grid__cell--${header.column.id}`}
               key={header.id}
               role="columnheader"
-              className={`grid__cell grid__cell--${header.column.id}`}
             >
               <table.FlexRender header={header} />
             </span>
@@ -165,7 +201,7 @@ export const KeyGrid = ({
         </div>
       ))}
 
-      <div ref={scroller} className="grid__body">
+      <div className="grid__body" ref={scroller}>
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {items.map((item) => {
             const row = rows[item.index];
@@ -178,33 +214,34 @@ export const KeyGrid = ({
             if (!row) {
               return (
                 <div
-                  key={`pending-${item.index}`}
-                  role="row"
                   aria-rowindex={item.index + 2}
                   className="grid__row grid__row--pending"
+                  key={`pending-${item.index}`}
+                  role="row"
                   style={style}
                 >
                   {visible.map((column) => (
-                    <span key={column.id} role="gridcell" className="grid__cell">
-                      {column.columnDef.meta?.navigable && <span className="skeleton" />}
+                    <span className="grid__cell" key={column.id} role="gridcell">
+                      {column.columnDef.meta?.navigable ? <span className="skeleton" /> : null}
                     </span>
                   ))}
                 </div>
               );
             }
 
-            const target = filters.locale === null ? undefined : targetOf(row.original, filters.locale);
+            const target =
+              filters.locale === null ? undefined : targetOf(row.original, filters.locale);
             const open = sameTarget(target, selected);
 
             return (
               <div
-                key={row.id}
-                role="row"
                 aria-rowindex={item.index + 2}
                 aria-selected={open}
-                className={`grid__row${open ? " grid__row--selected" : ""}`}
-                style={style}
+                className={`grid__row${open ? "grid__row--selected" : ""}`}
+                key={row.id}
                 onClick={() => target && onSelect(target)}
+                role="row"
+                style={style}
               >
                 {row.getVisibleCells().map((cell) => (
                   <span

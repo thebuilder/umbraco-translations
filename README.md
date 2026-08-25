@@ -144,6 +144,13 @@ The resource preserves nested string keys, `{{variable}}` interpolation, context
 ```sh
 dotnet test TheBuilder.Translations.slnx
 pnpm check
+pnpm test
 pnpm build
 dotnet pack src/TheBuilder.Translations/TheBuilder.Translations.csproj
 ```
+
+`pnpm check` is three things: `pnpm typecheck` (`tsc --noEmit`), `pnpm lint` (Ultracite, a Biome
+preset, for lint and formatting), and `pnpm deadcode` (fallow). CI runs them as separate steps so
+one run reports all three. `pnpm fix` applies the formatting and the safe lint fixes; read the diff
+rather than trusting it, and see `src/TheBuilder.Translations/Client/CLAUDE.md` for the fixes that
+are deliberately not automatic.

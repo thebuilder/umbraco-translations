@@ -11,9 +11,14 @@ import type { LocaleFacet } from "../../api/generated/models.js";
  * to notice. One place to make that decision, rather than eleven call sites that each have to
  * remember it.
  */
-export const sameLocale = (one: string | null | undefined, other: string | null | undefined): boolean =>
-  one !== null && one !== undefined &&
-  other !== null && other !== undefined &&
+export const sameLocale = (
+  one: string | null | undefined,
+  other: string | null | undefined
+): boolean =>
+  one !== null &&
+  one !== undefined &&
+  other !== null &&
+  other !== undefined &&
   one.toLowerCase() === other.toLowerCase();
 
 /**
@@ -23,11 +28,18 @@ export const sameLocale = (one: string | null | undefined, other: string | null 
  * per lookup would be paid on every cell of every row. The scan is the fallback for the case the
  * exact hit cannot cover.
  */
-export const localeIn = <T>(map: Record<string, T>, code: string | null | undefined): T | undefined => {
-  if (code === null || code === undefined) return undefined;
+export const localeIn = <T>(
+  map: Record<string, T>,
+  code: string | null | undefined
+): T | undefined => {
+  if (code === null || code === undefined) {
+    return undefined;
+  }
 
   const exact = map[code];
-  if (exact !== undefined) return exact;
+  if (exact !== undefined) {
+    return exact;
+  }
 
   const found = Object.keys(map).find((candidate) => sameLocale(candidate, code));
   return found === undefined ? undefined : map[found];
@@ -35,7 +47,7 @@ export const localeIn = <T>(map: Record<string, T>, code: string | null | undefi
 
 export const facetFor = (
   locales: readonly LocaleFacet[],
-  code: string | null | undefined,
+  code: string | null | undefined
 ): LocaleFacet | undefined => locales.find((locale) => sameLocale(locale.code, code));
 
 /**
@@ -58,5 +70,5 @@ export const defaultLocale = (locales: readonly LocaleFacet[]): string | null =>
  */
 export const localeName = (
   locales: readonly LocaleFacet[],
-  code: string | null | undefined,
+  code: string | null | undefined
 ): string => facetFor(locales, code)?.name || code || "";

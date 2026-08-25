@@ -52,10 +52,47 @@ jobs:
             echo "::notice::Playwright is not a dependency on this branch; skipping browser install."
           fi
 
+      # Three steps rather than one `pnpm check`, because chaining them with && means the
+      # first failure hides the rest: a stray type error would leave the lint and dead-code
+      # results unknown until it was fixed and the run repeated. `!cancelled()` lets each
+      # report on its own, so one run says everything that is wrong.
       - name: Typecheck
-        run: pnpm check
+        if: '!cancelled()'
+        run: pnpm typecheck
 
+      # `pnpm exec ultracite` rather than the `lint` script, because --reporter is a pnpm
+      # flag too and pnpm swallows it before the script ever sees it.
+      #
+      # Biome reports paths relative to its own directory, and GitHub resolves annotation
+      # paths from the repository root, so without the rewrite every annotation points at a
+      # file that does not exist and none of them land on the diff. pipefail keeps the exit
+      # code from the linter rather than from sed.
+      - name: Lint
+        if: '!cancelled()'
+        working-directory: src/TheBuilder.Translations/Client
+        run: |
+          set -o pipefail
+          pnpm exec ultracite check --reporter=github \
+            | sed 's|file=|file=src/TheBuilder.Translations/Client/|'
+
+      # Analysed once and rendered twice: `report --from` is a pure renderer, so the
+      # annotations and the job summary cannot disagree about what was found. It always
+      # exits 0, which is why the verdict is taken from the analysis run.
+      - name: Dead code
+        if: '!cancelled()'
+        run: |
+          status=0
+          pnpm exec fallow dead-code --format json --quiet > fallow.json || status=$?
+          pnpm exec fallow report --from fallow.json --format github-annotations
+          pnpm exec fallow report --from fallow.json --format github-summary >> "$GITHUB_STEP_SUMMARY"
+          rm -f fallow.json
+          exit "$status"
+
+      # Also unconditional: whether the suite passes is information worth having even when a
+      # check above failed. Build is not, because it reruns tsc and would only restate a
+      # typecheck failure.
       - name: Test
+        if: '!cancelled()'
         run: pnpm test
 
       - name: Build

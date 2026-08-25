@@ -9,14 +9,14 @@ import { matchesTerm } from "./matching.js";
  * the row can hand its own options straight over without the two files importing each other.
  */
 export interface MatchedInOptions {
-  editing: string | null;
   comparison: string | null;
-  editingName: string;
   comparisonName: string;
+  editing: string | null;
+  editingName: string;
+  mode: EditingMode;
   /** How a language with no column reads to an editor, since neither name above covers it. */
   nameOf: (locale: string) => string;
   term: string;
-  mode: EditingMode;
 }
 
 /*
@@ -42,7 +42,7 @@ const columns = ({ editing, comparison, mode }: MatchedInOptions) => ({
 export const matchedElsewhere = (
   row: MessageKey,
   term: string,
-  shown: readonly (string | null)[],
+  shown: readonly (string | null)[]
 ): readonly string[] =>
   term.trim() === ""
     ? []
@@ -68,7 +68,9 @@ export const matchedElsewhere = (
  */
 export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | null => {
   const { term, mode } = options;
-  if (term.trim() === "") return null;
+  if (term.trim() === "") {
+    return null;
+  }
 
   const { lead, second } = columns(options);
   const matched = row.matchedLocales;
@@ -85,16 +87,24 @@ export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | 
    * has nothing marked and nothing to look at, so the row has to say which language it is in and
    * that the words are further along than the ones on screen.
    */
-  if (matched.some((locale) => sameLocale(locale, lead)))
+  if (matched.some((locale) => sameLocale(locale, lead))) {
     return truncated(row, lead) ? `matched further along in ${leadName}` : null;
+  }
 
-  if (second !== null && !sameLocale(second, lead) && matched.some((locale) => sameLocale(locale, second)))
+  if (
+    second !== null &&
+    !sameLocale(second, lead) &&
+    matched.some((locale) => sameLocale(locale, second))
+  ) {
     return truncated(row, second)
       ? `matched further along in ${secondName}`
       : `matched in ${secondName}`;
+  }
 
   const elsewhere = matchedElsewhere(row, term, [lead, second]);
-  if (elsewhere.length > 0) return `matched in ${listOf(elsewhere.map(options.nameOf))}`;
+  if (elsewhere.length > 0) {
+    return `matched in ${listOf(elsewhere.map(options.nameOf))}`;
+  }
 
   return matchesTerm(`${row.namespace}.${row.key}`, term) ? "matched in the key" : null;
 };

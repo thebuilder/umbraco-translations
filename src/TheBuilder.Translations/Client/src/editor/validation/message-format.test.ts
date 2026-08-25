@@ -44,9 +44,12 @@ describe("ICU, against the server's cases", () => {
     expect(result).toEqual({ valid: true, arguments: { [argument]: "string" } });
   });
 
-  it.each(["5 o'clock", "don't", "trailing apostrophe '"])("accepts %j with no arguments", (message) => {
-    expect(validateMessage(message, "Icu")).toEqual({ valid: true, arguments: {} });
-  });
+  it.each(["5 o'clock", "don't", "trailing apostrophe '"])(
+    "accepts %j with no arguments",
+    (message) => {
+      expect(validateMessage(message, "Icu")).toEqual({ valid: true, arguments: {} });
+    }
+  );
 
   it.each([
     // '{ opens a quoted section, so the braces are literal and yield no argument.
@@ -81,7 +84,10 @@ describe("i18next v4, against the server's cases", () => {
 
 describe("plain text", () => {
   it("takes anything, because there is no syntax to get wrong", () => {
-    expect(validateMessage("{ not really a placeholder", "PlainText")).toEqual({ valid: true, arguments: {} });
+    expect(validateMessage("{ not really a placeholder", "PlainText")).toEqual({
+      valid: true,
+      arguments: {},
+    });
   });
 });
 
@@ -89,7 +95,9 @@ describe("describeOverride", () => {
   const icu = (args: Record<string, string>) => ({ format: "Icu" as const, arguments: args });
 
   it("accepts text using exactly the placeholders the application uses", () => {
-    expect(describeOverride("Du har {count, number} beskeder", icu({ count: "number" }))).toBeNull();
+    expect(
+      describeOverride("Du har {count, number} beskeder", icu({ count: "number" }))
+    ).toBeNull();
   });
 
   it("names the placeholder that is missing rather than restating the rule", () => {
@@ -104,8 +112,9 @@ describe("describeOverride", () => {
 
     expect(problem?.missing).toEqual(["name"]);
     expect(problem?.unexpected).toEqual(["navn"]);
-    expect(problem?.message)
-      .toBe("Your text is missing {name} and uses {navn}, which the application does not provide.");
+    expect(problem?.message).toBe(
+      "Your text is missing {name} and uses {navn}, which the application does not provide."
+    );
   });
 
   it("explains a placeholder used as the wrong kind in words, not in ICU vocabulary", () => {
@@ -114,26 +123,30 @@ describe("describeOverride", () => {
     // Present in both, so neither list describes it; without this branch the message would be
     // "your text is missing {count}" about text that plainly contains {count}.
     expect(problem?.missing).toEqual([]);
-    expect(problem?.message)
-      .toBe("Your text uses {count} as plain text where the application uses it as a number.");
+    expect(problem?.message).toBe(
+      "Your text uses {count} as plain text where the application uses it as a number."
+    );
   });
 
   it("explains an unclosed placeholder instead of quoting the parser", () => {
     // The scanner says "Expected ',' at position 9", which is about its own state machine.
     const problem = describeOverride("Hej {name", icu({ name: "string" }));
 
-    expect(problem?.message)
-      .toBe("Your text has a placeholder that is not closed properly. Check that every { has a matching }.");
+    expect(problem?.message).toBe(
+      "Your text has a placeholder that is not closed properly. Check that every { has a matching }."
+    );
   });
 
   it("names an unknown placeholder format", () => {
-    expect(describeOverride("{value, magic}", icu({ value: "string" }))?.message)
-      .toBe('Your text uses an unknown placeholder format, "magic".');
+    expect(describeOverride("{value, magic}", icu({ value: "string" }))?.message).toBe(
+      'Your text uses an unknown placeholder format, "magic".'
+    );
   });
 
   it("explains a missing other branch in terms of what it is for", () => {
-    expect(describeOverride("{count, plural, one {En}}", icu({ count: "plural" }))?.message)
-      .toContain('no "other" option');
+    expect(
+      describeOverride("{count, plural, one {En}}", icu({ count: "plural" }))?.message
+    ).toContain('no "other" option');
   });
 
   it("lists several missing placeholders in one sentence", () => {

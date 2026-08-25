@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "workspaces": { "patterns": ["src/TheBuilder.Translations/Client"] },
+
+  // The bundle Umbraco loads. Everything the backoffice ever reaches is registered from here, so
+  // anything not reachable from it is genuinely unreferenced rather than merely lazily loaded.
+  "entry": [
+    "src/TheBuilder.Translations/Client/src/bundle.manifests.ts",
+
+    // Umbraco resolves these itself and calls into them by name, so nothing in this repo imports
+    // them: the backoffice entry point (onInit / onUnload) and the two custom elements a manifest
+    // names by module rather than by tag, which it loads for their default export.
+    "src/TheBuilder.Translations/Client/src/entrypoints/entrypoint.ts",
+    "src/TheBuilder.Translations/Client/src/editor/editor-host.element.tsx",
+    "src/TheBuilder.Translations/Client/src/settings/settings-dashboard.element.ts"
+  ],
+
+  // Written by `pnpm generate-client` from the running API's OpenAPI document, which describes far
+  // more of the server than this client calls. Trimming it by hand lasts until the next run.
+  "ignorePatterns": ["src/TheBuilder.Translations/Client/src/api/openapi/**"],
+
+  // Called by the browser, not by this code.
+  "usedClassMembers": ["connectedCallback", "disconnectedCallback"]
+}

@@ -23,8 +23,16 @@
   --edit-tint: color-mix(in srgb, var(--uui-color-selected) 8%, var(--uui-color-surface));
   --edit-tint-line: color-mix(in srgb, var(--uui-color-selected) 22%, var(--uui-color-surface));
   --edit-warning: var(--uui-color-warning-emphasis, #8a6d00);
-  --edit-warning-tint: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 45%, var(--uui-color-surface));
-  --edit-warning-line: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 90%, var(--uui-color-surface));
+  --edit-warning-tint: color-mix(
+    in srgb,
+    var(--uui-color-warning, #fdf3d2) 45%,
+    var(--uui-color-surface)
+  );
+  --edit-warning-line: color-mix(
+    in srgb,
+    var(--uui-color-warning, #fdf3d2) 90%,
+    var(--uui-color-surface)
+  );
   --edit-danger-tint: color-mix(in srgb, var(--uui-color-danger) 8%, var(--uui-color-surface));
   --edit-danger-line: color-mix(in srgb, var(--uui-color-danger) 26%, var(--uui-color-surface));
   --edit-mono: var(--uui-font-monospace, ui-monospace, monospace);
@@ -33,44 +41,108 @@
   --edit-pane: 32.5rem;
 }
 
-.mount { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-* { box-sizing: border-box; }
+.mount {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+* {
+  box-sizing: border-box;
+}
 
 /* Queried by size, not by viewport: this panel sits inside the backoffice chrome and is far
    narrower than the window, so a viewport breakpoint fires at the wrong times. */
 .shell {
-  display: flex; flex-direction: column; min-height: 0; flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
   padding: var(--uui-size-layout-1);
   container: shell / inline-size;
   gap: var(--uui-size-space-4);
 }
-h1, h2, h3, p { margin-top: 0; }
-.muted { color: var(--uui-color-text-alt); }
-.visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
-.panel, .table-frame {
+.panel,
+.table-frame {
   background: var(--uui-color-surface);
   border: 1px solid var(--uui-color-border);
   border-radius: var(--uui-border-radius);
 }
-.panel { padding: var(--uui-size-space-5); }
+.panel {
+  padding: var(--uui-size-space-5);
+}
 
 /* ---- What is being worked on -------------------------------------------------------------- */
 
 /* Reads as a statement rather than a form: editing Danish, compared with English. The language
    being edited carries the weight because it is the one thing on screen that changes what all of
    the rest of it means. */
-.context { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--uui-size-space-3); }
-.context__lead { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-.context__rule { align-self: center; flex: none; inline-size: 1px; block-size: 1.375rem; background: var(--uui-color-divider); }
-.context__rule--short { block-size: .875rem; }
-.context__spacer { flex: 1 1 auto; }
+.context {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--uui-size-space-3);
+}
+.context__lead {
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-text-alt);
+}
+.context__rule {
+  align-self: center;
+  flex: none;
+  inline-size: 1px;
+  block-size: 1.375rem;
+  background: var(--uui-color-divider);
+}
+.context__rule--short {
+  block-size: 0.875rem;
+}
+.context__spacer {
+  flex: 1 1 auto;
+}
 
-.coverage { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-.coverage strong { color: var(--uui-color-text); font-weight: 600; }
-.coverage__count--warning, .coverage__count--warning strong { color: var(--edit-warning); }
-.coverage__track { display: flex; inline-size: 13.75rem; max-inline-size: 30vw; block-size: .5rem; border-radius: 4px; background: var(--uui-color-divider); overflow: hidden; }
-.coverage__fill { background: var(--uui-color-selected); }
+.coverage {
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-3);
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-text-alt);
+}
+.coverage strong {
+  color: var(--uui-color-text);
+  font-weight: 600;
+}
+.coverage__count--warning,
+.coverage__count--warning strong {
+  color: var(--edit-warning);
+}
+.coverage__track {
+  display: flex;
+  inline-size: 13.75rem;
+  max-inline-size: 30vw;
+  block-size: 0.5rem;
+  border-radius: 4px;
+  background: var(--uui-color-divider);
+  overflow: hidden;
+}
+.coverage__fill {
+  background: var(--uui-color-selected);
+}
 
 /* ---- Menus that read as the sentence they are in ------------------------------------------ */
 
@@ -78,27 +150,64 @@ h1, h2, h3, p { margin-top: 0; }
    style and sizes itself to its longest option, neither of which this can live with; everything
    else about it -- keyboard handling, how a screen reader announces it, how it opens on a phone --
    is exactly right and cannot be reproduced by hand for free. */
-.picker { position: relative; display: inline-flex; max-inline-size: 100%; }
+.picker {
+  position: relative;
+  display: inline-flex;
+  max-inline-size: 100%;
+}
 .picker__face {
-  display: inline-flex; align-items: baseline; gap: var(--uui-size-space-2);
-  min-inline-size: 0; padding: 2px 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+  padding: 2px 0;
   border-radius: var(--uui-border-radius);
 }
 .picker__control {
-  position: absolute; inset: 0; inline-size: 100%; block-size: 100%;
-  opacity: 0; cursor: pointer; font: inherit;
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
 }
-.picker__name { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.picker__code { flex: none; font-family: var(--edit-mono); font-size: 11px; color: var(--uui-color-text-alt); }
+.picker__name {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker__code {
+  flex: none;
+  font-family: var(--edit-mono);
+  font-size: 11px;
+  color: var(--uui-color-text-alt);
+}
 /* Centred on the words rather than sat on their baseline, and sized in the sheet rather than by
    whatever font the platform found a triangle in. */
-.picker__caret { flex: none; align-self: center; inline-size: .625rem; block-size: .375rem; color: var(--uui-color-text-alt); }
-.picker:hover .picker__face { color: var(--uui-color-selected); }
+.picker__caret {
+  flex: none;
+  align-self: center;
+  inline-size: 0.625rem;
+  block-size: 0.375rem;
+  color: var(--uui-color-text-alt);
+}
+.picker:hover .picker__face {
+  color: var(--uui-color-selected);
+}
 /* A language stated rather than offered, where the site has only the one. It keeps the type scale
    of the menu it replaces and gives up everything that promises somewhere to go. */
-.picker--fixed { cursor: default; }
-.picker--fixed:hover .picker__face { color: inherit; }
-.picker:has(.picker__control:focus-visible) .picker__face { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; }
+.picker--fixed {
+  cursor: default;
+}
+.picker--fixed:hover .picker__face {
+  color: inherit;
+}
+.picker:has(.picker__control:focus-visible) .picker__face {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 2px;
+}
 
 /* The two languages, at the size the strip is a sentence at.
    The one being edited is the heavier of the two rather than the larger: it is the word that
@@ -106,146 +215,327 @@ h1, h2, h3, p { margin-top: 0; }
    as a heading it was half again the size of the phrase it sits in, which made "Editing" and
    "compared with" read as captions under a banner rather than as the sentence they belong to.
    Their codes and carets are the base size, so the two clauses balance. */
-.picker--lead .picker__name { font-size: 1rem; font-weight: 600; }
-.picker--quiet .picker__name { font-size: 1rem; font-weight: 500; }
+.picker--lead .picker__name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.picker--quiet .picker__name {
+  font-size: 1rem;
+  font-weight: 500;
+}
 
 /* ---- Search, and the qualifiers around it ------------------------------------------------- */
 
 /* Search is the front door and not a filter on a list: the job that brings an editor here most
    often starts with a sentence somebody reported and no idea which key it is. So it gets the width
    and the type size, and everything else is a chip beneath it. */
-.finder { display: flex; flex-direction: column; gap: var(--uui-size-space-3); }
+.finder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--uui-size-space-3);
+}
 
-.search { position: relative; display: flex; align-items: center; }
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .search__input {
-  inline-size: 100%; block-size: 2.75rem;
+  inline-size: 100%;
+  block-size: 2.75rem;
   padding-inline: 2.625rem 2.5rem;
   border: 1px solid var(--uui-color-border-standalone, var(--uui-color-border));
   border-radius: var(--uui-border-radius);
-  background: var(--uui-color-surface); color: inherit;
-  font: inherit; font-size: 1rem;
+  background: var(--uui-color-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
 }
-.search__input:hover { border-color: var(--uui-color-border-emphasis); }
-.search__input:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 0; border-color: var(--uui-color-selected); }
-.search__icon { position: absolute; inset-inline-start: .875rem; inline-size: 1rem; block-size: 1rem; color: var(--uui-color-text-alt); pointer-events: none; }
+.search__input:hover {
+  border-color: var(--uui-color-border-emphasis);
+}
+.search__input:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 0;
+  border-color: var(--uui-color-selected);
+}
+.search__icon {
+  position: absolute;
+  inset-inline-start: 0.875rem;
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--uui-color-text-alt);
+  pointer-events: none;
+}
 .search__clear {
-  position: absolute; inset-inline-end: .5rem;
-  display: flex; align-items: center; justify-content: center;
-  inline-size: 1.625rem; block-size: 1.625rem; padding: 0;
-  border: 0; border-radius: 50%; background: var(--uui-color-surface-alt);
-  color: var(--uui-color-text-alt); font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
+  position: absolute;
+  inset-inline-end: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--uui-color-surface-alt);
+  color: var(--uui-color-text-alt);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
 }
-.search__cross { inline-size: .5625rem; block-size: .5625rem; }
-.search__clear:hover { background: var(--uui-color-divider); color: var(--uui-color-text); }
-.search__clear:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
+.search__cross {
+  inline-size: 0.5625rem;
+  block-size: 0.5625rem;
+}
+.search__clear:hover {
+  background: var(--uui-color-divider);
+  color: var(--uui-color-text);
+}
+.search__clear:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 1px;
+}
 
 /* A filter that is doing something says so and can be taken off; one that is doing nothing is a
    dashed outline offering to start. The failure mode of a row of quiet dropdowns is an editor
    staring at an incomplete list without noticing that a status filter is still on. */
-.chips { display: flex; align-items: center; flex-wrap: wrap; gap: var(--uui-size-space-2); }
-.chips__spacer { flex: 1 1 auto; }
+.chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--uui-size-space-2);
+}
+.chips__spacer {
+  flex: 1 1 auto;
+}
 
 /* No border. The fill and the outline were drawing the same boundary twice, so the fill takes it
    over on its own and comes up enough to hold the shape without one. */
 .chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  block-size: 1.75rem; padding-inline: .6875rem .375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 1.75rem;
+  padding-inline: 0.6875rem 0.375rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--uui-color-selected) 13%, var(--uui-color-surface));
   color: var(--uui-color-selected);
-  font-size: var(--uui-type-small-size); max-inline-size: 100%;
+  font-size: var(--uui-type-small-size);
+  max-inline-size: 100%;
 }
-.chip:not(:has(.chip__remove)) { padding-inline-end: .6875rem; }
-.chip__face, .picker--chip .picker__face { display: inline-flex; align-items: baseline; gap: var(--uui-size-space-2); min-inline-size: 0; }
-.chip__label { flex: none; color: color-mix(in srgb, var(--uui-color-selected) 65%, var(--uui-color-text-alt)); }
-.chip__value { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip__code { font-family: var(--edit-mono); font-size: 12px; }
-.picker--chip:hover .picker__face { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.chip:not(:has(.chip__remove)) {
+  padding-inline-end: 0.6875rem;
+}
+.chip__face,
+.picker--chip .picker__face {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+}
+.chip__label {
+  flex: none;
+  color: color-mix(in srgb, var(--uui-color-selected) 65%, var(--uui-color-text-alt));
+}
+.chip__value {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip__code {
+  font-family: var(--edit-mono);
+  font-size: 12px;
+}
+.picker--chip:hover .picker__face {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 /* Both marks on a chip belong to the chip, so they are the chip's colour held back rather than a
    second colour: a grey caret inside a blue pill reads as something that failed to load. The value
    stays the loudest thing on it, which is the part anybody is actually reading. */
-.picker--chip .picker__caret { color: inherit; opacity: .5; }
-.picker--chip:hover .picker__caret { opacity: .8; }
-.chip__remove {
-  flex: none; display: flex; align-items: center; justify-content: center;
-  inline-size: 1.125rem; block-size: 1.125rem; padding: 0;
-  border: 0; border-radius: 50%; background: none; color: inherit; opacity: .65;
-  font: inherit; font-size: 10px; line-height: 1; cursor: pointer;
+.picker--chip .picker__caret {
+  color: inherit;
+  opacity: 0.5;
 }
-.chip__cross { inline-size: .5rem; block-size: .5rem; }
-.chip__remove:hover { background: var(--edit-tint-line); opacity: 1; }
-.chip__remove:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
+.picker--chip:hover .picker__caret {
+  opacity: 0.8;
+}
+.chip__remove {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  opacity: 0.65;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chip__cross {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+}
+.chip__remove:hover {
+  background: var(--edit-tint-line);
+  opacity: 1;
+}
+.chip__remove:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 1px;
+}
 
 .picker--add .picker__face {
-  block-size: 1.75rem; padding-inline: .6875rem; align-items: center;
+  block-size: 1.75rem;
+  padding-inline: 0.6875rem;
+  align-items: center;
   border: 1px dashed var(--uui-color-border-standalone, var(--uui-color-border));
   border-radius: 999px;
-  font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt);
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-text-alt);
 }
-.picker--add:hover .picker__face { border-color: var(--uui-color-selected); color: var(--uui-color-selected); }
+.picker--add:hover .picker__face {
+  border-color: var(--uui-color-selected);
+  color: var(--uui-color-selected);
+}
 
 /* An action written as a sentence, for offers that are not the point of the screen. */
 .link {
-  padding: 0; border: 0; background: none;
-  font: inherit; font-size: var(--uui-type-small-size);
-  color: var(--uui-color-selected); text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-selected);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
-.link:hover { color: var(--uui-color-selected-emphasis); }
-.link:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
+.link:hover {
+  color: var(--uui-color-selected-emphasis);
+}
+.link:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
 /* ---- Controls ------------------------------------------------------------------------------ */
 
-/* Form controls are native elements on backoffice tokens, because UUI's are form-associated custom
-   elements and do not upgrade inside this shadow root. */
-.control {
-  inline-size: 100%;
-  min-block-size: 30px;
-  padding: var(--uui-size-space-2) var(--uui-size-space-3);
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--uui-size-space-2);
+  min-block-size: 2.125rem;
+  padding: 0 var(--uui-size-space-4);
   border: 1px solid var(--uui-color-border-standalone, var(--uui-color-border));
   border-radius: var(--uui-border-radius);
   background: var(--uui-color-surface);
   color: inherit;
   font: inherit;
   font-size: var(--uui-type-small-size);
-}
-.control:hover { border-color: var(--uui-color-border-emphasis); }
-.control:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
-.control:disabled { opacity: .6; cursor: not-allowed; }
-
-.button {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--uui-size-space-2);
-  min-block-size: 2.125rem; padding: 0 var(--uui-size-space-4);
-  border: 1px solid var(--uui-color-border-standalone, var(--uui-color-border));
-  border-radius: var(--uui-border-radius);
-  background: var(--uui-color-surface); color: inherit;
-  font: inherit; font-size: var(--uui-type-small-size); font-weight: 600; cursor: pointer;
+  font-weight: 600;
+  cursor: pointer;
   white-space: nowrap;
 }
-.button:hover:not(:disabled) { border-color: var(--uui-color-border-emphasis); background: var(--uui-color-surface-emphasis); }
-.button:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
-.button:disabled { opacity: .5; cursor: not-allowed; }
-.button--primary { border-color: var(--uui-color-selected); background: var(--uui-color-selected); color: var(--uui-color-selected-contrast); }
-.button--primary:hover:not(:disabled) { background: var(--uui-color-selected-emphasis); border-color: var(--uui-color-selected-emphasis); }
-.button--danger { border-color: var(--uui-color-danger); color: var(--uui-color-danger); }
+.button:hover:not(:disabled) {
+  border-color: var(--uui-color-border-emphasis);
+  background: var(--uui-color-surface-emphasis);
+}
+.button:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 1px;
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.button--primary {
+  border-color: var(--uui-color-selected);
+  background: var(--uui-color-selected);
+  color: var(--uui-color-selected-contrast);
+}
+.button--primary:hover:not(:disabled) {
+  background: var(--uui-color-selected-emphasis);
+  border-color: var(--uui-color-selected-emphasis);
+}
+.button--danger {
+  border-color: var(--uui-color-danger);
+  color: var(--uui-color-danger);
+}
 /* An offer rather than an action: it fills a field with a starting point, and reads as the accent
    without taking the weight of the button that ends the work. */
-.button--soft { min-block-size: 1.625rem; padding-inline: var(--uui-size-space-3); border-color: var(--edit-tint-line); background: var(--edit-tint); color: var(--uui-color-selected); font-weight: 500; }
-.button--soft:hover:not(:disabled) { background: var(--edit-tint-line); border-color: var(--edit-tint-line); }
-.button--small { min-block-size: 1.5rem; padding-inline: var(--uui-size-space-2); font-size: 11px; font-weight: 500; }
+.button--soft {
+  min-block-size: 1.625rem;
+  padding-inline: var(--uui-size-space-3);
+  border-color: var(--edit-tint-line);
+  background: var(--edit-tint);
+  color: var(--uui-color-selected);
+  font-weight: 500;
+}
+.button--soft:hover:not(:disabled) {
+  background: var(--edit-tint-line);
+  border-color: var(--edit-tint-line);
+}
+.button--small {
+  min-block-size: 1.5rem;
+  padding-inline: var(--uui-size-space-2);
+  font-size: 11px;
+  font-weight: 500;
+}
 /* Square and sized to the glyph. Text-button padding leaves a single character wedged into a box
    built for a word. */
-.button--icon { inline-size: 1.75rem; min-block-size: 1.75rem; padding: 0; font-size: 12px; font-weight: 400; color: var(--uui-color-text-alt); }
+.button--icon {
+  inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--uui-color-text-alt);
+}
 
-.checkbox { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); cursor: pointer; }
-.tag { display: inline-flex; align-items: center; padding: 2px var(--uui-size-space-2); border-radius: 999px; background: var(--uui-color-surface-alt); border: 1px solid var(--uui-color-divider); font-size: 11px; font-family: var(--edit-mono); }
-.key { font-family: var(--edit-mono); font-size: var(--uui-type-small-size); }
+.key {
+  font-family: var(--edit-mono);
+  font-size: var(--uui-type-small-size);
+}
 
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: var(--uui-size-space-3) var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); text-align: left; vertical-align: top; }
-th { font-size: var(--uui-type-small-size); text-transform: uppercase; letter-spacing: .04em; }
-tbody tr { cursor: pointer; }
-tbody tr:hover { background: var(--uui-color-surface-alt); }
-tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: -2px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: var(--uui-size-space-3) var(--uui-size-space-4);
+  border-bottom: 1px solid var(--uui-color-divider);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  font-size: var(--uui-type-small-size);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+tbody tr {
+  cursor: pointer;
+}
+tbody tr:hover {
+  background: var(--uui-color-surface-alt);
+}
+tbody tr:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: -2px;
+}
 
 /* ---- Badges ------------------------------------------------------------------------------- */
 
@@ -253,20 +543,36 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
    point of them is to be picked out of a screen of ordinary rows -- so they get a shape and a
    colour, and everything ordinary recedes to a word. */
 .badge {
-  display: inline-flex; align-items: center; align-self: flex-start;
-  block-size: 1.375rem; padding-inline: var(--uui-size-space-2);
-  border-radius: 999px; border: 1px solid transparent;
-  font-size: 11.5px; font-weight: 500; white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  block-size: 1.375rem;
+  padding-inline: var(--uui-size-space-2);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
 }
-.badge--warning { background: var(--edit-warning-tint); border-color: var(--edit-warning-line); color: var(--edit-warning); }
-.badge--danger { background: var(--edit-danger-tint); border-color: var(--edit-danger-line); color: var(--uui-color-danger); }
-.badge--info { background: var(--edit-tint); border-color: var(--edit-tint-line); color: var(--uui-color-selected); }
+.badge--warning {
+  background: var(--edit-warning-tint);
+  border-color: var(--edit-warning-line);
+  color: var(--edit-warning);
+}
+.badge--danger {
+  background: var(--edit-danger-tint);
+  border-color: var(--edit-danger-line);
+  color: var(--uui-color-danger);
+}
 
 /* ---- The list and the pane beside it ------------------------------------------------------ */
 
 /* One card holding the results and the pane. The grid body is the only scroller. */
 .board {
-  position: relative; display: flex; min-height: 0; flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
   background: var(--uui-color-surface);
   border: 1px solid var(--uui-color-border);
   border-radius: var(--uui-border-radius);
@@ -274,46 +580,117 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 }
 /* Its own container, because what fits here stops being a question about the editor's width the
    moment the pane opens beside it and takes half of that width away. */
-.results { display: flex; flex-direction: column; min-height: 0; min-inline-size: 0; flex: 1; container: results / inline-size; }
+.results {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-inline-size: 0;
+  flex: 1;
+  container: results / inline-size;
+}
 
-.results__head, .results__foot {
-  flex: none; display: flex; align-items: center; gap: var(--uui-size-space-3);
+.results__head,
+.results__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-3);
   padding: var(--uui-size-space-3) var(--uui-size-space-4);
   background: var(--uui-color-surface-alt);
-  font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt);
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-text-alt);
 }
-.results__head { border-bottom: 1px solid var(--uui-color-divider); }
-.results__foot { border-top: 1px solid var(--uui-color-divider); }
-.results__head strong, .results__foot strong { color: var(--uui-color-text); font-weight: 600; }
+.results__head {
+  border-bottom: 1px solid var(--uui-color-divider);
+}
+.results__foot {
+  border-top: 1px solid var(--uui-color-divider);
+}
+.results__head strong,
+.results__foot strong {
+  color: var(--uui-color-text);
+  font-weight: 600;
+}
 /* Nothing in either bar wraps. A phrase broken over four lines is not a smaller phrase, it is a
    taller bar and an unreadable one; what does not fit is dropped instead, further down. */
-.results__head > *, .results__foot > * { white-space: nowrap; }
-.results__head { justify-content: flex-start; }
+.results__head > *,
+.results__foot > * {
+  white-space: nowrap;
+}
+.results__head {
+  justify-content: flex-start;
+}
 /* Counts that are said again in the strip above, so they are what a narrow bar gives up first. */
-.results__aside { flex: none; display: flex; align-items: center; gap: var(--uui-size-space-3); }
-.results__aside::before { content: ""; inline-size: 1px; block-size: .75rem; background: var(--uui-color-divider); }
+.results__aside {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-3);
+}
+.results__aside::before {
+  content: "";
+  inline-size: 1px;
+  block-size: 0.75rem;
+  background: var(--uui-color-divider);
+}
 /* Not that. This is the only sentence on screen explaining why rows nobody can read the reason for
    came back, and it is needed most when the pane is open over the results it is explaining. It
    keeps its own class so the rule below cannot reach it. */
-.results__because { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
-.results__spacer { flex: 1 1 auto; }
-.results__warning { color: var(--edit-warning); }
+.results__because {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.results__spacer {
+  flex: 1 1 auto;
+}
+.results__warning {
+  color: var(--edit-warning);
+}
 /* The shortcuts where they are used, rather than only in a sheet nobody opens -- which means they
    have to be legible at a glance. Set at the same size as the rest of the bar, with the keys
    themselves as keycaps: that carries the emphasis a smaller mono run was trying to carry with
    size alone, and reads as something to press rather than as a footnote. */
-.results__keys { display: flex; align-items: center; gap: var(--uui-size-space-4); white-space: nowrap; }
-.results__key { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); }
+.results__keys {
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-4);
+  white-space: nowrap;
+}
+.results__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--uui-size-space-2);
+}
 .results__key kbd {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-inline-size: 1.25rem; block-size: 1.25rem; padding-inline: 4px;
-  border: 1px solid var(--uui-color-divider); border-bottom-width: 2px;
-  border-radius: 4px; background: var(--uui-color-surface);
-  font-family: var(--edit-mono); font-size: 12px; line-height: 1; color: var(--uui-color-text-alt);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.25rem;
+  block-size: 1.25rem;
+  padding-inline: 4px;
+  border: 1px solid var(--uui-color-divider);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--uui-color-surface);
+  font-family: var(--edit-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--uui-color-text-alt);
 }
 
-.grid { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-.grid__body { overflow: auto; flex: 1; min-height: 0; }
+.grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.grid__body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
 
 /* grid-template-columns is set inline from the visible columns' widths: which columns exist is
    decided at runtime, and a template written here would have to restate that rule and then drift.
@@ -323,86 +700,244 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
    text beside it, and align-content centres the pair as a block. Centring each cell on its own
    contents cannot do both: it either aligns the first lines or centres the cell, never both. */
 .grid__row {
-  display: grid; grid-template-rows: auto auto; align-content: center;
-  column-gap: var(--uui-size-space-5); row-gap: 3px;
-  inline-size: 100%; padding: 0 var(--uui-size-space-4);
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: var(--uui-size-space-5);
+  row-gap: 3px;
+  inline-size: 100%;
+  padding: 0 var(--uui-size-space-4);
   border-bottom: 1px solid var(--uui-color-divider);
 }
-.grid__row:not(.grid__row--head) { position: absolute; inset-inline: 0; top: 0; cursor: pointer; }
-.grid__row:not(.grid__row--head):hover { background: var(--uui-color-surface-alt); }
-.grid__row--selected, .grid__row--selected:hover { background: var(--edit-tint); box-shadow: inset 3px 0 0 var(--uui-color-selected); }
-.grid__row--head {
-  position: sticky; top: 0; z-index: 1; grid-template-rows: auto;
-  background: var(--uui-color-surface);
-  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--uui-color-text-alt); font-weight: 600; block-size: 2.125rem;
+.grid__row:not(.grid__row--head) {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  cursor: pointer;
 }
-.grid__row--pending { cursor: default; }
+.grid__row:not(.grid__row--head):hover {
+  background: var(--uui-color-surface-alt);
+}
+.grid__row--selected,
+.grid__row--selected:hover {
+  background: var(--edit-tint);
+  box-shadow: inset 3px 0 0 var(--uui-color-selected);
+}
+.grid__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  grid-template-rows: auto;
+  background: var(--uui-color-surface);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--uui-color-text-alt);
+  font-weight: 600;
+  block-size: 2.125rem;
+}
+.grid__row--pending {
+  cursor: default;
+}
 
-.grid__cell { min-inline-size: 0; display: grid; grid-template-rows: subgrid; grid-row: span 2; align-content: start; }
-.grid__row--head .grid__cell { display: flex; align-items: center; grid-row: auto; }
-.grid__cell--status { display: flex; align-items: center; justify-content: flex-end; grid-row: span 2; }
+.grid__cell {
+  min-inline-size: 0;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  align-content: start;
+}
+.grid__row--head .grid__cell {
+  display: flex;
+  align-items: center;
+  grid-row: auto;
+}
+.grid__cell--status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  grid-row: span 2;
+}
 /* Two cues, because focus here is a cell inside a row and both halves matter: the row says where
    you are in the list, the ring says which of its two languages you are on. The ring is drawn
    outside the cell, not inset -- a cell box is exactly as tall as its two lines of text, so an
    inset outline is drawn straight through the words it is meant to be pointing at. */
-.grid__row:not(.grid__row--selected):has(.grid__cell:focus-visible) { background: var(--uui-color-surface-alt); }
-.grid__cell:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 3px; border-radius: 4px; }
+.grid__row:not(.grid__row--selected):has(.grid__cell:focus-visible) {
+  background: var(--uui-color-surface-alt);
+}
+.grid__cell:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
 
-.row__heading { font-weight: 600; }
+.row__heading {
+  font-weight: 600;
+}
 
 /* The words are the row. Normal weight, because bolding every value makes weight meaningless as a
    signal and leaves nothing louder for the rows that need attention. */
-.row__line { display: flex; align-items: baseline; gap: var(--uui-size-space-2); min-inline-size: 0; }
-.row__value { min-inline-size: 0; font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row__value--quiet { font-size: .875rem; color: var(--uui-color-text-alt); }
-.row__value--absent { color: var(--uui-color-text-alt); font-style: italic; }
+.row__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+}
+.row__value {
+  min-inline-size: 0;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row__value--quiet {
+  font-size: 0.875rem;
+  color: var(--uui-color-text-alt);
+}
+.row__value--absent {
+  color: var(--uui-color-text-alt);
+  font-style: italic;
+}
 
 /* Identity, not content: the key belongs under the words it names, in a quieter voice, and the
    namespace is dimmer still because it is where the key lives rather than what the row is. */
-.row__key { display: flex; align-items: baseline; min-inline-size: 0; font-family: var(--edit-mono); font-size: 11.5px; color: var(--uui-color-text-alt); }
-.row__namespace { flex: none; opacity: .5; }
-.row__id { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row__key {
+  display: flex;
+  align-items: baseline;
+  min-inline-size: 0;
+  font-family: var(--edit-mono);
+  font-size: 11.5px;
+  color: var(--uui-color-text-alt);
+}
+.row__namespace {
+  flex: none;
+  opacity: 0.5;
+}
+.row__id {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Why a row that looks unrelated is a result. A sentence in the row's own voice rather than a
    uppercase mono tag: this is the one line on a result that has to be read rather than scanned
    past, and it was set smaller and harder to read than everything it was explaining. */
-.row__source { min-inline-size: 0; font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row__source {
+  min-inline-size: 0;
+  font-size: 12px;
+  color: var(--uui-color-text-alt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-.row__custom, .row__plain { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; }
-.row__dot { inline-size: 5px; block-size: 5px; border-radius: 50%; background: var(--uui-color-selected); }
-.row__write { font-size: 12px; font-weight: 600; color: var(--uui-color-selected); white-space: nowrap; }
+.row__custom,
+.row__plain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--uui-size-space-2);
+  font-size: 12px;
+  color: var(--uui-color-text-alt);
+  white-space: nowrap;
+}
+.row__dot {
+  inline-size: 5px;
+  block-size: 5px;
+  border-radius: 50%;
+  background: var(--uui-color-selected);
+}
+.row__write {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--uui-color-selected);
+  white-space: nowrap;
+}
 /* The row already in the pane. The accent without the weight: it reports where you are rather than
    offering something to do, and a queue of bold blue offers with one more among them says nothing. */
-.row__open { font-size: 12px; font-weight: 500; color: var(--uui-color-selected); white-space: nowrap; }
+.row__open {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--uui-color-selected);
+  white-space: nowrap;
+}
 
 /* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
    as a hit even to somebody who cannot tell the two backgrounds apart. */
-.hit { background: var(--uui-color-warning, #fdf3d2); color: inherit; border-radius: 2px; padding: 0 1px; }
+.hit {
+  background: var(--uui-color-warning, #fdf3d2);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
 
-.skeleton { display: block; block-size: 9px; inline-size: 70%; border-radius: 3px; background: var(--uui-color-divider); }
-.skeleton--meta { block-size: 7px; opacity: .6; }
+.skeleton {
+  display: block;
+  block-size: 9px;
+  inline-size: 70%;
+  border-radius: 3px;
+  background: var(--uui-color-divider);
+}
+.skeleton--meta {
+  block-size: 7px;
+  opacity: 0.6;
+}
 
 /* Whatever the list has instead of rows. Centred in the card rather than pinned to the top,
    because there is nothing above it for the eye to start from. */
-.state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--uui-size-space-3); padding: var(--uui-size-layout-1); text-align: center; }
+.state {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--uui-size-space-3);
+  padding: var(--uui-size-layout-1);
+  text-align: center;
+}
 /* Centred prose strands its last word. "before anything appears / here." reads as a broken
    sentence rather than a wrapped one. `pretty` pulls a word down so the last line is not an orphan.
    `balance` evens a short heading across its lines, which suits something a few words long. Both
    are ignored where unsupported. */
-.state h2 { margin: 0; font-size: 15px; text-wrap: balance; }
-.state__detail { margin: 0; max-inline-size: 34rem; color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); text-wrap: pretty; }
+.state h2 {
+  margin: 0;
+  font-size: 15px;
+  text-wrap: balance;
+}
+.state__detail {
+  margin: 0;
+  max-inline-size: 34rem;
+  color: var(--uui-color-text-alt);
+  font-size: var(--uui-type-small-size);
+  text-wrap: pretty;
+}
 
 /* Loading is the exception: it draws the shape of the list, so it aligns with the list. */
-.state--loading { align-items: stretch; justify-content: flex-start; gap: 0; padding: 0; }
-.skeleton-row { display: flex; flex-direction: column; justify-content: center; gap: 6px; block-size: 64px; padding: 0 var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
+.state--loading {
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+}
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  block-size: 64px;
+  padding: 0 var(--uui-size-space-4);
+  border-bottom: 1px solid var(--uui-color-divider);
+}
 
 /* ---- The editing pane --------------------------------------------------------------------- */
 
 /* Beside the results, not over them. The rows it was opened from are the material a reviewer is
    working against: find the reported sentence, then read the field while the hits stay on screen. */
 .pane {
-  flex: none; inline-size: min(var(--edit-pane), 45%);
-  display: flex; flex-direction: column; min-height: 0;
+  flex: none;
+  inline-size: min(var(--edit-pane), 45%);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-inline-start: 1px solid var(--uui-color-divider);
   background: var(--uui-color-surface);
 }
@@ -410,120 +945,436 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
 /* The key and the controls sit on one line together. Aligned to the top they read as two things
    that happen to be in the same box, and the position text beside the buttons made the mismatch
    plain: three items on a row, none of them level with each other. */
-.pane__head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-.pane__identity { display: flex; flex-direction: column; align-items: flex-start; gap: var(--uui-size-space-2); min-inline-size: 0; }
-.pane__key { margin: 0; font-family: var(--edit-mono); font-size: 12px; color: var(--uui-color-text-alt); overflow-wrap: anywhere; }
-.pane__key:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 2px; border-radius: 2px; }
-.pane__namespace { opacity: .5; }
+.pane__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--uui-size-space-3);
+  padding: var(--uui-size-space-4);
+  border-bottom: 1px solid var(--uui-color-divider);
+}
+.pane__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+}
+.pane__key {
+  margin: 0;
+  font-family: var(--edit-mono);
+  font-size: 12px;
+  color: var(--uui-color-text-alt);
+  overflow-wrap: anywhere;
+}
+.pane__key:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.pane__namespace {
+  opacity: 0.5;
+}
 /* One gap on this row, set once. There were three: a margin on the position, the flex gap between
    the arrows, and a second margin before the close. Nothing lined up, and the spacing said nothing
    about what belonged together. The arrows are one control with two directions, so they close up,
    and the single gap around them marks them off from the position and from the close. */
-.pane__controls { flex: none; display: flex; align-items: center; gap: var(--uui-size-space-3); }
-.pane__step { display: flex; align-items: center; gap: 2px; }
-.pane__position { font-size: 12px; color: var(--uui-color-text-alt); white-space: nowrap; }
-.pane__shortcut { color: var(--uui-color-selected); font-weight: 500; }
+.pane__controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-3);
+}
+.pane__step {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.pane__position {
+  font-size: 12px;
+  color: var(--uui-color-text-alt);
+  white-space: nowrap;
+}
+.pane__shortcut {
+  color: var(--uui-color-selected);
+  font-weight: 500;
+}
 
 /* Sized here rather than by whatever font the platform found an arrow in. The chevrons keep the
    proportions of their 10x6 box; the cross is square. */
-.pane__chevron { inline-size: .6875rem; block-size: .4125rem; }
-.pane__cross { inline-size: .625rem; block-size: .625rem; }
+.pane__chevron {
+  inline-size: 0.6875rem;
+  block-size: 0.4125rem;
+}
+.pane__cross {
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+}
 
-.pane__body { flex: 1; min-height: 0; overflow: auto; padding: var(--uui-size-space-4); display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
-.pane__note { margin: 0; font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
+.pane__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--uui-size-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--uui-size-space-5);
+}
+.pane__note {
+  margin: 0;
+  font-size: var(--uui-type-small-size);
+  color: var(--uui-color-text-alt);
+}
 
 /* One labelled section per thing being read, so what the application ships, what the editor writes
    and what the other languages say are three separate readings rather than one wall. */
-.pane__block { display: flex; flex-direction: column; gap: var(--uui-size-space-2); }
-.pane__block h3 { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--uui-color-text-alt); }
-.pane__block label { font: inherit; color: inherit; }
-.pane__blockhead { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3); min-block-size: 1.625rem; }
-.pane__aside { font-size: 12px; color: var(--uui-color-text-alt); text-align: end; }
+.pane__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--uui-size-space-2);
+}
+.pane__block h3 {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--uui-color-text-alt);
+}
+.pane__block label {
+  font: inherit;
+  color: inherit;
+}
+.pane__blockhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--uui-size-space-3);
+  min-block-size: 1.625rem;
+}
+.pane__aside {
+  font-size: 12px;
+  color: var(--uui-color-text-alt);
+  text-align: end;
+}
 /* A section that is reference material rather than part of the editing, set apart from it. */
-.pane__block--apart { padding-block-start: var(--uui-size-space-4); border-block-start: 1px solid var(--uui-color-divider); gap: var(--uui-size-space-3); }
+.pane__block--apart {
+  padding-block-start: var(--uui-size-space-4);
+  border-block-start: 1px solid var(--uui-color-divider);
+  gap: var(--uui-size-space-3);
+}
 
 /* The other languages as a reading, for somebody writing this key from scratch and wondering how
    the rest of them worded it. No controls: leaving a queue to correct German is not the job, and an
    offer to do it is an offer to lose your place. */
-.elsewhere { display: flex; flex-direction: column; gap: var(--uui-size-space-2); margin: 0; }
-.elsewhere__row { display: grid; grid-template-columns: minmax(0, 6rem) minmax(0, 1fr); align-items: baseline; gap: var(--uui-size-space-3); }
-.elsewhere dt { min-inline-size: 0; font-size: 13px; color: var(--uui-color-text-alt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.elsewhere dd { margin: 0; min-inline-size: 0; font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
+.elsewhere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--uui-size-space-2);
+  margin: 0;
+}
+.elsewhere__row {
+  display: grid;
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--uui-size-space-3);
+}
+.elsewhere dt {
+  min-inline-size: 0;
+  font-size: 13px;
+  color: var(--uui-color-text-alt);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.elsewhere dd {
+  margin: 0;
+  min-inline-size: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 
 /* Text to read, not a field that happens to be switched off. A disabled input says "you could have
    typed here but may not", which is the wrong idea about the application's own text. */
-.pane__reading { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
-.pane__reading--lead { font-size: 1.1875rem; line-height: 1.4; color: var(--uui-color-text); }
-.pane__reading em { color: var(--uui-color-text-alt); }
-.pane__default { display: flex; align-items: flex-start; gap: var(--uui-size-space-3); padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); background: var(--uui-color-surface-alt); }
-.pane__default .pane__reading { flex: 1; min-inline-size: 0; font-size: .9375rem; }
-.pane__default .button { flex: none; }
+.pane__reading {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.pane__reading--lead {
+  font-size: 1.1875rem;
+  line-height: 1.4;
+  color: var(--uui-color-text);
+}
+.pane__reading em {
+  color: var(--uui-color-text-alt);
+}
+.pane__default {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--uui-size-space-3);
+  padding: var(--uui-size-space-3);
+  border-radius: var(--uui-border-radius);
+  background: var(--uui-color-surface-alt);
+}
+.pane__default .pane__reading {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 0.9375rem;
+}
+.pane__default .button {
+  flex: none;
+}
 
 /* The field is the largest type in the pane, because it is the thing being written. */
 .pane__field {
-  inline-size: 100%; min-block-size: 5.5rem;
+  inline-size: 100%;
+  min-block-size: 5.5rem;
   padding: var(--uui-size-space-3);
-  border: 1px solid var(--uui-color-selected); border-radius: var(--uui-border-radius);
-  background: var(--uui-color-surface); color: inherit;
-  font: inherit; font-size: 1rem; line-height: 1.5; resize: vertical;
+  border: 1px solid var(--uui-color-selected);
+  border-radius: var(--uui-border-radius);
+  background: var(--uui-color-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
 }
-.pane__field:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 0; }
-.pane__field[aria-invalid="true"] { border-color: var(--uui-color-danger); }
+.pane__field:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 0;
+}
+.pane__field[aria-invalid="true"] {
+  border-color: var(--uui-color-danger);
+}
 
 /* What the application will substitute, listed where the text that has to contain them is typed. */
-.placeholders { display: flex; align-items: center; flex-wrap: wrap; gap: var(--uui-size-space-2); margin: 0; }
-.placeholders__lead { font-size: 12.5px; color: var(--uui-color-text-alt); }
-.token { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); block-size: 1.375rem; padding-inline: var(--uui-size-space-2); border-radius: var(--uui-border-radius); border: 1px solid var(--edit-tint-line); background: var(--edit-tint); font-family: var(--edit-mono); font-size: 11.5px; color: var(--uui-color-selected); }
-.token__kind { font-family: var(--uui-font-family, inherit); color: var(--uui-color-text-alt); }
+.placeholders {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--uui-size-space-2);
+  margin: 0;
+}
+.placeholders__lead {
+  font-size: 12.5px;
+  color: var(--uui-color-text-alt);
+}
+.token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--uui-size-space-2);
+  block-size: 1.375rem;
+  padding-inline: var(--uui-size-space-2);
+  border-radius: var(--uui-border-radius);
+  border: 1px solid var(--edit-tint-line);
+  background: var(--edit-tint);
+  font-family: var(--edit-mono);
+  font-size: 11.5px;
+  color: var(--uui-color-selected);
+}
+.token__kind {
+  font-family: var(--uui-font-family, inherit);
+  color: var(--uui-color-text-alt);
+}
 /* A placeholder the text has left out, marked where the editor is looking for what to put back. */
-.token--missing { border-color: var(--uui-color-danger); background: var(--edit-danger-tint); color: var(--uui-color-danger); font-weight: 600; }
+.token--missing {
+  border-color: var(--uui-color-danger);
+  background: var(--edit-danger-tint);
+  color: var(--uui-color-danger);
+  font-weight: 600;
+}
 
 /* Said in full, once, where the decision is made. */
-.callout { display: flex; gap: var(--uui-size-space-3); margin: 0; padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); border: 1px solid transparent; font-size: 13.5px; line-height: 1.45; text-wrap: pretty; }
-.callout__mark { flex: none; }
-.callout--warning { background: var(--edit-warning-tint); border-color: var(--edit-warning-line); color: var(--edit-warning); }
-.callout--danger { background: var(--edit-danger-tint); border-color: var(--edit-danger-line); color: var(--uui-color-danger); }
+.callout {
+  display: flex;
+  gap: var(--uui-size-space-3);
+  margin: 0;
+  padding: var(--uui-size-space-3);
+  border-radius: var(--uui-border-radius);
+  border: 1px solid transparent;
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.callout__mark {
+  flex: none;
+}
+.callout--warning {
+  background: var(--edit-warning-tint);
+  border-color: var(--edit-warning-line);
+  color: var(--edit-warning);
+}
+.callout--danger {
+  background: var(--edit-danger-tint);
+  border-color: var(--edit-danger-line);
+  color: var(--uui-color-danger);
+}
 
-.notice { margin: 0; padding-inline-start: var(--uui-size-space-3); border-inline-start: 3px solid currentColor; font-size: var(--uui-type-small-size); }
-.notice--warning { color: var(--edit-warning); }
-.notice--error { color: var(--uui-color-danger); font-weight: 600; }
-.hint { font-size: 11px; color: var(--uui-color-text-alt); }
+.notice {
+  margin: 0;
+  padding-inline-start: var(--uui-size-space-3);
+  border-inline-start: 3px solid currentColor;
+  font-size: var(--uui-type-small-size);
+}
+.notice--error {
+  color: var(--uui-color-danger);
+  font-weight: 600;
+}
+.hint {
+  font-size: 11px;
+  color: var(--uui-color-text-alt);
+}
 
 /* The same key everywhere it exists. The list holds two languages because a list is for scanning;
    this is where "is it wrong everywhere, or only here" gets answered. */
-.locales { display: flex; flex-direction: column; gap: 1px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--uui-color-divider); border-radius: var(--uui-border-radius); background: var(--uui-color-divider); overflow: hidden; }
-.locales__row { display: grid; grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 1.625rem; align-items: center; gap: var(--uui-size-space-3); padding: var(--uui-size-space-2) var(--uui-size-space-3); background: var(--uui-color-surface); }
-.locales__row--current { background: var(--edit-tint); }
-.locales__name { display: flex; align-items: baseline; gap: var(--uui-size-space-2); min-inline-size: 0; font-size: 13px; font-weight: 500; white-space: nowrap; }
-.locales__name > :first-child { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
-.locales__row--current .locales__name { color: var(--uui-color-selected); font-weight: 600; }
-.locales__code { font-family: var(--edit-mono); font-size: 11px; font-weight: 400; color: var(--uui-color-text-alt); }
-.locales__text { min-inline-size: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.locales__text--absent { color: var(--uui-color-text-alt); font-style: italic; }
-.locales__here { display: flex; align-items: center; justify-content: center; }
-.locales__edit {
-  display: flex; align-items: center; justify-content: center;
-  inline-size: 1.625rem; block-size: 1.625rem; padding: 0;
-  border: 1px solid var(--uui-color-divider); border-radius: var(--uui-border-radius);
-  background: var(--uui-color-surface); color: var(--uui-color-text-alt);
-  font: inherit; font-size: 11px; cursor: pointer;
+.locales {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--uui-color-divider);
+  border-radius: var(--uui-border-radius);
+  background: var(--uui-color-divider);
+  overflow: hidden;
 }
-.locales__edit:hover { border-color: var(--uui-color-selected); color: var(--uui-color-selected); }
-.locales__edit:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
+.locales__row {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 1.625rem;
+  align-items: center;
+  gap: var(--uui-size-space-3);
+  padding: var(--uui-size-space-2) var(--uui-size-space-3);
+  background: var(--uui-color-surface);
+}
+.locales__row--current {
+  background: var(--edit-tint);
+}
+.locales__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.locales__name > :first-child {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.locales__row--current .locales__name {
+  color: var(--uui-color-selected);
+  font-weight: 600;
+}
+.locales__code {
+  font-family: var(--edit-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--uui-color-text-alt);
+}
+.locales__text {
+  min-inline-size: 0;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.locales__text--absent {
+  color: var(--uui-color-text-alt);
+  font-style: italic;
+}
+.locales__here {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.locales__edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  padding: 0;
+  border: 1px solid var(--uui-color-divider);
+  border-radius: var(--uui-border-radius);
+  background: var(--uui-color-surface);
+  color: var(--uui-color-text-alt);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.locales__edit:hover {
+  border-color: var(--uui-color-selected);
+  color: var(--uui-color-selected);
+}
+.locales__edit:focus-visible {
+  outline: 2px solid var(--uui-color-focus);
+  outline-offset: 1px;
+}
 
 /* Everything a developer might need and an editor never does. */
-.technical { border-top: 1px solid var(--uui-color-divider); padding-block-start: var(--uui-size-space-3); font-size: var(--uui-type-small-size); }
-.technical summary { cursor: pointer; color: var(--uui-color-text-alt); font-weight: 600; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; }
-.technical dl { display: grid; grid-template-columns: auto 1fr; gap: var(--uui-size-space-2) var(--uui-size-space-4); margin: var(--uui-size-space-3) 0 0; }
-.technical dt { color: var(--uui-color-text-alt); }
-.technical dd { margin: 0; display: flex; align-items: center; gap: var(--uui-size-space-2); min-inline-size: 0; }
-.technical code { font-family: var(--edit-mono); overflow-wrap: anywhere; }
+.technical {
+  border-top: 1px solid var(--uui-color-divider);
+  padding-block-start: var(--uui-size-space-3);
+  font-size: var(--uui-type-small-size);
+}
+.technical summary {
+  cursor: pointer;
+  color: var(--uui-color-text-alt);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.technical dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--uui-size-space-2) var(--uui-size-space-4);
+  margin: var(--uui-size-space-3) 0 0;
+}
+.technical dt {
+  color: var(--uui-color-text-alt);
+}
+.technical dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--uui-size-space-2);
+  min-inline-size: 0;
+}
+.technical code {
+  font-family: var(--edit-mono);
+  overflow-wrap: anywhere;
+}
 
 /* Head and foot hold their place while the body scrolls: what is being edited and how to save it
    both have to stay reachable once the content is longer than the pane. */
-.pane__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3); padding: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-divider); background: var(--uui-color-surface-alt); }
-.pane__state { margin: 0; font-size: 12.5px; color: var(--uui-color-text-alt); }
-.pane__actions { flex: none; display: flex; gap: var(--uui-size-space-2); }
+.pane__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--uui-size-space-3);
+  padding: var(--uui-size-space-4);
+  border-top: 1px solid var(--uui-color-divider);
+  background: var(--uui-color-surface-alt);
+}
+.pane__state {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--uui-color-text-alt);
+}
+.pane__actions {
+  flex: none;
+  display: flex;
+  gap: var(--uui-size-space-2);
+}
 
 /* ---- Narrow ------------------------------------------------------------------------------- */
 
@@ -532,10 +1383,12 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
    context -- and covering them is better than squeezing both. */
 @container shell (max-width: 56rem) {
   .pane {
-    position: absolute; inset-block: 0; inset-inline-end: 0;
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
     inline-size: min(30rem, 100%);
     border-inline-start: 1px solid var(--uui-color-border);
-    box-shadow: -10px 0 28px rgb(0 0 0 / .12);
+    box-shadow: -10px 0 28px rgb(0 0 0 / 0.12);
     z-index: 2;
   }
 }
@@ -544,18 +1397,24 @@ tbody tr:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offs
    already carries them. The shortcuts go last, because nothing else on screen says them. What is
    never given up is the line explaining a result the reader cannot otherwise account for. */
 @container results (max-width: 34rem) {
-  .results__aside { display: none; }
+  .results__aside {
+    display: none;
+  }
 }
 
 @container results (max-width: 24rem) {
-  .results__keys { display: none; }
+  .results__keys {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
+    transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
 }

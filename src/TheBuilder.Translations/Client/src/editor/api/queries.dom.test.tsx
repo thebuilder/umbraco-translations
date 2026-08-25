@@ -79,7 +79,7 @@ describe("useKeyRows", () => {
         page: 1,
         pageSize: PAGE_SIZE,
       }),
-      expect.anything(),
+      expect.anything()
     );
   });
 
@@ -126,14 +126,16 @@ describe("useKeyRows", () => {
     messageKeys.mockResolvedValue(pageOf(["a"], 1, 1));
     const { rerender, result } = renderHook(
       ({ locale }: { locale: string }) => useKeyRows(normalizeFilters({ locale })),
-      { wrapper, initialProps: { locale: "da-DK" } },
+      { wrapper, initialProps: { locale: "da-DK" } }
     );
     await waitFor(() => expect(result.current.keys).toHaveLength(1));
 
     rerender({ locale: "de-DE" });
     await waitFor(() => expect(messageKeys).toHaveBeenCalledTimes(2));
 
-    expect((messageKeys.mock.calls[1]?.[0] as { locale: string }).locale).toBe("de-DE");
+    const [, second] = messageKeys.mock.calls;
+    expect(second).toBeDefined();
+    expect((second?.[0] as { locale: string } | undefined)?.locale).toBe("de-DE");
   });
 
   it("surfaces a failure instead of hanging", async () => {
@@ -163,6 +165,6 @@ describe("useSyncStatus", () => {
     const { result } = renderHook(() => useSyncStatus(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    await waitFor(() => expect(sources.mock.calls.length).toBeGreaterThan(1), { timeout: 6_000 });
+    await waitFor(() => expect(sources.mock.calls.length).toBeGreaterThan(1), { timeout: 6000 });
   });
 });

@@ -10,15 +10,15 @@ import { sameLocale } from "./locales.js";
  * not part of the identity of the query.
  */
 export interface EditorFilters {
-  locale: string | null;
-  referenceLocale: string | null;
   compare: readonly string[];
-  namespace: string | null;
-  keyPrefix: string | null;
-  query: string;
-  status: MessageKeyStatus;
-  sort: SortField;
   direction: SortDirection;
+  keyPrefix: string | null;
+  locale: string | null;
+  namespace: string | null;
+  query: string;
+  referenceLocale: string | null;
+  sort: SortField;
+  status: MessageKeyStatus;
 }
 
 /**
@@ -30,7 +30,14 @@ export type SortDirection = "asc" | "desc";
 
 // The key view's statuses, not the flat endpoint's: "Absent" (this locale never had the key) and
 // "Removed" (the source deleted it) are different questions, and only the key view can ask the first.
-const STATUSES: readonly MessageKeyStatus[] = ["All", "Absent", "Default", "Overridden", "NeedsReview", "Removed"];
+const STATUSES: readonly MessageKeyStatus[] = [
+  "All",
+  "Absent",
+  "Default",
+  "Overridden",
+  "NeedsReview",
+  "Removed",
+];
 const SORT_FIELDS: readonly SortField[] = ["key", "updatedAt", "status"];
 const DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
 
@@ -65,10 +72,13 @@ export const defaultFilters: EditorFilters = {
  */
 export const editingLocale = (
   filters: Pick<EditorFilters, "locale" | "referenceLocale">,
-  locale: string,
+  locale: string
 ): Pick<EditorFilters, "locale" | "referenceLocale"> => {
-  const comparing = filters.referenceLocale !== null && !sameLocale(filters.referenceLocale, filters.locale);
-  if (!comparing) return { locale, referenceLocale: locale };
+  const comparing =
+    filters.referenceLocale !== null && !sameLocale(filters.referenceLocale, filters.locale);
+  if (!comparing) {
+    return { locale, referenceLocale: locale };
+  }
 
   return sameLocale(locale, filters.referenceLocale)
     ? { locale, referenceLocale: filters.locale ?? locale }
@@ -88,12 +98,19 @@ const trimmedOrNull = (value: string | null | undefined): string | null => {
  * `compare` is sorted and de-duplicated, and never contains the target or reference locale, which
  * would otherwise request the same column twice.
  */
+/** A trailing dot is how a user types a dotted path, not how it is stored. */
+const TRAILING_DOTS = /\.+$/;
+
 export const normalizeFilters = (filters: Partial<EditorFilters>): EditorFilters => {
   const locale = trimmedOrNull(filters.locale);
   const referenceLocale = trimmedOrNull(filters.referenceLocale);
-  const shown = new Set([locale, referenceLocale].filter((value): value is string => value !== null));
+  const shown = new Set(
+    [locale, referenceLocale].filter((value): value is string => value !== null)
+  );
   const compare = [
-    ...new Set((filters.compare ?? []).map((value) => value.trim()).filter((value) => value.length > 0)),
+    ...new Set(
+      (filters.compare ?? []).map((value) => value.trim()).filter((value) => value.length > 0)
+    ),
   ]
     .filter((value) => !shown.has(value))
     .sort();
@@ -104,7 +121,7 @@ export const normalizeFilters = (filters: Partial<EditorFilters>): EditorFilters
     compare,
     namespace: trimmedOrNull(filters.namespace),
     // A key prefix is a dotted path; a trailing dot is how a user types it but not how it is stored.
-    keyPrefix: trimmedOrNull(filters.keyPrefix)?.replace(/\.+$/, "") || null,
+    keyPrefix: trimmedOrNull(filters.keyPrefix)?.replace(TRAILING_DOTS, "") || null,
     query: filters.query?.trim() ?? "",
     status: oneOf(STATUSES, filters.status ?? null, "All"),
     sort: oneOf(SORT_FIELDS, filters.sort ?? null, "key"),
@@ -131,7 +148,9 @@ export const parseFilters = (search: string): EditorFilters => {
 export const serializeFilters = (filters: EditorFilters): string => {
   const params = new URLSearchParams();
   const set = (key: string, value: string | null) => {
-    if (value) params.set(key, value);
+    if (value) {
+      params.set(key, value);
+    }
   };
 
   set("locale", filters.locale);

@@ -1,7 +1,7 @@
 import type { LocaleFacet } from "../../api/generated/models.js";
-import { Caret, Picker } from "../components/Picker.js";
+import { Caret, Picker } from "../components/picker.js";
 import { coverageOf, type EditingMode } from "../state/editing-mode.js";
-import { editingLocale, type EditorFilters } from "../state/filters.js";
+import { type EditorFilters, editingLocale } from "../state/filters.js";
 import { facetFor } from "../state/locales.js";
 
 /** Setting the comparison to the language being edited is how "no comparison" is expressed. */
@@ -19,7 +19,13 @@ const NO_COMPARISON = "";
  * measured by how much of it has been changed, and a language it ships nothing for by how much of
  * it exists at all.
  */
-export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
+export const ContextStrip = ({
+  filters,
+  locales,
+  totalKeys,
+  mode,
+  update,
+}: {
   filters: EditorFilters;
   locales: readonly LocaleFacet[];
   totalKeys: number | undefined;
@@ -35,9 +41,9 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
   // the language being edited -- that is the same column printed twice.
   const comparisons = [
     { name: "None", value: NO_COMPARISON },
-    ...options.filter((option) =>
-      option.value !== editing &&
-      facetFor(locales, option.value)?.messageCount),
+    ...options.filter(
+      (option) => option.value !== editing && facetFor(locales, option.value)?.messageCount
+    ),
   ];
 
   const reference = comparing ? facetFor(locales, filters.referenceLocale) : undefined;
@@ -74,12 +80,12 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
         <Picker
           className="picker--lead"
           label="Language being edited"
-          placeholder="Choose a language"
-          options={options}
-          value={editing ?? ""}
           // Picking the language on the other side of the sentence swaps the two rather than
           // collapsing them into one. See editingLocale.
           onChange={(locale) => update(editingLocale(filters, locale))}
+          options={options}
+          placeholder="Choose a language"
+          value={editing ?? ""}
         >
           <span className="picker__name">{current ? nameOf(current) : "Choose a language"}</span>
           {current && <span className="picker__code">{current.code}</span>}
@@ -95,16 +101,18 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
         <>
           <span className="context__rule" />
 
-          <span className="context__lead">{mode === "queue" ? "written from" : "compared with"}</span>
+          <span className="context__lead">
+            {mode === "queue" ? "written from" : "compared with"}
+          </span>
           <Picker
             className="picker--quiet"
             label="Language to compare against"
-            options={comparisons}
-            value={comparing ? filters.referenceLocale ?? "" : NO_COMPARISON}
             onChange={(value) => update({ referenceLocale: value || editing })}
+            options={comparisons}
+            value={comparing ? (filters.referenceLocale ?? "") : NO_COMPARISON}
           >
             <span className="picker__name">{reference ? nameOf(reference) : "None"}</span>
-            {reference && <span className="picker__code">{reference.code}</span>}
+            {reference ? <span className="picker__code">{reference.code}</span> : null}
             <Caret />
           </Picker>
         </>
@@ -112,11 +120,13 @@ export const ContextStrip = ({ filters, locales, totalKeys, mode, update }: {
 
       <span className="context__spacer" />
 
-      {current && totalKeys !== undefined && (
-        mode === "queue"
-          ? <Progress locale={current} totalKeys={totalKeys} />
-          : <Counts locale={current} />
-      )}
+      {current &&
+        totalKeys !== undefined &&
+        (mode === "queue" ? (
+          <Progress locale={current} totalKeys={totalKeys} />
+        ) : (
+          <Counts locale={current} />
+        ))}
     </div>
   );
 };
@@ -127,17 +137,18 @@ const Progress = ({ locale, totalKeys }: { locale: LocaleFacet; totalKeys: numbe
   return (
     <div className="coverage">
       <span
+        aria-label={`Written in ${nameOf(locale)}`}
+        aria-valuemax={coverage.total}
+        aria-valuemin={0}
+        aria-valuenow={coverage.written}
         className="coverage__track"
         role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={coverage.total}
-        aria-valuenow={coverage.written}
-        aria-label={`Written in ${nameOf(locale)}`}
       >
         <span className="coverage__fill" style={{ inlineSize: `${coverage.fraction * 100}%` }} />
       </span>
       <span className="coverage__count">
-        <strong>{coverage.written.toLocaleString()}</strong> of {coverage.total.toLocaleString()} written
+        <strong>{coverage.written.toLocaleString()}</strong> of {coverage.total.toLocaleString()}{" "}
+        written
       </span>
     </div>
   );

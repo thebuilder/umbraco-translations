@@ -72,14 +72,16 @@ describe("useUrlFilters", () => {
     const { result } = renderHook(() => useUrlFilters());
 
     history.replaceState(null, "", "/view?locale=de-DE");
-    act(() => void window.dispatchEvent(new PopStateEvent("popstate")));
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
 
     await waitFor(() => expect(result.current[0].locale).toBe("de-DE"));
   });
 
   it("ignores a change that would not alter the url", () => {
     const { result } = renderHook(() => useUrlFilters());
-    const before = result.current[0];
+    const [before] = result.current;
 
     act(() => result.current[1]({ query: "" }));
 

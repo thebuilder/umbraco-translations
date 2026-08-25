@@ -1,4 +1,4 @@
-export const manifests: Array<UmbExtensionManifest> = [
+export const manifests: UmbExtensionManifest[] = [
   {
     type: "backofficeEntryPoint",
     alias: "TheBuilder.Translations.EntryPoint",

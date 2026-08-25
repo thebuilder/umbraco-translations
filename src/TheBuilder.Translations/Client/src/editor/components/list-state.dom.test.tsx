@@ -1,21 +1,21 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ListState as State } from "../state/list-state.js";
-import { ListState } from "./ListState.js";
+import { ListState } from "./list-state.js";
 
 afterEach(cleanup);
 
 const show = (state: State, props: Partial<Parameters<typeof ListState>[0]> = {}) =>
   render(
     <ListState
+      canManageSources={false}
+      filtered={false}
+      onClear={vi.fn()}
+      onRetry={vi.fn()}
       state={state}
       term=""
-      filtered={false}
-      canManageSources={false}
-      onClear={() => {}}
-      onRetry={() => {}}
       {...props}
-    />,
+    />
   );
 
 describe("ListState", () => {

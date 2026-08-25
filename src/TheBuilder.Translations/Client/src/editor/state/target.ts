@@ -12,10 +12,10 @@ import type { MessageKey } from "../../api/generated/models.js";
  * creates the row if it has to. This is the same identity, carried through the interface.
  */
 export interface EditTarget {
-  sourceId: string;
-  namespace: string;
   key: string;
   locale: string;
+  namespace: string;
+  sourceId: string;
 }
 
 export const targetOf = (row: MessageKey, locale: string): EditTarget => ({
@@ -26,8 +26,12 @@ export const targetOf = (row: MessageKey, locale: string): EditTarget => ({
 });
 
 export const sameTarget = (a: EditTarget | undefined, b: EditTarget | undefined): boolean =>
-  a !== undefined && b !== undefined &&
-  a.sourceId === b.sourceId && a.namespace === b.namespace && a.key === b.key && a.locale === b.locale;
+  a !== undefined &&
+  b !== undefined &&
+  a.sourceId === b.sourceId &&
+  a.namespace === b.namespace &&
+  a.key === b.key &&
+  a.locale === b.locale;
 
 /** Stable enough to key a React element and a query on. */
 export const targetId = (target: EditTarget): string =>

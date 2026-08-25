@@ -6,7 +6,9 @@ const rejectNodeEnvironmentReferences = (): Plugin => ({
   generateBundle(_, bundle) {
     for (const output of Object.values(bundle)) {
       if (output.type === "chunk" && output.code.includes("process.env.")) {
-        this.error(`Browser bundle ${output.fileName} contains an unresolved process.env reference.`);
+        this.error(
+          `Browser bundle ${output.fileName} contains an unresolved process.env reference.`
+        );
       }
     }
   },

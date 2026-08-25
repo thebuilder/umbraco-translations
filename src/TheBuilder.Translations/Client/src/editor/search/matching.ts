@@ -1,6 +1,6 @@
 export interface TextPart {
-  text: string;
   match: boolean;
+  text: string;
 }
 
 /**
@@ -28,7 +28,9 @@ export const matchesTerm = (text: string | null | undefined, term: string): bool
 
 export const splitOnMatch = (text: string, term: string): TextPart[] => {
   const needle = term.trim().toLowerCase();
-  if (needle.length === 0 || text.length === 0) return [{ text, match: false }];
+  if (needle.length === 0 || text.length === 0) {
+    return [{ text, match: false }];
+  }
 
   const haystack = text.toLowerCase();
   const parts: TextPart[] = [];
@@ -36,14 +38,22 @@ export const splitOnMatch = (text: string, term: string): TextPart[] => {
 
   for (;;) {
     const hit = haystack.indexOf(needle, cursor);
-    if (hit < 0) break;
-    if (hit > cursor) parts.push({ text: text.slice(cursor, hit), match: false });
+    if (hit < 0) {
+      break;
+    }
+    if (hit > cursor) {
+      parts.push({ text: text.slice(cursor, hit), match: false });
+    }
     // Sliced out of the original rather than the lowered copy, so the text keeps its own casing.
     parts.push({ text: text.slice(hit, hit + needle.length), match: true });
     cursor = hit + needle.length;
   }
 
-  if (parts.length === 0) return [{ text, match: false }];
-  if (cursor < text.length) parts.push({ text: text.slice(cursor), match: false });
+  if (parts.length === 0) {
+    return [{ text, match: false }];
+  }
+  if (cursor < text.length) {
+    parts.push({ text: text.slice(cursor), match: false });
+  }
   return parts;
 };

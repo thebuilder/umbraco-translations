@@ -17,7 +17,9 @@ const Harness = ({ focus }: { focus: () => void }) => {
 
 const press = (key: string, target: Element, init: KeyboardEventInit = {}) =>
   act(() => {
-    target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, composed: true, ...init }));
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key, bubbles: true, composed: true, ...init })
+    );
   });
 
 describe("useSearchShortcut", () => {
@@ -66,7 +68,12 @@ describe("useSearchShortcut", () => {
     const target = getByTestId("plain");
 
     act(() => {
-      const event = new KeyboardEvent("keydown", { key: "/", bubbles: true, composed: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "/",
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      });
       event.preventDefault();
       target.dispatchEvent(event);
     });

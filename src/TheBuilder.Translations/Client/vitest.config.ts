@@ -22,9 +22,13 @@ export default defineConfig({
         // null (reading 'useReducer')" the first time a test renders the grid.
         optimizeDeps: {
           include: [
-            "react", "react-dom", "react/jsx-dev-runtime",
+            "react",
+            "react-dom",
+            "react/jsx-dev-runtime",
             "@testing-library/react",
-            "@tanstack/react-query", "@tanstack/react-table", "@tanstack/react-virtual",
+            "@tanstack/react-query",
+            "@tanstack/react-table",
+            "@tanstack/react-virtual",
           ],
         },
         resolve: { dedupe: ["react", "react-dom"] },

@@ -1,17 +1,27 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LocaleFacet, MessageCell, MessageKey, MessageLocaleState } from "../../api/generated/models.js";
+import type {
+  LocaleFacet,
+  MessageCell,
+  MessageKey,
+  MessageLocaleState,
+} from "../../api/generated/models.js";
 import { defaultFilters, type EditorFilters } from "../state/filters.js";
 import type { EditTarget } from "../state/target.js";
-import { KeyGrid } from "./KeyGrid.js";
+import { KeyGrid } from "./key-grid.js";
 
 afterEach(cleanup);
 
-const cell = (locale: string, text: string, state: MessageLocaleState = "Default"): MessageCell => ({
+const cell = (
+  locale: string,
+  text: string,
+  state: MessageLocaleState = "Default"
+): MessageCell => ({
   id: `${locale}-1`,
   locale,
   defaultValue: text,
-  overrideValue: state === "Overridden" || state === "NeedsReview" || state === "Removed" ? text : null,
+  overrideValue:
+    state === "Overridden" || state === "NeedsReview" || state === "Removed" ? text : null,
   hasOverride: state !== "Default",
   needsReview: state === "NeedsReview",
   truncated: false,
@@ -26,38 +36,75 @@ const cell = (locale: string, text: string, state: MessageLocaleState = "Default
  * term in its text has to say so here too -- an empty list is the server saying no language
  * matched, not the server saying nothing.
  */
-const key = (name: string, cells: MessageKey["cells"], matchedLocales: string[] = []): MessageKey => ({
-  sourceId: "s1", namespace: "website", key: name, format: "Icu", arguments: {}, cells, coverage: {},
+const key = (
+  name: string,
+  cells: MessageKey["cells"],
+  matchedLocales: string[] = []
+): MessageKey => ({
+  sourceId: "s1",
+  namespace: "website",
+  key: name,
+  format: "Icu",
+  arguments: {},
+  cells,
+  coverage: {},
   matchedLocales,
 });
 
 const LOCALES: LocaleFacet[] = [
-  { code: "da", name: "Danish", isDefault: false, isConfigured: true, messageCount: 10, overriddenCount: 2, needsReviewCount: 1, absentKeyCount: 1 },
-  { code: "en", name: "English", isDefault: true, isConfigured: true, messageCount: 10, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0 },
+  {
+    code: "da",
+    name: "Danish",
+    isDefault: false,
+    isConfigured: true,
+    messageCount: 10,
+    overriddenCount: 2,
+    needsReviewCount: 1,
+    absentKeyCount: 1,
+  },
+  {
+    code: "en",
+    name: "English",
+    isDefault: true,
+    isConfigured: true,
+    messageCount: 10,
+    overriddenCount: 0,
+    needsReviewCount: 0,
+    absentKeyCount: 0,
+  },
   // Neither edited nor compared: the language a row can only be a result because of.
-  { code: "de", name: "German", isDefault: false, isConfigured: true, messageCount: 10, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0 },
+  {
+    code: "de",
+    name: "German",
+    isDefault: false,
+    isConfigured: true,
+    messageCount: 10,
+    overriddenCount: 0,
+    needsReviewCount: 0,
+    absentKeyCount: 0,
+  },
 ];
 
 const show = (
   keys: MessageKey[],
   filters: Partial<EditorFilters> = {},
   mode: "search" | "queue" = "search",
-  selected?: EditTarget,
+  selected?: EditTarget
 ) =>
   render(
     <KeyGrid
-      keys={keys}
       filters={{ ...defaultFilters, locale: "da", referenceLocale: "en", ...filters }}
-      locales={LOCALES}
-      total={keys.length}
-      namespaceCount={1}
-      mode={mode}
-      selected={selected}
-      onSelect={vi.fn()}
-      onLoadMore={vi.fn()}
       hasMore={false}
+      keys={keys}
       loadingMore={false}
-    />,
+      locales={LOCALES}
+      mode={mode}
+      namespaceCount={1}
+      onLoadMore={vi.fn()}
+      onSelect={vi.fn()}
+      selected={selected}
+      total={keys.length}
+    />
   );
 
 /**
@@ -98,17 +145,14 @@ describe("why a row is a result", () => {
   it("names the language the hit was in when it is not the one leading the row", () => {
     show(
       [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") }, ["en"])],
-      { query: "Welcome back" },
+      { query: "Welcome back" }
     );
 
     expect(screen.getByText("matched in English")).toBeTruthy();
   });
 
   it("says the key when that is the only thing the term is in", () => {
-    show(
-      [key("greeting", { da: cell("da", "Hej"), en: cell("en", "Hi") })],
-      { query: "greeting" },
-    );
+    show([key("greeting", { da: cell("da", "Hej"), en: cell("en", "Hi") })], { query: "greeting" });
 
     expect(screen.getByText("matched in the key")).toBeTruthy();
   });
@@ -116,7 +160,7 @@ describe("why a row is a result", () => {
   it("stays quiet when the hit is in the words already shown, which are marked", () => {
     const { container } = show(
       [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") }, ["da"])],
-      { query: "Velkommen" },
+      { query: "Velkommen" }
     );
 
     expect(container.querySelector(".row__source")).toBeNull();
@@ -126,19 +170,17 @@ describe("why a row is a result", () => {
   it("names a language with no column at all, because the server says which one", () => {
     // The row this feature exists for: the words in both columns look unrelated to what was typed,
     // and the only thing that can explain it is the language nobody is looking at.
-    show(
-      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de"])],
-      { query: "Willkommen" },
-    );
+    show([key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de"])], {
+      query: "Willkommen",
+    });
 
     expect(screen.getByText("matched in German")).toBeTruthy();
   });
 
   it("names all of them when the sentence turns up in more than one", () => {
-    show(
-      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de", "sv"])],
-      { query: "Willkommen" },
-    );
+    show([key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") }, ["de", "sv"])], {
+      query: "Willkommen",
+    });
 
     // No facet for Swedish here, so it falls back to the code rather than dropping the language.
     expect(screen.getByText("matched in German and sv")).toBeTruthy();
@@ -150,11 +192,14 @@ describe("a language the application ships nothing for", () => {
     const { container } = show(
       [key("a", { en: cell("en", "Your basket is empty") })],
       { locale: "nb", referenceLocale: "en" },
-      "queue",
+      "queue"
     );
 
-    const row = container.querySelector(".grid__row:not(.grid__row--head)")!;
-    const values = [...row.querySelectorAll(".row__value")].map((value) => value.textContent);
+    const row = container.querySelector(".grid__row:not(.grid__row--head)");
+    expect(row).not.toBeNull();
+    const values = [...(row?.querySelectorAll(".row__value") ?? [])].map(
+      (value) => value.textContent
+    );
     expect(values[0]).toBe("Your basket is empty");
     expect(values[1]).toBe("Not written");
   });
@@ -171,7 +216,10 @@ describe("a language the application ships nothing for", () => {
     ];
 
     show(rows, { locale: "nb", referenceLocale: "en" }, "queue", {
-      sourceId: "s1", namespace: "website", key: "a", locale: "nb",
+      sourceId: "s1",
+      namespace: "website",
+      key: "a",
+      locale: "nb",
     });
 
     expect(screen.getByText("Writing now…")).toBeTruthy();
@@ -187,7 +235,7 @@ describe("a language the application ships nothing for", () => {
       [key("a", { da: cell("da", "Tekst", "NeedsReview"), en: cell("en", "Text") })],
       {},
       "search",
-      { sourceId: "s1", namespace: "website", key: "a", locale: "da" },
+      { sourceId: "s1", namespace: "website", key: "a", locale: "da" }
     );
 
     expect(screen.getByText("App text changed")).toBeTruthy();

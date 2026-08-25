@@ -1,58 +1,116 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { api as clientApi } from "../../api/generated/client.js";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
-import * as client from "../../api/generated/client.js";
 import type { EditTarget } from "../state/target.js";
-import { TranslationDetail } from "./TranslationDetail.js";
+import { TranslationDetail } from "./translation-detail.js";
 
 vi.mock("../../api/generated/client.js", () => ({
   api: {
     message: vi.fn(async () => detail),
     messageKeys: vi.fn(async () => ({
-      items: [], page: 1, pageSize: 50, total: 0, referenceLocale: "en", targetLocale: "da", compareLocales: [],
+      items: [],
+      page: 1,
+      pageSize: 50,
+      total: 0,
+      referenceLocale: "en",
+      targetLocale: "da",
+      compareLocales: [],
     })),
-    saveOverride: vi.fn(async (request: { value: string }) => ({ ...detail, overrideValue: request.value })),
+    saveOverride: vi.fn(async (request: { value: string }) => ({
+      ...detail,
+      overrideValue: request.value,
+    })),
     resetOverride: vi.fn(async () => undefined),
   },
 }));
 
+const EDIT_KEY_BUTTON = /^Edit this key in/;
+
 const detail: MessageDetail = {
-  id: "m1", sourceId: "s1", namespace: "website", key: "cart.empty", locale: "da",
-  defaultValue: "Din kurv er tom", overrideValue: "Kurven er tom",
-  format: "Icu", arguments: {}, needsReview: false, state: "Overridden",
-  sourceRevision: "rev", defaultChecksum: "sum", version: 1, updatedAt: null, updatedBy: null,
+  id: "m1",
+  sourceId: "s1",
+  namespace: "website",
+  key: "cart.empty",
+  locale: "da",
+  defaultValue: "Din kurv er tom",
+  overrideValue: "Kurven er tom",
+  format: "Icu",
+  arguments: {},
+  needsReview: false,
+  state: "Overridden",
+  sourceRevision: "rev",
+  defaultChecksum: "sum",
+  version: 1,
+  updatedAt: null,
+  updatedBy: null,
 };
 
-const target: EditTarget = { sourceId: "s1", namespace: "website", key: "cart.empty", locale: "da" };
+const target: EditTarget = {
+  sourceId: "s1",
+  namespace: "website",
+  key: "cart.empty",
+  locale: "da",
+};
 
 const locale = (code: string, name: string, overrides: Partial<LocaleFacet> = {}): LocaleFacet => ({
-  code, name, isDefault: false, isConfigured: true,
-  messageCount: 100, overriddenCount: 10, needsReviewCount: 0, absentKeyCount: 0,
+  code,
+  name,
+  isDefault: false,
+  isConfigured: true,
+  messageCount: 100,
+  overriddenCount: 10,
+  needsReviewCount: 0,
+  absentKeyCount: 0,
   ...overrides,
 });
 
 /** A row as the list holds it: the language being edited, and the one it is compared with. */
 const row = (cells: MessageKey["cells"]): MessageKey => ({
-  sourceId: "s1", namespace: "website", key: "cart.empty",
-  format: "Icu", arguments: {}, cells, coverage: {},
+  sourceId: "s1",
+  namespace: "website",
+  key: "cart.empty",
+  format: "Icu",
+  arguments: {},
+  cells,
+  coverage: {},
   matchedLocales: [],
 });
 
 const written = row({
   da: {
-    id: "m1", locale: "da", defaultValue: "Din kurv er tom", overrideValue: "Kurven er tom",
-    hasOverride: true, needsReview: false, truncated: false, state: "Overridden",
-    version: 1, updatedAt: null, updatedBy: null,
+    id: "m1",
+    locale: "da",
+    defaultValue: "Din kurv er tom",
+    overrideValue: "Kurven er tom",
+    hasOverride: true,
+    needsReview: false,
+    truncated: false,
+    state: "Overridden",
+    version: 1,
+    updatedAt: null,
+    updatedBy: null,
   },
   en: {
-    id: "m2", locale: "en", defaultValue: "Your basket is empty", overrideValue: null,
-    hasOverride: false, needsReview: false, truncated: false, state: "Default",
-    version: null, updatedAt: null, updatedBy: null,
+    id: "m2",
+    locale: "en",
+    defaultValue: "Your basket is empty",
+    overrideValue: null,
+    hasOverride: false,
+    needsReview: false,
+    truncated: false,
+    state: "Default",
+    version: null,
+    updatedAt: null,
+    updatedBy: null,
   },
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 type Props = Parameters<typeof TranslationDetail>[0];
 
@@ -61,27 +119,29 @@ const open = (canEdit: boolean, props: Partial<Props> = {}) => {
   return render(
     <QueryClientProvider client={client}>
       <TranslationDetail
-        target={target}
-        row={written}
         bridge={{ notify: vi.fn() } as never}
+        canEdit={canEdit}
+        close={vi.fn()}
         locales={[locale("da", "Danish"), locale("en", "English")]}
         mode="search"
+        onDirtyChange={vi.fn()}
+        onDiscard={vi.fn()}
+        onKeepEditing={vi.fn()}
+        row={written}
+        select={vi.fn()}
+        switchLocale={vi.fn()}
+        target={target}
         term=""
-        canEdit={canEdit}
-        onKeepEditing={() => {}}
-        onDiscard={() => {}}
-        onDirtyChange={() => {}}
-        select={() => {}}
-        switchLocale={() => {}}
-        close={() => {}}
         {...props}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 };
 
-const escape = () =>
-  act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+const pressEscape = () =>
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
 
 describe("TranslationDetail permissions", () => {
   it("offers the field and the actions to someone who may edit", async () => {
@@ -98,8 +158,9 @@ describe("TranslationDetail permissions", () => {
     // Scoped to the block holding the editor's own text: the application's text is in a block of
     // its own on the same screen, and the words are close enough to catch the wrong one.
     await waitFor(() => {
-      const own = [...container.querySelectorAll<HTMLElement>(".pane__block")]
-        .find((block) => block.querySelector("h3")?.textContent?.includes("your text"));
+      const own = [...container.querySelectorAll<HTMLElement>(".pane__block")].find((block) =>
+        block.querySelector("h3")?.textContent?.includes("your text")
+      );
       expect(own?.querySelector(".pane__reading")?.textContent).toBe("Kurven er tom");
     });
 
@@ -142,7 +203,7 @@ describe("leaving with unsaved text", () => {
     open(true, { pending: "close", close, onKeepEditing });
     await screen.findByRole("button", { name: "Discard" });
 
-    escape();
+    pressEscape();
 
     // Escape is what got them here, so it must not also be what throws the text away.
     expect(onKeepEditing).toHaveBeenCalledOnce();
@@ -154,7 +215,7 @@ describe("leaving with unsaved text", () => {
     open(true, { close });
     await screen.findByRole("textbox");
 
-    escape();
+    pressEscape();
 
     expect(close).toHaveBeenCalledOnce();
   });
@@ -170,7 +231,9 @@ describe("moving between translations from the field", () => {
   const nextOne: EditTarget = { ...target, key: "cart.checkout" };
 
   const press = (key: string, init: object = {}) =>
-    act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...init })); });
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...init }));
+    });
 
   it("moves on Ctrl/Cmd and an arrow", async () => {
     const select = vi.fn();
@@ -203,7 +266,9 @@ describe("moving between translations from the field", () => {
     await screen.findByRole("textbox");
 
     let defaultPrevented = false;
-    const watch = (event: KeyboardEvent) => { defaultPrevented = event.defaultPrevented; };
+    const watch = ({ defaultPrevented: prevented }: KeyboardEvent) => {
+      defaultPrevented = prevented;
+    };
     window.addEventListener("keydown", watch);
     press("ArrowDown", { metaKey: true });
     window.removeEventListener("keydown", watch);
@@ -230,17 +295,29 @@ describe("moving between translations from the field", () => {
  */
 describe("the key in every language", () => {
   const withCells = () => {
-    const api = vi.mocked(client.api);
+    const api = vi.mocked(clientApi);
     api.messageKeys.mockResolvedValue({
-      items: [{
-        sourceId: "s1", namespace: "website", key: "cart.empty", format: "Icu", arguments: {},
-        coverage: {}, matchedLocales: [],
-        cells: {
-          da: written.cells.da!,
-          en: written.cells.en!,
+      items: [
+        {
+          sourceId: "s1",
+          namespace: "website",
+          key: "cart.empty",
+          format: "Icu",
+          arguments: {},
+          coverage: {},
+          matchedLocales: [],
+          cells: {
+            da: written.cells.da,
+            en: written.cells.en,
+          },
         },
-      }],
-      page: 1, pageSize: 50, total: 1, referenceLocale: "en", targetLocale: "da", compareLocales: [],
+      ],
+      page: 1,
+      pageSize: 50,
+      total: 1,
+      referenceLocale: "en",
+      targetLocale: "da",
+      compareLocales: [],
     } as never);
     return api;
   };
@@ -249,7 +326,9 @@ describe("the key in every language", () => {
     // Half the answer is which languages still need it, and a list of the ones that already have
     // it cannot be read backwards to give that.
     withCells();
-    open(true, { locales: [locale("da", "Danish"), locale("en", "English"), locale("de", "German")] });
+    open(true, {
+      locales: [locale("da", "Danish"), locale("en", "English"), locale("de", "German")],
+    });
 
     expect(await screen.findByText("This key in every language")).toBeTruthy();
     expect(screen.getByText("German")).toBeTruthy();
@@ -264,7 +343,7 @@ describe("the key in every language", () => {
     open(true, { reference: undefined });
 
     expect(await screen.findByText("This key in every language")).toBeTruthy();
-    const query = api.messageKeys.mock.calls[0]![0] as { locale: string; referenceLocale: string };
+    const query = api.messageKeys.mock.calls[0][0] as { locale: string; referenceLocale: string };
     expect(query.locale).toBe("da");
     expect(query.referenceLocale).toBe("da");
   });
@@ -273,7 +352,9 @@ describe("the key in every language", () => {
 describe("saving from the keyboard", () => {
   const type = async (text: string) => {
     const field = await screen.findByRole("textbox");
-    act(() => { fireEvent.change(field, { target: { value: text } }); });
+    act(() => {
+      fireEvent.change(field, { target: { value: text } });
+    });
     return field;
   };
 
@@ -282,10 +363,16 @@ describe("saving from the keyboard", () => {
     open(true, { close });
     const field = await type("Kurven er helt tom");
 
-    act(() => { fireEvent.keyDown(field, { key: "Enter", bubbles: true }); });
+    act(() => {
+      fireEvent.keyDown(field, { key: "Enter", bubbles: true });
+    });
     expect(close).not.toHaveBeenCalled();
 
-    act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true })); });
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true })
+      );
+    });
     await waitFor(() => expect(close).toHaveBeenCalled());
   });
 
@@ -294,7 +381,11 @@ describe("saving from the keyboard", () => {
     open(true, { close });
     await type("Kurven er helt tom");
 
-    act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true })); });
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true })
+      );
+    });
 
     await waitFor(() => expect(close).toHaveBeenCalled());
   });
@@ -307,9 +398,17 @@ describe("saving from the keyboard", () => {
 describe("a translation that does not exist yet", () => {
   const empty = row({
     en: {
-      id: "m2", locale: "en", defaultValue: "Your basket is empty", overrideValue: null,
-      hasOverride: false, needsReview: false, truncated: false, state: "Default",
-      version: null, updatedAt: null, updatedBy: null,
+      id: "m2",
+      locale: "en",
+      defaultValue: "Your basket is empty",
+      overrideValue: null,
+      hasOverride: false,
+      needsReview: false,
+      truncated: false,
+      state: "Default",
+      version: null,
+      updatedAt: null,
+      updatedBy: null,
     },
   });
 
@@ -326,7 +425,7 @@ describe("a translation that does not exist yet", () => {
   it("opens on it and offers an empty field rather than nothing at all", async () => {
     queue();
 
-    const field = await screen.findByRole("textbox") as HTMLTextAreaElement;
+    const field = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
     expect(field.value).toBe("");
     expect(screen.getByText("Nothing written here yet")).toBeTruthy();
   });
@@ -338,14 +437,14 @@ describe("a translation that does not exist yet", () => {
     // The reference reading comes before the field in the document, which is the reading order the
     // work happens in when there is nothing to correct yet.
     const lead = container.querySelector(".pane__reading--lead");
+    const field = container.querySelector("textarea");
     expect(lead?.textContent).toBe("Your basket is empty");
-    expect(lead!.compareDocumentPosition(container.querySelector("textarea")!))
-      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(field && lead?.compareDocumentPosition(field)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("offers the reference as a starting point rather than an empty box", async () => {
     queue();
-    const field = await screen.findByRole("textbox") as HTMLTextAreaElement;
+    const field = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
 
     screen.getByRole("button", { name: "Copy English in" }).click();
 
@@ -360,16 +459,31 @@ describe("a translation that does not exist yet", () => {
    */
   it("shows how the other languages worded it, and offers nowhere to go", async () => {
     const swedish = {
-      ...written.cells.da!, id: "m3", locale: "sv",
-      defaultValue: "Varukorgen är tom", overrideValue: "Varukorgen är tom",
+      ...written.cells.da,
+      id: "m3",
+      locale: "sv",
+      defaultValue: "Varukorgen är tom",
+      overrideValue: "Varukorgen är tom",
     };
-    vi.mocked(client.api).messageKeys.mockResolvedValue({
-      items: [{
-        sourceId: "s1", namespace: "website", key: "cart.empty", format: "Icu", arguments: {},
-        coverage: {}, matchedLocales: [],
-        cells: { en: empty.cells.en!, da: written.cells.da!, sv: swedish },
-      }],
-      page: 1, pageSize: 50, total: 1, referenceLocale: "en", targetLocale: "nb", compareLocales: [],
+    vi.mocked(clientApi).messageKeys.mockResolvedValue({
+      items: [
+        {
+          sourceId: "s1",
+          namespace: "website",
+          key: "cart.empty",
+          format: "Icu",
+          arguments: {},
+          coverage: {},
+          matchedLocales: [],
+          cells: { en: empty.cells.en, da: written.cells.da, sv: swedish },
+        },
+      ],
+      page: 1,
+      pageSize: 50,
+      total: 1,
+      referenceLocale: "en",
+      targetLocale: "nb",
+      compareLocales: [],
     } as never);
 
     const { container } = queue({
@@ -390,7 +504,7 @@ describe("a translation that does not exist yet", () => {
     expect(screen.getByText("Varukorgen är tom")).toBeTruthy();
 
     // And nothing to click: leaving the queue to correct Danish is an offer to lose your place.
-    expect(screen.queryByRole("button", { name: /^Edit this key in/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: EDIT_KEY_BUTTON })).toBeNull();
   });
 
   it("ends on the next item, because a queue is worked down rather than closed", async () => {

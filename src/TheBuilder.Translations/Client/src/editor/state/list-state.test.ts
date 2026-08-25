@@ -11,8 +11,9 @@ describe("describeListState", () => {
 
   it("reports a failure even over rows left from the previous query", () => {
     // Those rows are stale. Showing them without a word about the error leaves them looking current.
-    expect(describeListState({ ...base, rowCount: 5, error: new Error("Gateway timeout") }))
-      .toEqual({ kind: "error", message: "Gateway timeout" });
+    expect(
+      describeListState({ ...base, rowCount: 5, error: new Error("Gateway timeout") })
+    ).toEqual({ kind: "error", message: "Gateway timeout" });
   });
 
   it("distinguishes nothing synchronised from filters that exclude everything", () => {
@@ -42,7 +43,12 @@ describe("hasNarrowingFilters", () => {
   });
 
   it("notices each of the filters that do", () => {
-    for (const patch of [{ query: "cart" }, { namespace: "website" }, { keyPrefix: "cart" }, { status: "NeedsReview" as const }]) {
+    for (const patch of [
+      { query: "cart" },
+      { namespace: "website" },
+      { keyPrefix: "cart" },
+      { status: "NeedsReview" as const },
+    ]) {
       expect(hasNarrowingFilters(normalizeFilters({ ...defaultFilters, ...patch }))).toBe(true);
     }
   });
@@ -51,8 +57,14 @@ describe("hasNarrowingFilters", () => {
 describe("clearedFilters", () => {
   it("clears what narrows the list and leaves the languages alone", () => {
     const before = normalizeFilters({
-      locale: "da", referenceLocale: "en", sort: "updatedAt", direction: "desc",
-      query: "cart", namespace: "website", keyPrefix: "cart.items", status: "NeedsReview",
+      locale: "da",
+      referenceLocale: "en",
+      sort: "updatedAt",
+      direction: "desc",
+      query: "cart",
+      namespace: "website",
+      keyPrefix: "cart.items",
+      status: "NeedsReview",
     });
 
     const after = normalizeFilters({ ...before, ...clearedFilters() });

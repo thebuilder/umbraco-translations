@@ -1,8 +1,8 @@
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
-import { Highlight } from "../search/Highlight.js";
+import { Highlight } from "../search/highlight.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { localeIn, sameLocale } from "../state/locales.js";
-import { valueOf } from "./key-columns.js";
+import { textOf } from "./key-columns.js";
 
 /**
  * The same key in every language the site has.
@@ -25,7 +25,16 @@ import { valueOf } from "./key-columns.js";
  * out, along with the two already on screen, and there is nowhere to click. Leaving the queue to
  * correct German is not the job, and offering it is offering to lose your place.
  */
-export const KeyLocales = ({ row, locales, editing, reference, mode, term, loading, onEdit }: {
+export const KeyLocales = ({
+  row,
+  locales,
+  editing,
+  reference,
+  mode,
+  term,
+  loading,
+  onEdit,
+}: {
   /** The key with a cell per language, or undefined while that is still being fetched. */
   row: MessageKey | null | undefined;
   locales: readonly LocaleFacet[];
@@ -37,30 +46,41 @@ export const KeyLocales = ({ row, locales, editing, reference, mode, term, loadi
   loading: boolean;
   onEdit: (locale: string) => void;
 }) => {
-  if (loading) return <p className="pane__note">Looking up the other languages…</p>;
-  if (!row) return null;
+  if (loading) {
+    return <p className="pane__note">Looking up the other languages…</p>;
+  }
+  if (!row) {
+    return null;
+  }
 
   if (mode === "queue") {
     const elsewhere = locales
-      .filter((locale) =>
-        !sameLocale(locale.code, editing) &&
-        !sameLocale(locale.code, reference ?? editing))
-      .map((locale) => ({ locale, text: valueOf(localeIn(row.cells, locale.code)) }))
-      .filter((entry): entry is { locale: LocaleFacet; text: string } =>
-        entry.text !== null && entry.text !== "");
+      .filter(
+        (locale) =>
+          !(sameLocale(locale.code, editing) || sameLocale(locale.code, reference ?? editing))
+      )
+      .map((locale) => ({ locale, text: textOf(localeIn(row.cells, locale.code)) }))
+      .filter(
+        (entry): entry is { locale: LocaleFacet; text: string } =>
+          entry.text !== null && entry.text !== ""
+      );
 
     // Nothing anybody has worded yet, so there is no reading to offer and a heading over an empty
     // box would only say so twice.
-    if (elsewhere.length === 0) return null;
+    if (elsewhere.length === 0) {
+      return null;
+    }
 
     return (
       <section className="pane__block pane__block--apart">
         <h3>Same key elsewhere</h3>
         <dl className="elsewhere">
           {elsewhere.map(({ locale, text }) => (
-            <div key={locale.code} className="elsewhere__row">
+            <div className="elsewhere__row" key={locale.code}>
               <dt>{locale.name || locale.code}</dt>
-              <dd title={text}><Highlight text={text} term={term} /></dd>
+              <dd title={text}>
+                <Highlight term={term} text={text} />
+              </dd>
             </div>
           ))}
         </dl>
@@ -68,7 +88,9 @@ export const KeyLocales = ({ row, locales, editing, reference, mode, term, loadi
     );
   }
 
-  const unwritten = locales.filter((locale) => localeIn(row.cells, locale.code) === undefined).length;
+  const unwritten = locales.filter(
+    (locale) => localeIn(row.cells, locale.code) === undefined
+  ).length;
 
   return (
     <section className="pane__block">
@@ -83,9 +105,12 @@ export const KeyLocales = ({ row, locales, editing, reference, mode, term, loadi
       <ul className="locales">
         {locales.map((locale) => {
           const current = sameLocale(locale.code, editing);
-          const text = valueOf(localeIn(row.cells, locale.code));
+          const text = textOf(localeIn(row.cells, locale.code));
           return (
-            <li key={locale.code} className={current ? "locales__row locales__row--current" : "locales__row"}>
+            <li
+              className={current ? "locales__row locales__row--current" : "locales__row"}
+              key={locale.code}
+            >
               <span className="locales__name">
                 {locale.name || locale.code}
                 <span className="locales__code">{locale.code}</span>
@@ -96,20 +121,23 @@ export const KeyLocales = ({ row, locales, editing, reference, mode, term, loadi
                 </span>
               ) : (
                 <span className="locales__text" title={text}>
-                  <Highlight text={text} term={term} />
+                  <Highlight term={term} text={text} />
                 </span>
               )}
               {current ? (
-                // Already the language being edited: the field above is where it is changed.
-                <span className="locales__here" aria-label="Being edited">
-                  <span className="row__dot" aria-hidden="true" />
+                // Already the language being edited: the field above is where it is changed. The
+                // dot carries that visually; a plain span takes no accessible name, so the same
+                // thing has to be said in text for anyone who is not looking at it.
+                <span className="locales__here">
+                  <span aria-hidden="true" className="row__dot" />
+                  <span className="visually-hidden">Being edited</span>
                 </span>
               ) : (
                 <button
-                  type="button"
-                  className="locales__edit"
                   aria-label={`Edit this key in ${locale.name || locale.code}`}
+                  className="locales__edit"
                   onClick={() => onEdit(locale.code)}
+                  type="button"
                 >
                   <span aria-hidden="true">✎</span>
                 </button>

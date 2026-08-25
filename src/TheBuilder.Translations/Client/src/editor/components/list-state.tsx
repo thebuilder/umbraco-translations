@@ -9,7 +9,14 @@ import type { ListState as State } from "../state/list-state.js";
  * configured, which an editor genuinely cannot fix: they are told who can, and the link appears
  * only for somebody able to follow it.
  */
-export const ListState = ({ state, term, filtered, canManageSources, onClear, onRetry }: {
+export const ListState = ({
+  state,
+  term,
+  filtered,
+  canManageSources,
+  onClear,
+  onRetry,
+}: {
   state: State;
   term: string;
   /** Whether anything is currently narrowing the list, so "clear" has something to clear. */
@@ -18,14 +25,18 @@ export const ListState = ({ state, term, filtered, canManageSources, onClear, on
   onClear: () => void;
   onRetry: () => void;
 }) => {
-  if (state.kind === "loading") return <Skeleton />;
+  if (state.kind === "loading") {
+    return <Skeleton />;
+  }
 
   if (state.kind === "error") {
     return (
       <div className="state" role="alert">
         <h2>Translations could not be loaded</h2>
         <p className="state__detail">{state.message}</p>
-        <Button look="primary" onClick={onRetry}>Try again</Button>
+        <Button look="primary" onClick={onRetry}>
+          Try again
+        </Button>
       </div>
     );
   }
@@ -40,22 +51,28 @@ export const ListState = ({ state, term, filtered, canManageSources, onClear, on
         </p>
         {/* Only for somebody who can actually act on it: pointing an editor at a settings page
             they cannot open is worse than saying nothing. */}
-        {canManageSources && (
-          <Button onClick={() => { location.href = "/umbraco/section/settings"; }}>
+        {canManageSources ? (
+          <Button
+            onClick={() => {
+              location.href = "/umbraco/section/settings";
+            }}
+          >
             Open settings
           </Button>
-        )}
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="state">
-      <h2>
-        {term ? <>No translations match “{term}”</> : "No translations match these filters"}
-      </h2>
+      <h2>{term ? <>No translations match “{term}”</> : "No translations match these filters"}</h2>
       <p className="state__detail">Try another search, or clear what you are filtering by.</p>
-      {filtered && <Button look="primary" onClick={onClear}>Clear filters</Button>}
+      {filtered ? (
+        <Button look="primary" onClick={onClear}>
+          Clear filters
+        </Button>
+      ) : null}
     </div>
   );
 };
@@ -66,12 +83,19 @@ export const ListState = ({ state, term, filtered, canManageSources, onClear, on
  * The list arrives in the same shape every time, so drawing that shape while it loads means the
  * content appears in place instead of replacing something of a different size.
  */
+const SKELETON_ROWS = Array.from({ length: 8 }, (_, row) => ({
+  id: `skeleton-${row}`,
+  // Uneven widths, so the outline reads as text rather than as a bar chart.
+  value: `${55 + ((row * 13) % 30)}%`,
+  meta: `${30 + ((row * 7) % 20)}%`,
+}));
+
 const Skeleton = () => (
-  <div className="state state--loading" role="status" aria-label="Loading translations">
-    {Array.from({ length: 8 }, (_, row) => (
-      <span key={row} className="skeleton-row">
-        <span className="skeleton" style={{ inlineSize: `${55 + ((row * 13) % 30)}%` }} />
-        <span className="skeleton skeleton--meta" style={{ inlineSize: `${30 + ((row * 7) % 20)}%` }} />
+  <div aria-label="Loading translations" className="state state--loading" role="status">
+    {SKELETON_ROWS.map((row) => (
+      <span className="skeleton-row" key={row.id}>
+        <span className="skeleton" style={{ inlineSize: row.value }} />
+        <span className="skeleton skeleton--meta" style={{ inlineSize: row.meta }} />
       </span>
     ))}
   </div>

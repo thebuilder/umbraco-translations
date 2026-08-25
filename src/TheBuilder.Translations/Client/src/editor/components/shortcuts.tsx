@@ -18,7 +18,9 @@ export const MODIFIER =
  * it is a lie at any given moment: with nothing open there is nothing to save, and with the pane
  * open a bare arrow belongs to the text in the field rather than to the list.
  */
-export const Shortcuts = ({ editing }: {
+export const Shortcuts = ({
+  editing,
+}: {
   /** Whether a translation is open, which is what decides who the arrow keys belong to. */
   editing: boolean;
 }) => (
@@ -44,7 +46,9 @@ export const Shortcuts = ({ editing }: {
  */
 const Hint = ({ caps, children }: { caps: readonly string[]; children: ReactNode }) => (
   <span className="results__key">
-    {caps.map((cap) => <kbd key={cap}>{cap}</kbd>)}
+    {caps.map((cap) => (
+      <kbd key={cap}>{cap}</kbd>
+    ))}
     {children}
   </span>
 );
