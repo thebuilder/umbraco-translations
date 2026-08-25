@@ -77,8 +77,9 @@ public sealed class PoParser(IMessageFormatValidator validator) : ITranslationSo
         var separator = id.IndexOf('.');
         if (separator <= 0 || separator == id.Length - 1)
             throw new TranslationSourceFormatException(
-                $"Message key '{id}' has no dot to split on. Either every key reads as namespace.key, or " +
-                "the source uses one fixed namespace.");
+                $"Message key '{id}' has no namespace segment. Catalogues built by next-intl's message " +
+                "extraction use generated keys like this one and carry no namespaces at all, so this source " +
+                "needs one fixed namespace instead.");
 
         return (id[..separator], id[(separator + 1)..]);
     }

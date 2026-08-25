@@ -111,6 +111,50 @@ public sealed class PoParserTests
         Assert.Contains("ICU", failure.Message);
     }
 
+    /*
+     * What next-intl's own e2e catalogues look like. Message extraction generates a hash for each
+     * id, so the keys carry no namespace and no dots, and every one of them is refused by first-key
+     * mode. That is the default mode, which makes this the shape a PO source most likely arrives in
+     * and the failure most likely to meet somebody first, so the message names the cause.
+     */
+    [Fact]
+    public async Task Names_extraction_when_a_generated_key_has_no_namespace_in_it()
+    {
+        var failure = await Assert.ThrowsAsync<TranslationSourceFormatException>(() => Parse("""
+            #: src/app/page.tsx
+            msgid "NhX4DJ"
+            msgstr "Hello"
+            """));
+
+        Assert.Contains("NhX4DJ", failure.Message);
+        Assert.Contains("extraction", failure.Message);
+        Assert.Contains("fixed namespace", failure.Message);
+    }
+
+    [Fact]
+    public async Task Reads_a_generated_catalogue_under_one_fixed_namespace()
+    {
+        var messages = await Parse("""
+            msgid ""
+            msgstr ""
+            "Language: en\n"
+            "X-Generator: next-intl\n"
+
+            #: src/app/page.tsx
+            msgid "NhX4DJ"
+            msgstr "Hello"
+
+            #: src/components/Footer.tsx
+            #: src/components/Greeting.tsx
+            msgid "-YJVTi"
+            msgstr "Hey!"
+            """, NamespaceMode.Fixed);
+
+        Assert.Equal(
+            [("website", "NhX4DJ", "Hello"), ("website", "-YJVTi", "Hey!")],
+            messages.Select(message => (message.Namespace, message.Key, message.Value)));
+    }
+
     [Fact]
     public async Task Says_which_key_has_no_namespace_to_take()
     {
