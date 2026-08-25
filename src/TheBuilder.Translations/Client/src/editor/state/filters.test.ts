@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { hashKey } from "@tanstack/react-query";
+import { describe, expect, it } from "vitest";
 import { queryKeys } from "../api/keys.js";
 import {
   defaultFilters,
@@ -12,7 +12,12 @@ import {
 
 describe("normalizeFilters", () => {
   it("collapses empty and whitespace values onto null", () => {
-    const filters = normalizeFilters({ locale: "  ", namespace: "", keyPrefix: "   ", query: "  " });
+    const filters = normalizeFilters({
+      locale: "  ",
+      namespace: "",
+      keyPrefix: "   ",
+      query: "  ",
+    });
 
     expect(filters.locale).toBeNull();
     expect(filters.namespace).toBeNull();
@@ -26,7 +31,10 @@ describe("normalizeFilters", () => {
   });
 
   it("sorts and de-duplicates the compare set", () => {
-    expect(normalizeFilters({ compare: ["sv-SE", "de-DE", "sv-SE"] }).compare).toEqual(["de-DE", "sv-SE"]);
+    expect(normalizeFilters({ compare: ["sv-SE", "de-DE", "sv-SE"] }).compare).toEqual([
+      "de-DE",
+      "sv-SE",
+    ]);
   });
 
   it("drops compare locales already shown as target or reference", () => {
@@ -84,7 +92,7 @@ describe("url round-trip", () => {
 
   it("ignores unknown query parameters", () => {
     expect(parseFilters("?locale=da-DK&somethingElse=1")).toEqual(
-      normalizeFilters({ locale: "da-DK" }),
+      normalizeFilters({ locale: "da-DK" })
     );
   });
 });
@@ -158,12 +166,16 @@ describe("editingLocale", () => {
 
   it("carries no comparison across, rather than leaving the old language as one", () => {
     // "None" is the two being equal, so a reference left behind silently becomes the comparison.
-    expect(editingLocale({ locale: "da-DK", referenceLocale: "da-DK" }, "de-DE"))
-      .toEqual({ locale: "de-DE", referenceLocale: "de-DE" });
+    expect(editingLocale({ locale: "da-DK", referenceLocale: "da-DK" }, "de-DE")).toEqual({
+      locale: "de-DE",
+      referenceLocale: "de-DE",
+    });
   });
 
   it("has nothing to swap with before a language has been settled on", () => {
-    expect(editingLocale({ locale: null, referenceLocale: "en-US" }, "en-US"))
-      .toEqual({ locale: "en-US", referenceLocale: "en-US" });
+    expect(editingLocale({ locale: null, referenceLocale: "en-US" }, "en-US")).toEqual({
+      locale: "en-US",
+      referenceLocale: "en-US",
+    });
   });
 });

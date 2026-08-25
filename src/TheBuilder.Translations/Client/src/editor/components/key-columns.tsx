@@ -5,8 +5,8 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 import type { MessageCell, MessageKey } from "../../api/generated/models.js";
-import { Highlight } from "../search/Highlight.js";
-import { matchedIn, type MatchedInOptions } from "../search/matched-in.js";
+import { Highlight } from "../search/highlight.js";
+import { type MatchedInOptions, matchedIn } from "../search/matched-in.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { localeIn } from "../state/locales.js";
 import { keyId } from "../state/target.js";
@@ -20,10 +20,10 @@ import { cellStatus } from "./cell-status.js";
  * -- the comparison column is there only when a comparison language is chosen -- and a template
  * written in CSS would have to duplicate that rule and then drift from it.
  */
-export interface KeyColumnMeta {
-  width: string;
+interface KeyColumnMeta {
   /** Cells holding content an editor reads. The status a row carries is not one. */
   navigable?: boolean;
+  width: string;
 }
 
 /**
@@ -38,11 +38,11 @@ export const keyTableFeatures = tableFeatures({
 
 const helper = createColumnHelper<typeof keyTableFeatures, MessageKey>();
 
-export const cellOf = (key: MessageKey | undefined, locale: string | null): MessageCell | undefined =>
+const cellOf = (key: MessageKey | undefined, locale: string | null): MessageCell | undefined =>
   key ? localeIn(key.cells, locale) : undefined;
 
-export const valueOf = (cell: MessageCell | undefined): string | null =>
-  cell === undefined ? null : cell.overrideValue ?? cell.defaultValue;
+export const textOf = (cell: MessageCell | undefined): string | null =>
+  cell === undefined ? null : (cell.overrideValue ?? cell.defaultValue);
 
 /**
  * Extends what naming a search hit needs -- the two languages, their names, a way to name a third,
@@ -50,8 +50,6 @@ export const valueOf = (cell: MessageCell | undefined): string | null =>
  * on is cheaper than restating it.
  */
 export interface KeyColumnOptions extends MatchedInOptions {
-  /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
-  showNamespace: boolean;
   /**
    * The row the editing pane is open on, as `keyId`, or null.
    *
@@ -62,6 +60,8 @@ export interface KeyColumnOptions extends MatchedInOptions {
    * thing worth reading disappearing at the moment of reading.
    */
   openKey: string | null;
+  /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
+  showNamespace: boolean;
 }
 
 export const keyColumns = (options: KeyColumnOptions) => {
@@ -82,19 +82,30 @@ export const keyColumns = (options: KeyColumnOptions) => {
      */
     helper.accessor((key) => cellOf(key, lead), {
       id: "lead",
-      header: () => <Heading name={mode === "queue" ? options.comparisonName : options.editingName} />,
+      header: () => (
+        <Heading name={mode === "queue" ? options.comparisonName : options.editingName} />
+      ),
       meta: { width: mode === "queue" ? "minmax(0, 1fr)" : "minmax(0, 1.45fr)", navigable: true },
       cell: (info) => (
         <>
           <span className="row__line">
-            <Value cell={info.getValue()} term={term} absent={`Not written in ${options.editingName}`} />
+            <Value
+              absent={`Not written in ${options.editingName}`}
+              cell={info.getValue()}
+              term={term}
+            />
           </span>
           <span className="row__key">
             {/* Part of the key, written the way the key is written, and dimmer because it is where
                 the key lives rather than what the row is. */}
-            {showNamespace && <span className="row__namespace">{info.row.original.namespace}.</span>}
-            <span className="row__id" title={`${info.row.original.namespace}.${info.row.original.key}`}>
-              <Highlight text={info.row.original.key} term={term} />
+            {showNamespace ? (
+              <span className="row__namespace">{info.row.original.namespace}.</span>
+            ) : null}
+            <span
+              className="row__id"
+              title={`${info.row.original.namespace}.${info.row.original.key}`}
+            >
+              <Highlight term={term} text={info.row.original.key} />
             </span>
           </span>
         </>
@@ -114,10 +125,10 @@ export const keyColumns = (options: KeyColumnOptions) => {
                 <span className="row__value row__value--absent">Writing now…</span>
               ) : (
                 <Value
-                  cell={info.getValue()}
-                  term={term}
-                  quiet
                   absent={mode === "queue" ? "Not written" : `Not written in ${secondName}`}
+                  cell={info.getValue()}
+                  quiet
+                  term={term}
                 />
               )}
             </span>
@@ -151,20 +162,29 @@ const Heading = ({ name }: { name: string }) => <span className="row__heading">{
  * otherwise. Three states would read as an empty cell without help -- no row in this language at
  * all, text deliberately set to nothing, and ordinary text -- so the first two say what they are.
  */
-const Value = ({ cell, quiet, term, absent }: {
+const Value = ({
+  cell,
+  quiet,
+  term,
+  absent,
+}: {
   cell?: MessageCell;
   quiet?: boolean;
   term: string;
   absent: string;
 }) => {
-  if (!cell) return <span className="row__value row__value--absent">{absent}</span>;
+  if (!cell) {
+    return <span className="row__value row__value--absent">{absent}</span>;
+  }
 
   const text = cell.overrideValue ?? cell.defaultValue;
-  if (text === "") return <span className="row__value row__value--absent">Deliberately empty</span>;
+  if (text === "") {
+    return <span className="row__value row__value--absent">Deliberately empty</span>;
+  }
 
   return (
     <span className={quiet ? "row__value row__value--quiet" : "row__value"}>
-      <Highlight text={text} term={term} />
+      <Highlight term={term} text={text} />
     </span>
   );
 };
@@ -177,7 +197,11 @@ const Value = ({ cell, quiet, term, absent }: {
  * nothing recede to a word: saying "custom text" loudly on most of a list is a label repeated down
  * a column that buries the rows that actually need attention.
  */
-const Status = ({ cell, mode, writing }: {
+const Status = ({
+  cell,
+  mode,
+  writing,
+}: {
   cell: MessageCell | undefined;
   mode: EditingMode;
   /** The row in the pane, which in a queue of identical offers is the one thing worth marking. */
@@ -185,11 +209,15 @@ const Status = ({ cell, mode, writing }: {
 }) => {
   // Already the row in the pane, so the offer to start on it has been taken and repeating it is an
   // invitation to do what is already being done.
-  if (writing) return <span className="row__open">Open</span>;
+  if (writing) {
+    return <span className="row__open">Open</span>;
+  }
 
   // Nothing here yet, so the useful thing to offer is the way to start. The whole row opens the
   // pane; this names the action for somebody scanning the last column for what to do next.
-  if (!cell) return <span className="row__write">Write</span>;
+  if (!cell) {
+    return <span className="row__write">Write</span>;
+  }
 
   const status = cellStatus(cell);
   if (status.warning) {
@@ -203,7 +231,7 @@ const Status = ({ cell, mode, writing }: {
   if (status.custom) {
     return (
       <span className="row__custom">
-        <span className="row__dot" aria-hidden="true" />
+        <span aria-hidden="true" className="row__dot" />
         {mode === "queue" ? "Written" : "Custom"}
       </span>
     );

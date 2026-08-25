@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export interface GridFocus {
-  row: number;
+interface GridFocus {
   column: string;
+  row: number;
 }
 
 interface Options {
-  rowCount: number;
   /**
    * The navigable column ids, left to right. Passed in rather than fixed, because which columns
    * exist changes: the reference column is dropped when the target and reference locales are the
    * same, and arrowing onto a column that is not rendered moves focus nowhere.
    */
   columns: readonly string[];
+  onActivate: (focus: GridFocus) => void;
+  rowCount: number;
   /** Brings a row into view before focus moves to it; it may not be mounted yet. */
   scrollToRow: (row: number) => void;
-  onActivate: (focus: GridFocus) => void;
 }
 
 /**
@@ -36,7 +36,8 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
   useEffect(() => {
     // A shorter list must not leave focus pointing past the end.
     setFocus((current) =>
-      current.row < rowCount || rowCount === 0 ? current : { ...current, row: rowCount - 1 });
+      current.row < rowCount || rowCount === 0 ? current : { ...current, row: rowCount - 1 }
+    );
   }, [rowCount]);
 
   useEffect(() => {
@@ -45,15 +46,19 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
     setFocus((current) =>
       columns.length === 0 || columns.includes(current.column)
         ? current
-        : { ...current, column: columns[0]! });
+        : { ...current, column: columns[0] }
+    );
   }, [columns]);
 
-  const moveTo = useCallback((next: GridFocus) => {
-    const row = Math.min(Math.max(next.row, 0), Math.max(rowCount - 1, 0));
-    setFocus({ row, column: next.column });
-    claiming.current = true;
-    scrollToRow(row);
-  }, [rowCount, scrollToRow]);
+  const moveTo = useCallback(
+    (next: GridFocus) => {
+      const row = Math.min(Math.max(next.row, 0), Math.max(rowCount - 1, 0));
+      setFocus({ row, column: next.column });
+      claiming.current = true;
+      scrollToRow(row);
+    },
+    [rowCount, scrollToRow]
+  );
 
   // Read by restoreFocus, which has to reach the current coordinate without taking it as a
   // dependency: a callback that changed on every focus move would restart the effect that calls it.
@@ -69,67 +74,102 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
    * translation while sorted by when it was last edited moves it -- and the row that was being
    * worked on is the one to come back to, not the position it used to occupy.
    */
-  const restoreFocus = useCallback((row?: number) => {
-    const next = { ...latest.current, row: row ?? latest.current.row };
-    claiming.current = true;
-    scrollToRow(next.row);
-    setFocus(next);
-  }, [scrollToRow]);
+  const restoreFocus = useCallback(
+    (row?: number) => {
+      const next = { ...latest.current, row: row ?? latest.current.row };
+      claiming.current = true;
+      scrollToRow(next.row);
+      setFocus(next);
+    },
+    [scrollToRow]
+  );
 
-  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (columns.length === 0) return;
-    const columnIndex = columns.indexOf(focus.column);
-    const handled = () => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (columns.length === 0) {
+        return;
+      }
+      const columnIndex = columns.indexOf(focus.column);
+      const handled = () => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
 
-    switch (event.key) {
-      case "ArrowDown": handled(); return moveTo({ ...focus, row: focus.row + 1 });
-      case "ArrowUp": handled(); return moveTo({ ...focus, row: focus.row - 1 });
-      case "ArrowRight":
-        if (columnIndex >= columns.length - 1) return;
-        handled();
-        return moveTo({ ...focus, column: columns[columnIndex + 1]! });
-      case "ArrowLeft":
-        if (columnIndex <= 0) return;
-        handled();
-        return moveTo({ ...focus, column: columns[columnIndex - 1]! });
-      case "Home":
-        handled();
-        // Ctrl+Home is the whole grid; Home alone is the row, which is what a spreadsheet does.
-        return moveTo(event.ctrlKey || event.metaKey
-          ? { row: 0, column: columns[0]! }
-          : { ...focus, column: columns[0]! });
-      case "End":
-        handled();
-        return moveTo(event.ctrlKey || event.metaKey
-          ? { row: rowCount - 1, column: columns.at(-1)! }
-          : { ...focus, column: columns.at(-1)! });
-      case "PageDown": handled(); return moveTo({ ...focus, row: focus.row + PAGE_ROWS });
-      case "PageUp": handled(); return moveTo({ ...focus, row: focus.row - PAGE_ROWS });
-      case "Enter": handled(); return onActivate(focus);
-      default:
-    }
-  }, [columns, focus, moveTo, onActivate, rowCount]);
+      switch (event.key) {
+        case "ArrowDown":
+          handled();
+          return moveTo({ ...focus, row: focus.row + 1 });
+        case "ArrowUp":
+          handled();
+          return moveTo({ ...focus, row: focus.row - 1 });
+        case "ArrowRight":
+          if (columnIndex >= columns.length - 1) {
+            return;
+          }
+          handled();
+          return moveTo({ ...focus, column: columns[columnIndex + 1] });
+        case "ArrowLeft":
+          if (columnIndex <= 0) {
+            return;
+          }
+          handled();
+          return moveTo({ ...focus, column: columns[columnIndex - 1] });
+        case "Home":
+          handled();
+          // Ctrl+Home is the whole grid; Home alone is the row, which is what a spreadsheet does.
+          return moveTo(
+            event.ctrlKey || event.metaKey
+              ? { row: 0, column: columns[0] }
+              : { ...focus, column: columns[0] }
+          );
+        case "End": {
+          handled();
+          // The empty-columns case returned above, so there is a last column; falling back to the
+          // one already focused keeps End a no-op rather than a crash if that ever stops holding.
+          const last = columns.at(-1) ?? focus.column;
+          return moveTo(
+            event.ctrlKey || event.metaKey
+              ? { row: rowCount - 1, column: last }
+              : { ...focus, column: last }
+          );
+        }
+        case "PageDown":
+          handled();
+          return moveTo({ ...focus, row: focus.row + PAGE_ROWS });
+        case "PageUp":
+          handled();
+          return moveTo({ ...focus, row: focus.row - PAGE_ROWS });
+        case "Enter":
+          handled();
+          return onActivate(focus);
+        default:
+      }
+    },
+    [columns, focus, moveTo, onActivate, rowCount]
+  );
 
   /**
    * Applied to the cell that currently holds focus. The ref focuses it only when the grid asked for
    * the move, so clicking elsewhere is not undone on the next render.
    */
-  const cellProps = useCallback((row: number, column: string) => {
-    const current = focus.row === row && focus.column === column;
-    return {
-      role: "gridcell" as const,
-      tabIndex: current ? 0 : -1,
-      ref: (element: HTMLElement | null) => {
-        if (!current || !element || !claiming.current) return;
-        claiming.current = false;
-        element.focus({ preventScroll: true });
-      },
-      onFocus: () => setFocus({ row, column }),
-    };
-  }, [focus]);
+  const cellProps = useCallback(
+    (row: number, column: string) => {
+      const current = focus.row === row && focus.column === column;
+      return {
+        role: "gridcell" as const,
+        tabIndex: current ? 0 : -1,
+        ref: (element: HTMLElement | null) => {
+          if (!(current && element && claiming.current)) {
+            return;
+          }
+          claiming.current = false;
+          element.focus({ preventScroll: true });
+        },
+        onFocus: () => setFocus({ row, column }),
+      };
+    },
+    [focus]
+  );
 
   return { focus, onKeyDown, cellProps, moveTo, restoreFocus };
 };

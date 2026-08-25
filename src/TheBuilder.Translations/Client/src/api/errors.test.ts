@@ -10,10 +10,9 @@ const result = <T>(status: number, body: unknown, data?: T) =>
 
 /** Resolves with the ApiError a failing request produces, and fails loudly if it succeeds. */
 const failure = (status: number, body: unknown): Promise<ApiError> =>
-  unwrap(result(status, body)).then(
-    () => { throw new Error(`Expected status ${status} to be thrown`); },
-    toApiError,
-  );
+  unwrap(result(status, body)).then(() => {
+    throw new Error(`Expected status ${status} to be thrown`);
+  }, toApiError);
 
 describe("unwrap", () => {
   it("returns the payload on success", async () => {
@@ -78,7 +77,8 @@ describe("unwrap", () => {
   });
 
   it("leaves a message written to be read exactly as it is", async () => {
-    const reported = "https://www.sst.dk/api/sync/translations/da answered 429 (Too Many Requests). " +
+    const reported =
+      "https://www.sst.dk/api/sync/translations/da answered 429 (Too Many Requests). " +
       "The endpoint is rate limiting this site. Wait before synchronizing again.";
     const error = await failure(502, reported);
 
@@ -100,7 +100,9 @@ describe("conflictOf", () => {
   });
 
   it("ignores errors that are not conflicts", () => {
-    expect(conflictOf(new ApiError(400, "Invalid", undefined, { code: "invalid" }))).toBeUndefined();
+    expect(
+      conflictOf(new ApiError(400, "Invalid", undefined, { code: "invalid" }))
+    ).toBeUndefined();
     expect(conflictOf(new Error("boom"))).toBeUndefined();
   });
 });

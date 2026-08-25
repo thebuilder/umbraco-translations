@@ -23,4 +23,4 @@ const settingsManifest: ManifestDashboard = {
   ],
 };
 
-export const extensionManifests: Array<UmbExtensionManifest> = [editorManifest, settingsManifest];
+export const extensionManifests: UmbExtensionManifest[] = [editorManifest, settingsManifest];

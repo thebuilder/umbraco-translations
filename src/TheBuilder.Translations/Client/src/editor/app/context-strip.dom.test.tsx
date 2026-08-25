@@ -2,13 +2,19 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LocaleFacet } from "../../api/generated/models.js";
 import { defaultFilters, type EditorFilters } from "../state/filters.js";
-import { ContextStrip } from "./ContextStrip.js";
+import { ContextStrip } from "./context-strip.js";
 
 afterEach(cleanup);
 
 const locale = (code: string, name: string, overrides: Partial<LocaleFacet> = {}): LocaleFacet => ({
-  code, name, isDefault: false, isConfigured: true,
-  messageCount: 100, overriddenCount: 10, needsReviewCount: 0, absentKeyCount: 0,
+  code,
+  name,
+  isDefault: false,
+  isConfigured: true,
+  messageCount: 100,
+  overriddenCount: 10,
+  needsReviewCount: 0,
+  absentKeyCount: 0,
   ...overrides,
 });
 
@@ -17,10 +23,10 @@ const strip = (locales: LocaleFacet[], filters: Partial<EditorFilters> = {}, upd
     <ContextStrip
       filters={{ ...defaultFilters, locale: "en-US", referenceLocale: "en-US", ...filters }}
       locales={locales}
-      totalKeys={100}
       mode="search"
+      totalKeys={100}
       update={update}
-    />,
+    />
   );
   return { ...result, update };
 };
@@ -92,10 +98,12 @@ describe("with no language chosen yet", () => {
   it("puts the control somewhere real, so every language on the list is a change", () => {
     const { update } = strip(TWO, { locale: null, referenceLocale: null });
 
-    const picker = screen.getByRole("combobox", { name: "Language being edited" }) as HTMLSelectElement;
+    const picker = screen.getByRole("combobox", {
+      name: "Language being edited",
+    }) as HTMLSelectElement;
     expect(picker.value).toBe("");
     // The placeholder is where the control is, and it is not somewhere it can be sent back to.
-    expect(picker.options[0]!.disabled).toBe(true);
+    expect(picker.options[0].disabled).toBe(true);
 
     fireEvent.change(picker, { target: { value: "en-US" } });
     expect(update).toHaveBeenCalledWith({ locale: "en-US", referenceLocale: "en-US" });
@@ -107,7 +115,9 @@ describe("with no language chosen yet", () => {
     // Twice on purpose: the drawn face and the option the select is actually sitting on. They
     // disagreed before, which is what made the menu impossible to read as anything sensible.
     expect(screen.getAllByText("Choose a language")).toHaveLength(2);
-    const picker = screen.getByRole("combobox", { name: "Language being edited" }) as HTMLSelectElement;
+    const picker = screen.getByRole("combobox", {
+      name: "Language being edited",
+    }) as HTMLSelectElement;
     expect(picker.selectedOptions[0]?.textContent).toBe("Choose a language");
   });
 });

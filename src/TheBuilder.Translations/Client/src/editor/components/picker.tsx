@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { SelectOption } from "../../bridge/uui/index.js";
-import { Chevron } from "./Glyphs.js";
+import { Chevron } from "./glyphs.js";
 
 /**
  * A menu that reads as the sentence it belongs to rather than as a form control.
@@ -15,7 +15,15 @@ import { Chevron } from "./Glyphs.js";
  * The select carries the label and the value, so it is the control by every measure that matters.
  * The face is `aria-hidden` because it is the same information said twice.
  */
-export const Picker = ({ label, options, value, onChange, className, placeholder, children }: {
+export const Picker = ({
+  label,
+  options,
+  value,
+  onChange,
+  className,
+  placeholder,
+  children,
+}: {
   label: string;
   options: readonly SelectOption[];
   value: string;
@@ -37,19 +45,25 @@ export const Picker = ({ label, options, value, onChange, className, placeholder
 
   return (
     <span className={["picker", className ?? ""].filter(Boolean).join(" ")}>
-      <span className="picker__face" aria-hidden="true">{children}</span>
+      <span aria-hidden="true" className="picker__face">
+        {children}
+      </span>
       <select
-        className="picker__control"
         aria-label={label}
-        value={value}
+        className="picker__control"
         onChange={(event) => onChange(event.target.value)}
+        value={value}
       >
         {/* Disabled rather than hidden: it is where the control currently is, and a menu that
             silently omits its own selected entry is harder to make sense of than one that shows
             it greyed. */}
-        {unmatched && <option value={value} disabled>{placeholder ?? "Choose one"}</option>}
+        {unmatched && (
+          <option disabled value={value}>
+            {placeholder ?? "Choose one"}
+          </option>
+        )}
         {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
+          <option disabled={option.disabled} key={option.value} value={option.value}>
             {option.name}
           </option>
         ))}
@@ -59,4 +73,4 @@ export const Picker = ({ label, options, value, onChange, className, placeholder
 };
 
 /** The mark that says a menu is behind the words. Drawn, for the reasons in Glyphs. */
-export const Caret = () => <Chevron direction="down" className="picker__caret" />;
+export const Caret = () => <Chevron className="picker__caret" direction="down" />;

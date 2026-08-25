@@ -8,7 +8,7 @@ import type { EditorFilters } from "../state/filters.js";
  * knowing which filters are active.
  *
  * react-query hashes keys with sorted object properties, so field order does not matter, but the
- * *values* must be normalised first: `undefined`, `null` and `""` hash differently and would
+ * values must be normalised first: `undefined`, `null` and `""` hash differently and would
  * silently produce a second cache entry for the same query. Always pass the output of
  * `normalizeFilters`.
  */

@@ -3,23 +3,46 @@ import type { MessageCell, MessageLocaleState } from "../../api/generated/models
 import { cellStatus, summarise } from "./cell-status.js";
 
 const cell = (state: MessageLocaleState, hasOverride = false): MessageCell => ({
-  id: "m1", locale: "da-DK", defaultValue: "Tekst", overrideValue: hasOverride ? "Min tekst" : null,
-  hasOverride, needsReview: state === "NeedsReview", truncated: false, state,
-  version: null, updatedAt: null, updatedBy: null,
+  id: "m1",
+  locale: "da-DK",
+  defaultValue: "Tekst",
+  overrideValue: hasOverride ? "Min tekst" : null,
+  hasOverride,
+  needsReview: state === "NeedsReview",
+  truncated: false,
+  state,
+  version: null,
+  updatedAt: null,
+  updatedBy: null,
 });
 
 describe("cellStatus", () => {
   it("says nothing for a row using the application text", () => {
     // The common case. Annotating it on every row buries the few rows that differ.
-    expect(cellStatus(cell("Default"))).toEqual({ custom: false, text: null, warning: false, state: "Default" });
+    expect(cellStatus(cell("Default"))).toEqual({
+      custom: false,
+      text: null,
+      warning: false,
+      state: "Default",
+    });
   });
 
   it("marks custom text rather than labelling it, because most rows would carry the label", () => {
-    expect(cellStatus(cell("Overridden", true))).toEqual({ custom: true, text: null, warning: false, state: "Overridden" });
+    expect(cellStatus(cell("Overridden", true))).toEqual({
+      custom: true,
+      text: null,
+      warning: false,
+      state: "Overridden",
+    });
   });
 
   it("leaves an untranslated row to the value, which already says so", () => {
-    expect(cellStatus(undefined)).toEqual({ custom: false, text: null, warning: false, state: null });
+    expect(cellStatus(undefined)).toEqual({
+      custom: false,
+      text: null,
+      warning: false,
+      state: null,
+    });
   });
 
   it("uses words only where the editor has something to decide", () => {
@@ -45,7 +68,10 @@ describe("cellStatus", () => {
 describe("summarise", () => {
   it("counts what an editor would act on", () => {
     const counts = summarise([
-      cell("Default"), cell("Overridden", true), cell("NeedsReview", true), undefined,
+      cell("Default"),
+      cell("Overridden", true),
+      cell("NeedsReview", true),
+      undefined,
     ]);
 
     expect(counts).toEqual({ customised: 2, needsReview: 1, missing: 1 });

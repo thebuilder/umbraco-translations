@@ -8,30 +8,33 @@
  *
  * A path is the same shape everywhere, and it centres on the box it is given.
  */
-export const Chevron = ({ direction, className }: {
+export const Chevron = ({
+  direction,
+  className,
+}: {
   direction: "up" | "down";
   className?: string;
 }) => (
-  <svg className={className} viewBox="0 0 10 6" aria-hidden="true" focusable="false">
+  <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 10 6">
     <path
       d={direction === "down" ? "M1 1.25 5 4.75 9 1.25" : "M1 4.75 5 1.25 9 4.75"}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      strokeWidth="1.5"
     />
   </svg>
 );
 
 export const Cross = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+  <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 10 10">
     <path
       d="M1.75 1.75 8.25 8.25M8.25 1.75 1.75 8.25"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
       strokeLinecap="round"
+      strokeWidth="1.5"
     />
   </svg>
 );

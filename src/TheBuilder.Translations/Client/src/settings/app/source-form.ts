@@ -1,4 +1,12 @@
-import type { HttpHeaderOptions, MessageFormat, NamespaceMode, Source, SourceFormat, SourceRequest, TranslationOutputFormat } from "../../api/generated/models.js";
+import type {
+  HttpHeaderOptions,
+  MessageFormat,
+  NamespaceMode,
+  Source,
+  SourceFormat,
+  SourceRequest,
+  TranslationOutputFormat,
+} from "../../api/generated/models.js";
 
 export type SourceDraft = Omit<SourceRequest, "headers"> & { headers: HttpHeaderOptions[] };
 export type DeliveryMode = "overrides" | "all";
@@ -9,7 +17,8 @@ export type DeliveryFormat = TranslationOutputFormat;
  * written, so it is what a new source assumes and what anything unrecognised falls back to. One
  * namespace for every message is the deliberate choice, and it is the one that then needs a name.
  */
-export const parseNamespaceMode = (value: string): NamespaceMode => value === "Fixed" ? "Fixed" : "FirstSegment";
+export const parseNamespaceMode = (value: string): NamespaceMode =>
+  value === "Fixed" ? "Fixed" : "FirstSegment";
 export const parseMessageFormat = (value: string): MessageFormat =>
   value === "PlainText" || value === "I18NextV4" ? value : "Icu";
 
@@ -55,15 +64,16 @@ export type HeaderValueSource = "value" | "setting";
  * reports here, before anything can be saved.
  */
 export const headerValueSource = (header: HttpHeaderOptions): HeaderValueSource =>
-  header.value != null ? "value" : "setting";
+  header.value === null || header.value === undefined ? "setting" : "value";
 
 /** Switching clears the other field, so exactly one of the two is ever set. */
 export const withHeaderValueSource = (
   header: HttpHeaderOptions,
-  source: HeaderValueSource,
-): HttpHeaderOptions => source === "value"
-  ? { name: header.name, value: header.value ?? "" }
-  : { name: header.name, valueConfigurationKey: header.valueConfigurationKey ?? "" };
+  source: HeaderValueSource
+): HttpHeaderOptions =>
+  source === "value"
+    ? { name: header.name, value: header.value ?? "" }
+    : { name: header.name, valueConfigurationKey: header.valueConfigurationKey ?? "" };
 
 /** A row is complete with a name and one of the two value fields filled in. */
 export const headerIsComplete = (header: HttpHeaderOptions): boolean =>
@@ -72,17 +82,21 @@ export const headerIsComplete = (header: HttpHeaderOptions): boolean =>
     ? (header.value ?? "").trim() !== ""
     : (header.valueConfigurationKey ?? "").trim() !== "");
 
-export const sourceAlias = (displayName: string): string => displayName
-  .normalize("NFKD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, "-")
-  .replace(/^-|-$/g, "")
-  .slice(0, 100);
+export const sourceAlias = (displayName: string): string =>
+  displayName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 100);
 
-export const unavailableLocales = (configuredLocales: string[], selectedLocales: string[]): string[] => {
+export const unavailableLocales = (
+  configuredLocales: string[],
+  selectedLocales: string[]
+): string[] => {
   const configured = new Set(configuredLocales);
-  return selectedLocales.filter(locale => !configured.has(locale));
+  return selectedLocales.filter((locale) => !configured.has(locale));
 };
 
 export const sourceEndpoint = (endpointTemplate: string, locale: string): string =>
@@ -90,17 +104,25 @@ export const sourceEndpoint = (endpointTemplate: string, locale: string): string
     .replaceAll("{locale}", encodeURIComponent(locale))
     .replaceAll("{language}", encodeURIComponent(languageOf(locale)));
 
+const SUBTAG_SEPARATOR = /[-_]/;
+
 /**
  * The language subtag of an IETF tag. Umbraco languages carry a region (en-US) but applications
  * often name message files by language alone (en.json), so a template can ask for either.
  * Mirrors LocaleEndpointTemplate in the Core project.
  */
-export const languageOf = (locale: string): string => locale.split(/[-_]/, 1)[0] ?? locale;
+const languageOf = (locale: string): string => locale.split(SUBTAG_SEPARATOR, 1)[0] ?? locale;
 
 export const hasLocaleToken = (template: string): boolean =>
   template.includes("{locale}") || template.includes("{language}");
 
-export const deliveryEndpoint = (backofficeUrl: string, locale: string, namespace: string, mode: DeliveryMode = "overrides", format: DeliveryFormat = "next-intl"): string => {
+export const deliveryEndpoint = (
+  backofficeUrl: string,
+  locale: string,
+  namespace: string,
+  mode: DeliveryMode = "overrides",
+  format: DeliveryFormat = "next-intl"
+): string => {
   const endpoint = new URL(backofficeUrl);
   const umbracoPath = endpoint.pathname.toLowerCase().indexOf("/umbraco/");
   const pathBase = umbracoPath >= 0 ? endpoint.pathname.slice(0, umbracoPath) : "";
@@ -121,9 +143,11 @@ export const sourceRequest = (source: Source): SourceDraft => ({
   secretName: source.transport.secretName,
   timeoutSeconds: source.transport.timeoutSeconds,
   maximumResponseBytes: source.transport.maximumResponseBytes,
-  headers: source.transport.headers.map(header => header.isLiteral
-    ? { name: header.name, value: header.value ?? "" }
-    : { name: header.name, valueConfigurationKey: header.valueConfigurationKey ?? "" }),
+  headers: source.transport.headers.map((header) =>
+    header.isLiteral
+      ? { name: header.name, value: header.value ?? "" }
+      : { name: header.name, valueConfigurationKey: header.valueConfigurationKey ?? "" }
+  ),
   locales: source.parser.locales,
   namespace: source.parser.namespace,
   namespaceMode: source.parser.namespaceMode,

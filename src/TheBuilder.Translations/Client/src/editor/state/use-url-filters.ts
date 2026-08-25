@@ -31,7 +31,9 @@ export const useUrlFilters = (): [
 
   useEffect(() => {
     const onPopState = () => {
-      if (writing.current) return;
+      if (writing.current) {
+        return;
+      }
       setFilters(parseFilters(location.search));
     };
     window.addEventListener("popstate", onPopState);
@@ -39,18 +41,26 @@ export const useUrlFilters = (): [
   }, []);
 
   // Writes are coalesced: a burst of keystrokes should leave one history entry, not one each.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filters is the trigger, not a read. Every change restarts the timer, which is what coalesces the burst; the write itself comes from the ref, so it is whatever was pending when the timer fired.
   useEffect(() => {
-    if (!pending.current) return;
+    if (!pending.current) {
+      return;
+    }
     const timer = setTimeout(() => {
       const write = pending.current;
       pending.current = null;
-      if (!write) return;
+      if (!write) {
+        return;
+      }
 
       writing.current = true;
       // The pathname is written back verbatim. Rebuilding it is how you end up fighting the router.
       const url = `${location.pathname}${write.search}`;
-      if (write.push) history.pushState(null, "", url);
-      else history.replaceState(null, "", url);
+      if (write.push) {
+        history.pushState(null, "", url);
+      } else {
+        history.replaceState(null, "", url);
+      }
       writing.current = false;
     }, WRITE_DELAY_MS);
     return () => clearTimeout(timer);
@@ -61,18 +71,21 @@ export const useUrlFilters = (): [
       setFilters((current) => {
         const next = normalizeFilters({ ...current, ...patch });
         const search = serializeFilters(next);
-        if (search === serializeFilters(current)) return current;
+        if (search === serializeFilters(current)) {
+          return current;
+        }
 
         pending.current = {
           search,
           // Somewhere the editor expects to come back from is a history entry; refining a search is
           // not. "auto" asks the filter model which kind of change this was.
-          push: navigation === "push" || (navigation === "auto" && isNavigationalChange(current, next)),
+          push:
+            navigation === "push" || (navigation === "auto" && isNavigationalChange(current, next)),
         };
         return next;
       });
     },
-    [],
+    []
   );
 
   return [filters, update];

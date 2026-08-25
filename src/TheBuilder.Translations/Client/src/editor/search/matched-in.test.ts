@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { MessageCell, MessageKey } from "../../api/generated/models.js";
-import { matchedElsewhere, matchedIn, type MatchedInOptions } from "./matched-in.js";
+import { type MatchedInOptions, matchedElsewhere, matchedIn } from "./matched-in.js";
 
 const cell = (locale: string, value: string): MessageCell => ({
-  id: `m-${locale}`, locale, defaultValue: value, overrideValue: null,
-  hasOverride: false, needsReview: false, truncated: false, state: "Default",
-  version: null, updatedAt: null, updatedBy: null,
+  id: `m-${locale}`,
+  locale,
+  defaultValue: value,
+  overrideValue: null,
+  hasOverride: false,
+  needsReview: false,
+  truncated: false,
+  state: "Default",
+  version: null,
+  updatedAt: null,
+  updatedBy: null,
 });
 
 const key = ({
@@ -28,7 +36,10 @@ const key = ({
 });
 
 const names: Record<string, string> = {
-  "da-dk": "Danish", "en-us": "English", "de-de": "German", "sv-se": "Swedish",
+  "da-dk": "Danish",
+  "en-us": "English",
+  "de-de": "German",
+  "sv-se": "Swedish",
   "nb-no": "Norwegian",
 };
 
@@ -58,29 +69,37 @@ describe("matchedIn", () => {
   });
 
   it("names the quiet column when the hit is only there", () => {
-    expect(matchedIn(key({ matchedLocales: ["en-US"] }), options({ term: "cart" }))).toBe("matched in English");
+    expect(matchedIn(key({ matchedLocales: ["en-US"] }), options({ term: "cart" }))).toBe(
+      "matched in English"
+    );
   });
 
   it("names a language the list has no column for", () => {
     // The whole point of a locale-blind search: somebody was handed the German and has to fix the
     // Danish, and neither column would otherwise explain why this row came back.
-    expect(matchedIn(key({ matchedLocales: ["de-DE"] }), options({ term: "Warenkorb" }))).toBe("matched in German");
+    expect(matchedIn(key({ matchedLocales: ["de-DE"] }), options({ term: "Warenkorb" }))).toBe(
+      "matched in German"
+    );
   });
 
   it("names every one of them", () => {
     // A sentence somebody could have said, so the separator before the last one is a word and not
     // a comma -- and the rule for three of them is not the rule for two.
-    expect(matchedIn(key({ matchedLocales: ["de-DE", "sv-SE"] }), options({ term: "korg" })))
-      .toBe("matched in German and Swedish");
+    expect(matchedIn(key({ matchedLocales: ["de-DE", "sv-SE"] }), options({ term: "korg" }))).toBe(
+      "matched in German and Swedish"
+    );
 
-    expect(matchedIn(key({ matchedLocales: ["sv-SE", "nb-NO", "de-DE"] }), options({ term: "korg" })))
-      .toBe("matched in German, Norwegian, and Swedish");
+    expect(
+      matchedIn(key({ matchedLocales: ["sv-SE", "nb-NO", "de-DE"] }), options({ term: "korg" }))
+    ).toBe("matched in German, Norwegian, and Swedish");
   });
 
   it("names the key when no language matched at all", () => {
     // The words above the key look unrelated to what was typed, so the identifier is the only
     // thing that can have made this a result.
-    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "cart.empty" }))).toBe("matched in the key");
+    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "cart.empty" }))).toBe(
+      "matched in the key"
+    );
   });
 
   it("says nothing when nothing was searched for", () => {
@@ -111,8 +130,9 @@ describe("matchedIn", () => {
   it("names a language whose codes came back cased differently", () => {
     // The server returns the locale verbatim from the database row and treats case as
     // insignificant everywhere else; matching it exactly here would drop the language's name.
-    expect(matchedIn(key({ matchedLocales: ["DE-de"] }), options({ term: "Warenkorb" })))
-      .toBe("matched in German");
+    expect(matchedIn(key({ matchedLocales: ["DE-de"] }), options({ term: "Warenkorb" }))).toBe(
+      "matched in German"
+    );
   });
 
   /*
@@ -148,21 +168,31 @@ describe("matchedIn", () => {
   });
 
   it("matches the same text the highlight marks, case and all", () => {
-    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "CART.EMPTY" }))).toBe("matched in the key");
+    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "CART.EMPTY" }))).toBe(
+      "matched in the key"
+    );
   });
 });
 
 describe("matchedElsewhere", () => {
   it("counts only the languages with no column", () => {
-    expect(matchedElsewhere(key({ matchedLocales: ["en-US", "da-DK", "de-DE"] }), "x", ["da-DK", "en-US"]))
-      .toEqual(["de-DE"]);
+    expect(
+      matchedElsewhere(key({ matchedLocales: ["en-US", "da-DK", "de-DE"] }), "x", [
+        "da-DK",
+        "en-US",
+      ])
+    ).toEqual(["de-DE"]);
   });
 
   it("is empty with no search, whatever the server last said", () => {
-    expect(matchedElsewhere(key({ matchedLocales: ["de-DE"] }), "", ["da-DK", "en-US"])).toEqual([]);
+    expect(matchedElsewhere(key({ matchedLocales: ["de-DE"] }), "", ["da-DK", "en-US"])).toEqual(
+      []
+    );
   });
 
   it("treats a language nobody chose as one with no column", () => {
-    expect(matchedElsewhere(key({ matchedLocales: ["de-DE"] }), "x", ["da-DK", null])).toEqual(["de-DE"]);
+    expect(matchedElsewhere(key({ matchedLocales: ["de-DE"] }), "x", ["da-DK", null])).toEqual([
+      "de-DE",
+    ]);
   });
 });

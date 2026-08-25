@@ -1,8 +1,11 @@
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: Lit's @property and @state decorators assign these fields from outside the class, so the initializer is a default and not the only value they ever hold. The rule reads the initializer's literal type and calls every check on them constant.
+
+import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import {
-  LitElement,
   css,
   customElement,
   html,
+  LitElement,
   property,
 } from "@umbraco-cms/backoffice/external/lit";
 import type {
@@ -11,16 +14,24 @@ import type {
   UUISelectElement,
   UUIToggleElement,
 } from "@umbraco-cms/backoffice/external/uui";
-import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import type { UmbLanguageDetailModel } from "@umbraco-cms/backoffice/language";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import type { HttpHeaderOptions } from "../api/generated/models.js";
-import { headerValueSource, parseMessageFormat, parseNamespaceMode, parseSourceFormat, sourceAlias, unavailableLocales,
-  withHeaderValueSource, type HeaderValueSource, type SourceDraft } from "./app/source-form.js";
 import { messageFormatOptions } from "./app/format-options.js";
+import {
+  type HeaderValueSource,
+  headerValueSource,
+  parseMessageFormat,
+  parseNamespaceMode,
+  parseSourceFormat,
+  type SourceDraft,
+  sourceAlias,
+  unavailableLocales,
+  withHeaderValueSource,
+} from "./app/source-form.js";
 
 @customElement("thebuilder-translations-source-editor")
-export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement) {
+class TranslationsSourceEditorElement extends UmbElementMixin(LitElement) {
   @property({ attribute: false }) value!: SourceDraft;
   @property({ attribute: false }) languages: UmbLanguageDetailModel[] = [];
   @property({ type: Boolean }) saving = false;
@@ -30,24 +41,30 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
   @property({ attribute: false }) error?: string;
 
   #patch(patch: Partial<SourceDraft>): void {
-    this.dispatchEvent(new CustomEvent<SourceDraft>("source-change", {
-      detail: { ...this.value, ...patch },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent<SourceDraft>("source-change", {
+        detail: { ...this.value, ...patch },
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   #text(field: "displayName" | "alias" | "endpointTemplate" | "namespace", event: Event): void {
     const next = String((event.target as UUIInputElement).value ?? "");
     const patch: Partial<SourceDraft> = { [field]: next };
-    if (field === "displayName" && this.creating && (!this.value.alias || this.value.alias === sourceAlias(this.value.displayName))) {
+    if (
+      field === "displayName" &&
+      this.creating &&
+      (!this.value.alias || this.value.alias === sourceAlias(this.value.displayName))
+    ) {
       patch.alias = sourceAlias(next);
     }
     this.#patch(patch);
   }
 
   #toggleLocale(locale: string, event: Event): void {
-    const checked = (event.target as UUICheckboxElement).checked;
+    const { checked } = event.target as UUICheckboxElement;
     const locales = checked
       ? [...new Set([...this.value.locales, locale])]
       : this.value.locales.filter((item) => item !== locale);
@@ -56,14 +73,17 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
 
   #headerText(index: number, field: keyof HttpHeaderOptions, event: Event): void {
     const headers = [...this.value.headers];
-    headers[index] = { ...headers[index]!, [field]: String((event.target as UUIInputElement).value ?? "") };
+    headers[index] = {
+      ...headers[index],
+      [field]: String((event.target as UUIInputElement).value ?? ""),
+    };
     this.#patch({ headers });
   }
 
   /** Switching where a header's value comes from clears the field it is moving away from. */
   #headerSource(index: number, source: HeaderValueSource): void {
     const headers = [...this.value.headers];
-    headers[index] = withHeaderValueSource(headers[index]!, source);
+    headers[index] = withHeaderValueSource(headers[index], source);
     this.#patch({ headers });
   }
 
@@ -96,18 +116,33 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
   }
 
   render() {
-    const removedLocales = unavailableLocales(this.languages.map(language => language.unique), this.value.locales);
+    const removedLocales = unavailableLocales(
+      this.languages.map((language) => language.unique),
+      this.value.locales
+    );
     const namespaceOptions = [
-      { name: "Use the first JSON key as the namespace", value: "FirstSegment", selected: this.value.namespaceMode === "FirstSegment" },
-      { name: "Use one namespace for every message", value: "Fixed", selected: this.value.namespaceMode === "Fixed" },
+      {
+        name: "Use the first JSON key as the namespace",
+        value: "FirstSegment",
+        selected: this.value.namespaceMode === "FirstSegment",
+      },
+      {
+        name: "Use one namespace for every message",
+        value: "Fixed",
+        selected: this.value.namespaceMode === "Fixed",
+      },
     ];
     const formatOptions = messageFormatOptions(this.value.messageFormat);
     // What the file is, as opposed to what a message inside it is: both can hold ICU.
     const catalogOptions = [
-      { name: "Nested JSON", value: "NestedJson", selected: this.value.sourceFormat === "NestedJson" },
+      {
+        name: "Nested JSON",
+        value: "NestedJson",
+        selected: this.value.sourceFormat === "NestedJson",
+      },
       { name: "Gettext PO", value: "Po", selected: this.value.sourceFormat === "Po" },
     ];
-    const headers = this.value.headers;
+    const { headers } = this.value;
 
     return html`
       <form @submit=${(event: Event) => this.#submit(event)} novalidate>
@@ -147,7 +182,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
               <p class="help">Optional headers sent to the messages endpoint. Each one holds its value, or names a server setting to read it from.</p>
             </div>
 
-            ${this.value.secretName ? html`
+            ${
+              this.value.secretName
+                ? html`
               <div class="legacy-auth" role="status">
                 <div>
                   <strong>Legacy bearer authentication</strong>
@@ -155,9 +192,13 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                 </div>
                 <uui-button type="button" look="secondary" label="Remove legacy bearer authentication" @click=${() => this.#patch({ secretName: undefined })}>Remove</uui-button>
               </div>
-            ` : ""}
+            `
+                : ""
+            }
 
-            ${headers.length > 0 ? html`
+            ${
+              headers.length > 0
+                ? html`
               <div class="headers-list" role="group" aria-label="Custom request headers">
                 <div class="header-row headers-heading" aria-hidden="true">
                   <strong>Name</strong><strong>Value</strong><span></span>
@@ -179,7 +220,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                     </div>
                     <div class="header-field">
                       <span class="row-label">${secret ? "Setting name" : "Value"}</span>
-                      ${secret ? html`
+                      ${
+                        secret
+                          ? html`
                         <uui-input
                           label=${`Value setting name ${index + 1}`}
                           placeholder="Translations:SourceApiKey"
@@ -187,7 +230,8 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                           .value=${header.valueConfigurationKey ?? ""}
                           @input=${(event: Event) => this.#headerText(index, "valueConfigurationKey", event)}>
                         </uui-input>
-                      ` : html`
+                      `
+                          : html`
                         <uui-input
                           label=${`Header value ${index + 1}`}
                           placeholder="application/json"
@@ -195,7 +239,8 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                           .value=${header.value ?? ""}
                           @input=${(event: Event) => this.#headerText(index, "value", event)}>
                         </uui-input>
-                      `}
+                      `
+                      }
                       <!-- The switch sits under the field it changes, so what it does is visible
                            before it is pressed rather than after. -->
                       <button
@@ -207,10 +252,13 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                     </div>
                     <uui-button type="button" look="default" color="default" label=${`Remove request header ${index + 1}`} @click=${() => this.#removeHeader(index)}>Remove</uui-button>
                   </div>
-                `;})}
+                `;
+                })}
               </div>
               <p class="help">Keep secrets in a setting: a value typed here is stored in the database in plain text. For example, use <code>X-Api-Key</code> with <code>Translations:SourceApiKey</code>. For bearer authentication, use <code>Authorization</code> and set its value to <code>Bearer your-token</code>.</p>
-            ` : ""}
+            `
+                : ""
+            }
 
             <uui-button id="add" type="button" look="placeholder" color="default" label="Add request header" @click=${() => this.#addHeader()}>Add</uui-button>
           </section>
@@ -218,27 +266,37 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
           <fieldset>
             <legend>Site languages</legend>
             <p class="help language-help">A new source starts with every Umbraco language ticked. Untick the ones this endpoint does not supply.</p>
-            ${this.languages.length === 0
-              ? html`<p class="empty">Umbraco has no languages set up.</p>`
-              : html`<div class="language-list">${this.languages.map(language => html`
+            ${
+              this.languages.length === 0
+                ? html`<p class="empty">Umbraco has no languages set up.</p>`
+                : html`<div class="language-list">${this.languages.map(
+                    (language) => html`
                   <uui-checkbox
                     label=${language.name}
                     ?checked=${this.value.locales.includes(language.unique)}
                     @change=${(event: Event) => this.#toggleLocale(language.unique, event)}>
                     <span>${language.name}</span><small>${language.unique}${language.isDefault ? " · Default" : ""}</small>
                   </uui-checkbox>
-                `)}</div>`}
-            ${removedLocales.length > 0 ? html`
+                `
+                  )}</div>`
+            }
+            ${
+              removedLocales.length > 0
+                ? html`
               <div class="unavailable-locales" role="status">
                 <p><strong>Languages no longer configured in Umbraco</strong></p>
                 <p class="help">Saved on this source before someone removed them from Umbraco. Untick them if the endpoint no longer supplies them.</p>
-                <div class="language-list">${removedLocales.map(locale => html`
+                <div class="language-list">${removedLocales.map(
+                  (locale) => html`
                   <uui-checkbox label=${locale} checked @change=${(event: Event) => this.#toggleLocale(locale, event)}>
                     <span>${locale}</span><small>Not available on this site</small>
                   </uui-checkbox>
-                `)}</div>
+                `
+                )}</div>
               </div>
-            ` : ""}
+            `
+                : ""
+            }
           </fieldset>
 
           <div class="two-column">
@@ -258,7 +316,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
               </div>
             </uui-form-layout-item>
 
-            ${this.value.namespaceMode === "Fixed" ? html`
+            ${
+              this.value.namespaceMode === "Fixed"
+                ? html`
               <uui-form-layout-item>
                 <uui-label slot="label" for="namespace" required>Namespace</uui-label>
                 <div class="field-control">
@@ -266,7 +326,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
                   <span class="help">Every message from this source gets this namespace.</span>
                 </div>
               </uui-form-layout-item>
-            ` : ""}
+            `
+                : ""
+            }
 
             <uui-form-layout-item>
               <uui-label slot="label" for="message-format">Message syntax</uui-label>
@@ -321,7 +383,9 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
     `;
   }
 
-  static styles = [UmbTextStyles, css`
+  static styles = [
+    UmbTextStyles,
+    css`
     :host { display: block; }
     form { margin: 0; }
     fieldset.form-fields { border: 0; margin: 0; min-inline-size: 0; padding: 0; }
@@ -377,7 +441,8 @@ export class TranslationsSourceEditorElement extends UmbElementMixin(LitElement)
     .error { align-items: center; color: var(--uui-color-danger); display: flex; gap: var(--uui-size-space-2); margin: var(--uui-size-space-4) 0 0; }
     .empty { color: var(--uui-color-danger); }
     @media (max-width: 800px) { .primary-grid, .two-column, .advanced-grid { grid-template-columns: 1fr; } .legacy-auth { align-items: stretch; flex-direction: column; } .header-row { align-items: stretch; grid-template-columns: 1fr; } .headers-heading { display: none; } .row-label { display: inline; } .delete-action { margin-inline-start: 0; } }
-  `];
+  `,
+  ];
 }
 
 declare global {

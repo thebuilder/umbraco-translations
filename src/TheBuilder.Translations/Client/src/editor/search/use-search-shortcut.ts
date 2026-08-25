@@ -16,12 +16,18 @@ import { useEffect } from "react";
 export const useSearchShortcut = (focus: () => void) => {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
+      if (event.defaultPrevented) {
+        return;
+      }
 
       const shortcut = event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey);
       const slash = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey;
-      if (!shortcut && !slash) return;
-      if (slash && isTyping(event)) return;
+      if (!(shortcut || slash)) {
+        return;
+      }
+      if (slash && isTyping(event)) {
+        return;
+      }
 
       event.preventDefault();
       focus();
@@ -33,9 +39,13 @@ export const useSearchShortcut = (focus: () => void) => {
 };
 
 const isTyping = (event: KeyboardEvent): boolean =>
-  event.composedPath().some((target) =>
-    target instanceof HTMLElement &&
-    (target.isContentEditable ||
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement));
+  event
+    .composedPath()
+    .some(
+      (target) =>
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement)
+    );

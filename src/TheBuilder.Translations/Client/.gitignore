@@ -1,0 +1,6 @@
+node_modules/
+.vite/
+
+# Vitest writes these on every run: attachments from annotated tests, keyed by content hash.
+# The visual baselines the tests actually assert against live in src/**/__screenshots__.
+.vitest-attachments/

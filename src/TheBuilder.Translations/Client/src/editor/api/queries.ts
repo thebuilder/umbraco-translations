@@ -1,11 +1,16 @@
-import { keepPreviousData, useInfiniteQuery, useQuery, type UseInfiniteQueryResult } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  type UseInfiniteQueryResult,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../../api/generated/client.js";
-import type { MessageKey, MessageKeyList } from "../../api/generated/models.js";
+import type { MessageKey, MessageKeyList, MessageKeySort } from "../../api/generated/models.js";
 import type { EditorFilters } from "../state/filters.js";
 import { sameLocale } from "../state/locales.js";
-import { queryKeys } from "./keys.js";
 import { flattenKeys, nextPageParam, totalOf } from "./cache.js";
+import { queryKeys } from "./keys.js";
 
 /** One page at a time, appended as the grid scrolls. */
 export const PAGE_SIZE = 100;
@@ -19,27 +24,30 @@ export const PAGE_SIZE = 100;
  */
 export interface KeyRows {
   keys: MessageKey[];
-  total: number;
   query: UseInfiniteQueryResult<{ pages: MessageKeyList[] }, Error>;
+  total: number;
 }
 
 export const useKeyRows = (filters: EditorFilters): KeyRows => {
   const query = useInfiniteQuery({
     queryKey: queryKeys.keyList(filters),
     queryFn: ({ pageParam, signal }) =>
-      api.messageKeys({
-        locale: filters.locale ?? undefined,
-        referenceLocale: filters.referenceLocale ?? undefined,
-        compare: [...filters.compare],
-        namespace: filters.namespace ?? undefined,
-        keyPrefix: filters.keyPrefix ?? undefined,
-        query: filters.query || undefined,
-        status: filters.status,
-        sort: sortOf(filters.sort),
-        direction: filters.direction === "desc" ? "Descending" : "Ascending",
-        page: pageParam,
-        pageSize: PAGE_SIZE,
-      }, signal),
+      api.messageKeys(
+        {
+          locale: filters.locale ?? undefined,
+          referenceLocale: filters.referenceLocale ?? undefined,
+          compare: [...filters.compare],
+          namespace: filters.namespace ?? undefined,
+          keyPrefix: filters.keyPrefix ?? undefined,
+          query: filters.query || undefined,
+          status: filters.status,
+          sort: sortOf(filters.sort),
+          direction: filters.direction === "desc" ? "Descending" : "Ascending",
+          page: pageParam,
+          pageSize: PAGE_SIZE,
+        },
+        signal
+      ),
     initialPageParam: 1,
     getNextPageParam: nextPageParam,
     // Keeps the previous filter's rows on screen while the next query runs, so changing a filter
@@ -75,28 +83,37 @@ export const useKeyLocales = (
   target: { sourceId: string; namespace: string; key: string } | undefined,
   keySet: { locale: string; referenceLocale: string },
   locales: readonly string[],
-  enabled: boolean,
+  enabled: boolean
 ) =>
   useQuery({
     queryKey: queryKeys.keyLocales(
       target?.sourceId ?? "",
       target?.namespace ?? "",
       target?.key ?? "",
-      `${keySet.locale}|${keySet.referenceLocale}`,
+      `${keySet.locale}|${keySet.referenceLocale}`
     ),
     enabled: enabled && target !== undefined && locales.length > 0,
     queryFn: async ({ signal }) => {
-      const page = await api.messageKeys({
-        sourceId: target!.sourceId,
-        namespace: target!.namespace,
-        keyPrefix: target!.key,
-        locale: keySet.locale,
-        referenceLocale: keySet.referenceLocale,
-        compare: locales.filter((code) =>
-          !sameLocale(code, keySet.locale) && !sameLocale(code, keySet.referenceLocale)),
-        pageSize: KEY_TREE_PAGE_SIZE,
-      }, signal);
-      return page.items.find((item) => item.key === target!.key) ?? null;
+      // Unreachable while `enabled` holds; narrowing here rather than asserting keeps that
+      // agreement between the two options checked instead of assumed.
+      if (!target) {
+        return null;
+      }
+      const page = await api.messageKeys(
+        {
+          sourceId: target.sourceId,
+          namespace: target.namespace,
+          keyPrefix: target.key,
+          locale: keySet.locale,
+          referenceLocale: keySet.referenceLocale,
+          compare: locales.filter(
+            (code) => !(sameLocale(code, keySet.locale) || sameLocale(code, keySet.referenceLocale))
+          ),
+          pageSize: KEY_TREE_PAGE_SIZE,
+        },
+        signal
+      );
+      return page.items.find((item) => item.key === target.key) ?? null;
     },
   });
 
@@ -118,7 +135,7 @@ export const usePermissions = () =>
     queryKey: queryKeys.permissions(),
     queryFn: ({ signal }) => api.permissions(signal),
     // Permissions change with the user, and the entry point clears the cache when auth changes.
-    staleTime: Infinity,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 
 /**
@@ -130,8 +147,13 @@ export const useSyncStatus = () =>
     queryKey: queryKeys.sources(),
     queryFn: ({ signal }) => api.sources(signal),
     refetchInterval: (query) =>
-      query.state.data?.some((source) => source.syncInProgress) ? 4_000 : false,
+      query.state.data?.some((source) => source.syncInProgress) ? 4000 : false,
   });
 
-const sortOf = (sort: EditorFilters["sort"]) =>
-  sort === "updatedAt" ? "UpdatedAt" as const : sort === "status" ? "Status" as const : "Key" as const;
+const SORT_FIELDS = {
+  key: "Key",
+  status: "Status",
+  updatedAt: "UpdatedAt",
+} as const satisfies Record<EditorFilters["sort"], MessageKeySort>;
+
+const sortOf = (sort: EditorFilters["sort"]) => SORT_FIELDS[sort];

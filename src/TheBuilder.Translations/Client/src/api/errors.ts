@@ -5,16 +5,19 @@
  * value is invalid", so responses are unwrapped here instead.
  */
 export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-    readonly code?: string,
-    readonly body?: unknown,
-  ) {
+  readonly status: number;
+  readonly code?: string;
+  readonly body?: unknown;
+
+  constructor(status: number, message: string, code?: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.body = body;
   }
 
+  // fallow-ignore-next-line unused-class-member -- read by conflictOf() below and by errors.test.ts; only the type-aware pass resolves a getter reached through an `instanceof` narrowing
   get isConflict(): boolean {
     return this.status === 409;
   }
@@ -23,6 +26,7 @@ export class ApiError extends Error {
     return this.status === 403;
   }
 
+  // fallow-ignore-next-line unused-class-member -- asserted in errors.test.ts; same type-aware limitation as isConflict
   get isValidation(): boolean {
     return this.status === 400;
   }
@@ -31,15 +35,18 @@ export class ApiError extends Error {
 /** The 409 body from the message endpoints, so a conflict can be reconciled without a refetch. */
 export interface MessageConflict {
   code: string;
-  message: string;
-  currentVersion?: number | null;
   currentValue?: string | null;
+  currentVersion?: number | null;
+  message: string;
   updatedAt?: string | null;
   updatedBy?: string | null;
 }
 
 export const conflictOf = (error: unknown): MessageConflict | undefined =>
-  error instanceof ApiError && error.isConflict && isRecord(error.body) && typeof error.body.code === "string"
+  error instanceof ApiError &&
+  error.isConflict &&
+  isRecord(error.body) &&
+  typeof error.body.code === "string"
     ? (error.body as unknown as MessageConflict)
     : undefined;
 
@@ -60,10 +67,20 @@ interface ApiResult<T> {
  */
 export const unwrap = async <T>(result: Promise<ApiResult<T>>): Promise<T> => {
   const { data, error, response } = await result;
-  if (!response) throw new ApiError(0, messageOf(error) || "The request did not reach the server.", codeOf(error), error);
+  if (!response) {
+    throw new ApiError(
+      0,
+      messageOf(error) || "The request did not reach the server.",
+      codeOf(error),
+      error
+    );
+  }
   if (!response.ok) {
     // A message is always produced: an empty string here would surface as a blank error in the UI.
-    const message = messageOf(error) || response.statusText || `The request failed with status ${response.status}.`;
+    const message =
+      messageOf(error) ||
+      response.statusText ||
+      `The request failed with status ${response.status}.`;
     throw new ApiError(response.status, message, codeOf(error), error);
   }
   return data as T;
@@ -78,12 +95,18 @@ const codeOf = (body: unknown): string | undefined =>
 // ASP.NET returns bare strings from BadRequest(string) and objects from ProblemDetails, so both
 // shapes have to be unwrapped before falling back to the status text.
 const messageOf = (body: unknown): string => {
-  if (typeof body === "string") return summarise(body);
-  if (body instanceof Error) return summarise(body.message);
+  if (typeof body === "string") {
+    return summarise(body);
+  }
+  if (body instanceof Error) {
+    return summarise(body.message);
+  }
   if (isRecord(body)) {
     for (const key of ["message", "detail", "title"] as const) {
       const value = body[key];
-      if (typeof value === "string" && value.length > 0) return summarise(value);
+      if (typeof value === "string" && value.length > 0) {
+        return summarise(value);
+      }
     }
   }
   return "";
@@ -103,6 +126,6 @@ const READABLE = 300;
  * `ApiError.body` for anything that wants it.
  */
 const summarise = (message: string): string => {
-  const first = message.split("\n", 1)[0]!.trim();
+  const first = message.split("\n", 1)[0].trim();
   return first.length > READABLE ? `${first.slice(0, READABLE - 1).trimEnd()}…` : first;
 };

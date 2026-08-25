@@ -4,7 +4,14 @@
   "packageManager": "pnpm@11.13.0",
   "scripts": {
     "build": "pnpm --dir src/TheBuilder.Translations/Client build",
-    "check": "pnpm --dir src/TheBuilder.Translations/Client check",
-    "test": "pnpm --dir src/TheBuilder.Translations/Client test"
+    "check": "pnpm --dir src/TheBuilder.Translations/Client check && pnpm run deadcode",
+    "lint": "pnpm --dir src/TheBuilder.Translations/Client lint",
+    "fix": "pnpm --dir src/TheBuilder.Translations/Client fix",
+    "test": "pnpm --dir src/TheBuilder.Translations/Client test",
+    "deadcode": "fallow dead-code",
+    "audit-changes": "fallow audit --base main"
+  },
+  "devDependencies": {
+    "fallow": "^3.17.0"
   }
 }

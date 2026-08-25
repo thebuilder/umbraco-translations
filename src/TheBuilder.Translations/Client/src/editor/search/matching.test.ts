@@ -6,8 +6,12 @@ const rendered = (parts: { text: string; match: boolean }[]) =>
 
 describe("splitOnMatch", () => {
   it("leaves text alone when nothing is being searched for", () => {
-    expect(splitOnMatch("Din kurv er tom", "")).toEqual([{ text: "Din kurv er tom", match: false }]);
-    expect(splitOnMatch("Din kurv er tom", "   ")).toEqual([{ text: "Din kurv er tom", match: false }]);
+    expect(splitOnMatch("Din kurv er tom", "")).toEqual([
+      { text: "Din kurv er tom", match: false },
+    ]);
+    expect(splitOnMatch("Din kurv er tom", "   ")).toEqual([
+      { text: "Din kurv er tom", match: false },
+    ]);
   });
 
   it("marks a hit in the middle", () => {
@@ -25,13 +29,17 @@ describe("splitOnMatch", () => {
   });
 
   it("treats the term literally, because a regular expression would not survive a text field", () => {
-    expect(rendered(splitOnMatch("cart.empty and cartXempty", "cart.empty"))).toBe("[cart.empty] and cartXempty");
+    expect(rendered(splitOnMatch("cart.empty and cartXempty", "cart.empty"))).toBe(
+      "[cart.empty] and cartXempty"
+    );
     expect(rendered(splitOnMatch("a (b) c", "(b)"))).toBe("a [(b)] c");
     expect(rendered(splitOnMatch("100% done", "100%"))).toBe("[100%] done");
   });
 
   it("returns the whole text as one unmatched run when there is no hit", () => {
-    expect(splitOnMatch("Din kurv er tom", "zzz")).toEqual([{ text: "Din kurv er tom", match: false }]);
+    expect(splitOnMatch("Din kurv er tom", "zzz")).toEqual([
+      { text: "Din kurv er tom", match: false },
+    ]);
   });
 
   it("handles a hit at each end", () => {
@@ -46,7 +54,11 @@ describe("splitOnMatch", () => {
   it("never loses characters, whatever the split", () => {
     const text = "Vis alle {count} søgemuligheder";
     for (const term of ["", "vis", "{count}", "øge", "zzz", "  "]) {
-      expect(splitOnMatch(text, term).map((part) => part.text).join("")).toBe(text);
+      expect(
+        splitOnMatch(text, term)
+          .map((part) => part.text)
+          .join("")
+      ).toBe(text);
     }
   });
 });

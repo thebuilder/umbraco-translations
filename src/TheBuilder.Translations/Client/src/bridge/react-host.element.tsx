@@ -1,17 +1,19 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createElement, type ComponentType } from "react";
+import { type ComponentType, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { BackofficeBridge } from "./backoffice-bridge.js";
 import styles from "../styles.css?inline";
+import type { BackofficeBridge } from "./backoffice-bridge.js";
 
 /**
  * Shared across mounts on purpose. The backoffice destroys and recreates the host element on every
  * section-view switch, so a per-instance client would mean a cold cache and a full refetch every
  * time an editor tabs away and back. The entry point clears it on unload and on auth change.
  */
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } });
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 15_000, retry: 1 } },
+});
 
 export const resetQueryCache = (): void => queryClient.clear();
 
@@ -25,22 +27,27 @@ export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
     // single-argument call becomes the message alone. Defaulting the message to the headline
     // printed the same sentence twice.
     notify: (type, headline, message) =>
-      this.#notification?.peek(type, { data: message ? { headline, message } : { message: headline } }),
+      this.#notification?.peek(type, {
+        data: message ? { headline, message } : { message: headline },
+      }),
   };
   #notification?: typeof UMB_NOTIFICATION_CONTEXT.TYPE;
   #root?: Root;
 
   protected abstract component: ComponentType<{ bridge: BackofficeBridge }>;
 
-
   constructor() {
     super();
-    this.consumeContext(UMB_NOTIFICATION_CONTEXT, (context) => { this.#notification = context; });
+    this.consumeContext(UMB_NOTIFICATION_CONTEXT, (context) => {
+      this.#notification = context;
+    });
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
-    if (this.#root) return;
+    if (this.#root) {
+      return;
+    }
     const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" });
     shadow.adoptedStyleSheets = [styleSheet];
     const mount = document.createElement("div");
@@ -51,12 +58,17 @@ export abstract class ReactHostElement extends UmbElementMixin(HTMLElement) {
   }
 
   #render(): void {
-    if (!this.#root) return;
+    if (!this.#root) {
+      return;
+    }
     this.#root.render(
-      createElement(QueryClientProvider, { client: queryClient },
-        createElement(this.component, { bridge: this.#bridge })));
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(this.component, { bridge: this.#bridge })
+      )
+    );
   }
-
 
   override disconnectedCallback(): void {
     this.#root?.unmount();

@@ -3,8 +3,14 @@ import type { LocaleFacet } from "../../api/generated/models.js";
 import { defaultLocale } from "./locales.js";
 
 const locale = (code: string, overrides: Partial<LocaleFacet> = {}): LocaleFacet => ({
-  code, name: code, isDefault: false, isConfigured: true,
-  messageCount: 0, overriddenCount: 0, needsReviewCount: 0, absentKeyCount: 0,
+  code,
+  name: code,
+  isDefault: false,
+  isConfigured: true,
+  messageCount: 0,
+  overriddenCount: 0,
+  needsReviewCount: 0,
+  absentKeyCount: 0,
   ...overrides,
 });
 

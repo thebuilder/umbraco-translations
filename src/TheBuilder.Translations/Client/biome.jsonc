@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/react", "ultracite/biome/vitest"],
+  "files": {
+    // Regenerated wholesale by `pnpm generate-client`; edits there do not survive.
+    "includes": ["!src/api/openapi"]
+  },
+  // The codebase is written to 100 columns, including its hand-wrapped explanatory
+  // comments. Reflowing to Ultracite's default 80 would rewrap prose, not just code.
+  "formatter": { "lineWidth": 100 },
+  "css": { "formatter": { "lineWidth": 100 } },
+  "json": { "formatter": { "lineWidth": 100 } },
+  "linter": {
+    "rules": {
+      "performance": {
+        // The rule pays off when the receiving component is memoized, so a new closure each render
+        // forces a re-render. Nothing here is: every one of the 36 sites it flagged passes a handler
+        // to a plain DOM element or an unmemoized component, where a fresh closure costs one
+        // assignment and no render at all. Revisit if React.memo arrives.
+        "noJsxPropsBind": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        // Object key order is observable here. describeOverride() lists an application's
+        // placeholders in the order the application declares them, so alphabetizing the
+        // literals that stand in for that order rewrites what the message says.
+        "useSortedKeys": "off",
+        // Reordering CSS declarations drops the comments written above them, and the
+        // sheet relies on shorthand-then-longhand order in places.
+        "useSortedProperties": "off"
+      }
+    }
+  }
+}

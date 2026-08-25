@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { Source } from "../../api/generated/models.js";
-import { createEmptySource, deliveryEndpoint, headerIsComplete, headerValueSource, parseNamespaceMode, parseSourceFormat, sourceAlias, sourceEndpoint, sourceRequest, unavailableLocales, withHeaderValueSource, hasLocaleToken } from "./source-form.js";
+import {
+  createEmptySource,
+  deliveryEndpoint,
+  hasLocaleToken,
+  headerIsComplete,
+  headerValueSource,
+  parseNamespaceMode,
+  parseSourceFormat,
+  sourceAlias,
+  sourceEndpoint,
+  sourceRequest,
+  unavailableLocales,
+  withHeaderValueSource,
+} from "./source-form.js";
 
 describe("translation source form", () => {
   it("starts with generic package defaults and every configured site locale", () => {
@@ -44,13 +57,17 @@ describe("translation source form", () => {
     expect(headerValueSource(direct)).toBe("value");
 
     // And back again, without carrying the abandoned field along.
-    expect(withHeaderValueSource({ name: "X-Tenant", value: "acme" }, "setting"))
-      .toEqual({ name: "X-Tenant", valueConfigurationKey: "" });
+    expect(withHeaderValueSource({ name: "X-Tenant", value: "acme" }, "setting")).toEqual({
+      name: "X-Tenant",
+      valueConfigurationKey: "",
+    });
   });
 
   it("treats a row as unfinished until the side it is on is filled in", () => {
     expect(headerIsComplete({ name: "X-Tenant", value: "acme" })).toBe(true);
-    expect(headerIsComplete({ name: "X-Api-Key", valueConfigurationKey: "Translations:ApiKey" })).toBe(true);
+    expect(
+      headerIsComplete({ name: "X-Api-Key", valueConfigurationKey: "Translations:ApiKey" })
+    ).toBe(true);
 
     expect(headerIsComplete({ name: "", value: "acme" })).toBe(false);
     expect(headerIsComplete({ name: "X-Tenant", value: "  " })).toBe(false);
@@ -78,28 +95,51 @@ describe("translation source form", () => {
   });
 
   it("builds the external source API URL for a locale", () => {
-    expect(sourceEndpoint("https://translations.example/api/{locale}", "pt/BR"))
-      .toBe("https://translations.example/api/pt%2FBR");
+    expect(sourceEndpoint("https://translations.example/api/{locale}", "pt/BR")).toBe(
+      "https://translations.example/api/pt%2FBR"
+    );
   });
 
   it("builds the Umbraco override API URL for a locale", () => {
-    expect(deliveryEndpoint("https://cms.example/umbraco/section/settings", "pt-BR", "website"))
-      .toBe("https://cms.example/umbraco/delivery/api/v1/translations/overrides?locale=pt-BR&namespace=website&format=next-intl");
+    expect(
+      deliveryEndpoint("https://cms.example/umbraco/section/settings", "pt-BR", "website")
+    ).toBe(
+      "https://cms.example/umbraco/delivery/api/v1/translations/overrides?locale=pt-BR&namespace=website&format=next-intl"
+    );
   });
 
   it("preserves an application path base in the Umbraco override API URL", () => {
-    expect(deliveryEndpoint("https://cms.example/cms/umbraco/section/settings?tab=sources", "da", "shared"))
-      .toBe("https://cms.example/cms/umbraco/delivery/api/v1/translations/overrides?locale=da&namespace=shared&format=next-intl");
+    expect(
+      deliveryEndpoint(
+        "https://cms.example/cms/umbraco/section/settings?tab=sources",
+        "da",
+        "shared"
+      )
+    ).toBe(
+      "https://cms.example/cms/umbraco/delivery/api/v1/translations/overrides?locale=da&namespace=shared&format=next-intl"
+    );
   });
 
   it("builds the effective translation API URL", () => {
-    expect(deliveryEndpoint("https://cms.example/umbraco/section/settings", "en", "website", "all"))
-      .toBe("https://cms.example/umbraco/delivery/api/v1/translations/all?locale=en&namespace=website&format=next-intl");
+    expect(
+      deliveryEndpoint("https://cms.example/umbraco/section/settings", "en", "website", "all")
+    ).toBe(
+      "https://cms.example/umbraco/delivery/api/v1/translations/all?locale=en&namespace=website&format=next-intl"
+    );
   });
 
   it("builds an i18next v4 output URL", () => {
-    expect(deliveryEndpoint("https://cms.example/umbraco/section/settings", "en", "website", "all", "i18next-v4"))
-      .toBe("https://cms.example/umbraco/delivery/api/v1/translations/all?locale=en&namespace=website&format=i18next-v4");
+    expect(
+      deliveryEndpoint(
+        "https://cms.example/umbraco/section/settings",
+        "en",
+        "website",
+        "all",
+        "i18next-v4"
+      )
+    ).toBe(
+      "https://cms.example/umbraco/delivery/api/v1/translations/all?locale=en&namespace=website&format=i18next-v4"
+    );
   });
 
   it("preserves header configuration references when editing a source", () => {
@@ -141,13 +181,15 @@ describe("translation source form", () => {
 
 describe("locale tokens", () => {
   it("expands {language} to the subtag so a region-less source resolves", () => {
-    expect(sourceEndpoint("https://app/messages/{language}.json", "en-US"))
-      .toBe("https://app/messages/en.json");
+    expect(sourceEndpoint("https://app/messages/{language}.json", "en-US")).toBe(
+      "https://app/messages/en.json"
+    );
   });
 
   it("expands both tokens in one template", () => {
-    expect(sourceEndpoint("https://app/{language}/{locale}.json", "pt-BR"))
-      .toBe("https://app/pt/pt-BR.json");
+    expect(sourceEndpoint("https://app/{language}/{locale}.json", "pt-BR")).toBe(
+      "https://app/pt/pt-BR.json"
+    );
   });
 
   it("accepts either token as naming a locale", () => {

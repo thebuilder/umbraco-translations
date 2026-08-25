@@ -3,11 +3,11 @@ import type { MessageCell, MessageLocaleState } from "../../api/generated/models
 export interface CellStatus {
   /** Custom text has been written here. A word in a quiet voice, never a badge. */
   custom: boolean;
+  /** Which of the two deciding states it is, so they can be told apart by colour as well as words. */
+  state: MessageLocaleState | null;
   /** Said with real presence only when the editor has to decide something about it. */
   text: string | null;
   warning: boolean;
-  /** Which of the two deciding states it is, so they can be told apart by colour as well as words. */
-  state: MessageLocaleState | null;
 }
 
 /**
@@ -25,11 +25,18 @@ export interface CellStatus {
  */
 export const cellStatus = (cell: MessageCell | undefined): CellStatus => {
   // Nothing to mark: the value itself renders as "Not written", which already says it.
-  if (!cell) return { custom: false, text: null, warning: false, state: null };
+  if (!cell) {
+    return { custom: false, text: null, warning: false, state: null };
+  }
 
   switch (cell.state) {
     case "NeedsReview":
-      return { custom: cell.hasOverride, text: "App text changed", warning: true, state: "NeedsReview" };
+      return {
+        custom: cell.hasOverride,
+        text: "App text changed",
+        warning: true,
+        state: "NeedsReview",
+      };
     case "Removed":
       return { custom: cell.hasOverride, text: "Gone from app", warning: true, state: "Removed" };
     case "Overridden":
@@ -41,7 +48,7 @@ export const cellStatus = (cell: MessageCell | undefined): CellStatus => {
 
 /** Counts for the summary line, so an editor can see the shape of the work before scrolling. */
 export const summarise = (
-  cells: readonly (MessageCell | undefined)[],
+  cells: readonly (MessageCell | undefined)[]
 ): { customised: number; needsReview: number; missing: number } => ({
   customised: cells.filter((cell) => cell?.hasOverride && cell.state !== "Removed").length,
   needsReview: cells.filter((cell) => cell?.state === "NeedsReview").length,

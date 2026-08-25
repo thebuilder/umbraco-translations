@@ -1,3 +1,6 @@
+// biome-ignore-all lint/a11y/useSemanticElements: A stand-in for the real grid in key-grid.tsx, which is div-based for the reasons documented there. Using table elements here would test a different thing than the component under test.
+// biome-ignore-all lint/a11y/useFocusableInteractive: These tests exist to assert the roving tabindex, which cellProps applies; a static tabIndex on every row would defeat what is being measured.
+
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useGridNavigation } from "./use-grid-navigation.js";
@@ -8,7 +11,13 @@ afterEach(cleanup);
 const BOTH_LOCALES = ["lead", "second"];
 
 /** A grid small enough to assert on, rendering every row so focus can be observed directly. */
-const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, onActivate = () => {}, expose }: {
+const Grid = ({
+  rowCount = 5,
+  columns = BOTH_LOCALES,
+  scrollToRow = vi.fn(),
+  onActivate = vi.fn(),
+  expose,
+}: {
   rowCount?: number;
   columns?: string[];
   scrollToRow?: (row: number) => void;
@@ -16,12 +25,19 @@ const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, on
   /** Hands the restore callback out, standing in for the editor drawer closing. */
   expose?: (restoreFocus: (row?: number) => void) => void;
 }) => {
-  const { onKeyDown, cellProps, focus, restoreFocus } = useGridNavigation({ rowCount, columns, scrollToRow, onActivate });
+  const { onKeyDown, cellProps, focus, restoreFocus } = useGridNavigation({
+    rowCount,
+    columns,
+    scrollToRow,
+    onActivate,
+  });
   expose?.(restoreFocus);
+  // The row number is the row's identity here: these tests assert which one holds focus.
+  const rows = Array.from({ length: rowCount }, (_, index) => index);
   return (
-    <div role="grid" onKeyDown={onKeyDown} data-focus={`${focus.row}:${focus.column}`}>
-      {Array.from({ length: rowCount }, (_, row) => (
-        <div role="row" key={row}>
+    <div data-focus={`${focus.row}:${focus.column}`} onKeyDown={onKeyDown} role="grid">
+      {rows.map((row) => (
+        <div key={`row-${row}`} role="row">
           {columns.map((column) => (
             <span key={column} {...cellProps(row, column)} data-testid={`${row}:${column}`} />
           ))}
@@ -32,7 +48,9 @@ const Grid = ({ rowCount = 5, columns = BOTH_LOCALES, scrollToRow = () => {}, on
 };
 
 const press = (grid: HTMLElement, key: string, init: object = {}) =>
-  act(() => void fireEvent.keyDown(grid, { key, ...init }));
+  act(() => {
+    fireEvent.keyDown(grid, { key, ...init });
+  });
 
 describe("useGridNavigation", () => {
   it("starts on the column being edited, which is where the work is", () => {
@@ -43,7 +61,7 @@ describe("useGridNavigation", () => {
 
   it("moves between rows and columns", () => {
     const { container } = render(<Grid />);
-    const grid = container.querySelector("[role=grid]")!;
+    const grid = container.querySelector("[role=grid]");
 
     press(grid as HTMLElement, "ArrowDown");
     expect(grid).toHaveProperty("dataset.focus", "1:lead");
@@ -63,7 +81,9 @@ describe("useGridNavigation", () => {
     press(grid, "ArrowLeft");
     expect(grid).toHaveProperty("dataset.focus", "0:lead");
 
-    for (let i = 0; i < 10; i++) press(grid, "ArrowDown");
+    for (let i = 0; i < 10; i += 1) {
+      press(grid, "ArrowDown");
+    }
     expect(grid).toHaveProperty("dataset.focus", "2:lead");
   });
 
@@ -82,8 +102,9 @@ describe("useGridNavigation", () => {
   it("keeps exactly one cell in the tab order", () => {
     const { container } = render(<Grid rowCount={3} />);
 
-    const tabbable = [...container.querySelectorAll("[role=gridcell]")]
-      .filter((cell) => cell.getAttribute("tabindex") === "0");
+    const tabbable = [...container.querySelectorAll("[role=gridcell]")].filter(
+      (cell) => cell.getAttribute("tabindex") === "0"
+    );
 
     expect(tabbable).toHaveLength(1);
   });
@@ -147,8 +168,14 @@ describe("useGridNavigation", () => {
   });
 
   it("takes focus back to the cell after the editor closes over it", () => {
-    let restore: (row?: number) => void = () => {};
-    const { container, getByTestId } = render(<Grid expose={(fn) => { restore = fn; }} />);
+    let restore: (row?: number) => void = vi.fn();
+    const { container, getByTestId } = render(
+      <Grid
+        expose={(fn) => {
+          restore = fn;
+        }}
+      />
+    );
     const grid = container.querySelector("[role=grid]") as HTMLElement;
 
     press(grid, "ArrowDown");
@@ -165,9 +192,16 @@ describe("useGridNavigation", () => {
   });
 
   it("returns to the row it is given, because the list can reorder while the editor is open", () => {
-    let restore: (row?: number) => void = () => {};
+    let restore: (row?: number) => void = vi.fn();
     const scrollToRow = vi.fn();
-    const { getByTestId } = render(<Grid scrollToRow={scrollToRow} expose={(fn) => { restore = fn; }} />);
+    const { getByTestId } = render(
+      <Grid
+        expose={(fn) => {
+          restore = fn;
+        }}
+        scrollToRow={scrollToRow}
+      />
+    );
 
     act(() => restore(3));
 
@@ -179,7 +213,9 @@ describe("useGridNavigation", () => {
   it("follows focus that the user moved by clicking", () => {
     const { container, getByTestId } = render(<Grid rowCount={4} />);
 
-    act(() => void fireEvent.focus(getByTestId("2:lead")));
+    act(() => {
+      fireEvent.focus(getByTestId("2:lead"));
+    });
 
     expect(container.querySelector("[role=grid]")).toHaveProperty("dataset.focus", "2:lead");
   });

@@ -1,11 +1,16 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import type { MessageCell, MessageKey, MessageKeyList, MessageLocaleState } from "../../api/generated/models.js";
+import type {
+  MessageCell,
+  MessageKey,
+  MessageKeyList,
+  MessageLocaleState,
+} from "../../api/generated/models.js";
 import {
-  MAXIMUM_PREVIEW_LENGTH,
   applyOverride,
   findKeyByMessageId,
   flattenKeys,
+  MAXIMUM_PREVIEW_LENGTH,
   nextPageParam,
   patchInfinite,
   patchPage,
@@ -29,7 +34,11 @@ const cell = (id: string, overrides: Partial<MessageCell> = {}): MessageCell => 
   ...overrides,
 });
 
-const key = (name: string, cells: Record<string, MessageCell>, coverage: Record<string, MessageLocaleState> = {}): MessageKey => ({
+const key = (
+  name: string,
+  cells: Record<string, MessageCell>,
+  coverage: Record<string, MessageLocaleState> = {}
+): MessageKey => ({
   sourceId: "source-1",
   namespace: "website",
   key: name,
@@ -106,9 +115,18 @@ describe("applyOverride", () => {
   });
 
   it("clears the override on a reset", () => {
-    const row = key("cart.empty", {
-      "da-DK": cell("m1", { overrideValue: "Gammel", hasOverride: true, state: "Overridden", version: 2 }),
-    }, { "da-DK": "Overridden" });
+    const row = key(
+      "cart.empty",
+      {
+        "da-DK": cell("m1", {
+          overrideValue: "Gammel",
+          hasOverride: true,
+          state: "Overridden",
+          version: 2,
+        }),
+      },
+      { "da-DK": "Overridden" }
+    );
 
     const patched = applyOverride(row, "da-DK", null);
 
@@ -129,9 +147,13 @@ describe("applyOverride", () => {
   it("keeps a row truncated when a short override lands on a cut-off default", () => {
     // defaultValue is already the server's preview, so re-measuring it would call a truncated
     // default complete and wrongly make the cell inline-editable.
-    const row = key("cart.empty", {
-      "da-DK": cell("m1", { defaultValue: "a".repeat(MAXIMUM_PREVIEW_LENGTH), truncated: true }),
-    }, { "da-DK": "Default" });
+    const row = key(
+      "cart.empty",
+      {
+        "da-DK": cell("m1", { defaultValue: "a".repeat(MAXIMUM_PREVIEW_LENGTH), truncated: true }),
+      },
+      { "da-DK": "Default" }
+    );
 
     const patched = applyOverride(row, "da-DK", "Kort");
 
@@ -139,7 +161,10 @@ describe("applyOverride", () => {
   });
 
   it("leaves other locales alone", () => {
-    const row = key("cart.empty", { "da-DK": cell("m1"), "en-US": cell("m2", { locale: "en-US" }) });
+    const row = key("cart.empty", {
+      "da-DK": cell("m1"),
+      "en-US": cell("m2", { locale: "en-US" }),
+    });
 
     const patched = applyOverride(row, "da-DK", "Ny");
 
@@ -183,10 +208,10 @@ describe("patching pages", () => {
     const second = page([key("b", { "da-DK": cell("m2") })], { page: 2 });
     const data = { pages: [first, second], pageParams: [1, 2] } as InfiniteData<MessageKeyList>;
 
-    const patched = patchInfinite(data, "m2", (row, locale) => applyOverride(row, locale, "Ny"))!;
+    const patched = patchInfinite(data, "m2", (row, locale) => applyOverride(row, locale, "Ny"));
 
-    expect(patched.pages[0]).toBe(first);
-    expect(patched.pages[1]?.items[0]?.cells["da-DK"]?.overrideValue).toBe("Ny");
+    expect(patched?.pages[0]).toBe(first);
+    expect(patched?.pages[1]?.items[0]?.cells["da-DK"]?.overrideValue).toBe("Ny");
   });
 
   it("handles an empty cache", () => {
@@ -219,7 +244,10 @@ describe("flattenKeys", () => {
   it("keeps the same key from two different sources", () => {
     const first = key("a", {});
     const second = { ...key("a", {}), sourceId: "source-2" };
-    const data = { pages: [page([first, second])], pageParams: [1] } as InfiniteData<MessageKeyList>;
+    const data = {
+      pages: [page([first, second])],
+      pageParams: [1],
+    } as InfiniteData<MessageKeyList>;
 
     expect(flattenKeys(data)).toHaveLength(2);
   });

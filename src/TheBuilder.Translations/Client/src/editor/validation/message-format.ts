@@ -22,16 +22,24 @@ export type ValidationResult =
   | { valid: false; error: string };
 
 export const validateMessage = (message: string, format: MessageFormat): ValidationResult => {
-  if (format === "PlainText") return { valid: true, arguments: {} };
-  if (format === "I18NextV4") return validateI18Next(message);
+  if (format === "PlainText") {
+    return { valid: true, arguments: {} };
+  }
+  if (format === "I18NextV4") {
+    return validateI18Next(message);
+  }
 
   try {
     return { valid: true, arguments: new IcuScanner(message).scan() };
   } catch (error) {
-    if (error instanceof MessageFormatError) return { valid: false, error: error.message };
+    if (error instanceof MessageFormatError) {
+      return { valid: false, error: error.message };
+    }
     throw error;
   }
 };
+
+const WHITESPACE = /\s/;
 
 class MessageFormatError extends Error {}
 
@@ -42,21 +50,35 @@ const validateI18Next = (message: string): ValidationResult => {
   while (position < message.length) {
     const opening = message.indexOf("{{", position);
     const strayClosing = message.indexOf("}}", position);
-    if (strayClosing >= 0 && (opening < 0 || strayClosing < opening))
-      return { valid: false, error: `Unexpected closing interpolation delimiter at position ${strayClosing}.` };
-    if (opening < 0) return { valid: true, arguments: args };
+    if (strayClosing >= 0 && (opening < 0 || strayClosing < opening)) {
+      return {
+        valid: false,
+        error: `Unexpected closing interpolation delimiter at position ${strayClosing}.`,
+      };
+    }
+    if (opening < 0) {
+      return { valid: true, arguments: args };
+    }
 
     const closing = message.indexOf("}}", opening + 2);
-    if (closing < 0) return { valid: false, error: `Unclosed interpolation at position ${opening}.` };
+    if (closing < 0) {
+      return { valid: false, error: `Unclosed interpolation at position ${opening}.` };
+    }
 
     let expression = message.slice(opening + 2, closing).trim();
     // i18next's "unescape" prefix, which says how to render the value rather than which value.
-    if (expression.startsWith("-")) expression = expression.slice(1).trimStart();
+    if (expression.startsWith("-")) {
+      expression = expression.slice(1).trimStart();
+    }
 
     const separator = expression.indexOf(",");
     const name = (separator < 0 ? expression : expression.slice(0, separator)).trim();
-    if (name.length === 0 || name.includes("{") || name.includes("}"))
-      return { valid: false, error: `Interpolation at position ${opening} requires a variable name.` };
+    if (name.length === 0 || name.includes("{") || name.includes("}")) {
+      return {
+        valid: false,
+        error: `Interpolation at position ${opening} requires a variable name.`,
+      };
+    }
 
     args[name] = "string";
     position = closing + 2;
@@ -71,12 +93,17 @@ const BRANCHING_KINDS = ["plural", "selectordinal", "select"];
 class IcuScanner {
   private readonly args: Record<string, string> = {};
   private position = 0;
+  private readonly input: string;
 
-  constructor(private readonly input: string) {}
+  constructor(input: string) {
+    this.input = input;
+  }
 
   scan(): MessageArguments {
     this.scanMessage(false);
-    if (this.position !== this.input.length) throw this.error("Unexpected trailing content");
+    if (this.position !== this.input.length) {
+      throw this.error("Unexpected trailing content");
+    }
     return this.args;
   }
 
@@ -92,13 +119,17 @@ class IcuScanner {
         continue;
       }
       if (current === "}") {
-        if (!terminated) throw this.error("Unmatched closing brace");
+        if (!terminated) {
+          throw this.error("Unmatched closing brace");
+        }
         return;
       }
-      this.position++;
+      this.position += 1;
     }
 
-    if (terminated) throw this.error("Unclosed argument branch");
+    if (terminated) {
+      throw this.error("Unclosed argument branch");
+    }
   }
 
   /**
@@ -107,25 +138,29 @@ class IcuScanner {
    * messages", "Aujourd'hui").
    */
   private scanQuotedText(): void {
-    this.position++;
-    if (this.position === this.input.length) return;
+    this.position += 1;
+    if (this.position === this.input.length) {
+      return;
+    }
 
     if (this.input[this.position] === "'") {
-      this.position++;
+      this.position += 1;
       return;
     }
 
     const next = this.input[this.position];
-    if (next !== "{" && next !== "}" && next !== "#") return;
+    if (next !== "{" && next !== "}" && next !== "#") {
+      return;
+    }
 
     while (this.position < this.input.length) {
       if (this.input[this.position] !== "'") {
-        this.position++;
+        this.position += 1;
         continue;
       }
-      this.position++;
+      this.position += 1;
       if (this.position < this.input.length && this.input[this.position] === "'") {
-        this.position++;
+        this.position += 1;
         continue;
       }
       return;
@@ -133,10 +168,12 @@ class IcuScanner {
   }
 
   private scanArgument(): void {
-    this.position++;
+    this.position += 1;
     this.skipWhitespace();
     const name = this.readToken(",", "}");
-    if (name.length === 0) throw this.error("Argument name is required");
+    if (name.length === 0) {
+      throw this.error("Argument name is required");
+    }
 
     this.skipWhitespace();
     if (this.consume("}")) {
@@ -147,22 +184,31 @@ class IcuScanner {
     this.expect(",");
     this.skipWhitespace();
     const kind = this.readToken(",", "}").toLowerCase();
-    if (!ARGUMENT_KINDS.includes(kind)) throw this.error(`Unsupported argument kind '${kind}'`);
+    if (!ARGUMENT_KINDS.includes(kind)) {
+      throw this.error(`Unsupported argument kind '${kind}'`);
+    }
     this.addArgument(name, kind);
 
     this.skipWhitespace();
-    if (this.consume("}")) return;
+    if (this.consume("}")) {
+      return;
+    }
 
     this.expect(",");
-    if (BRANCHING_KINDS.includes(kind)) this.scanBranches(kind);
-    else this.scanStyle();
+    if (BRANCHING_KINDS.includes(kind)) {
+      this.scanBranches(kind);
+    } else {
+      this.scanStyle();
+    }
   }
 
   private scanBranches(kind: string): void {
     let hasOther = false;
     for (;;) {
       this.skipWhitespace();
-      if (this.consume("}")) break;
+      if (this.consume("}")) {
+        break;
+      }
       if (this.input.startsWith("offset:", this.position)) {
         this.position += "offset:".length;
         this.readToken(" ", "\t", "\r", "\n", "}");
@@ -170,7 +216,9 @@ class IcuScanner {
       }
 
       const selector = this.readToken("{");
-      if (selector.length === 0) throw this.error("A plural or select branch requires a selector");
+      if (selector.length === 0) {
+        throw this.error("A plural or select branch requires a selector");
+      }
       hasOther ||= selector === "other";
       this.skipWhitespace();
       this.expect("{");
@@ -178,18 +226,24 @@ class IcuScanner {
       this.expect("}");
     }
 
-    if (!hasOther) throw this.error(`The ${kind} argument requires an 'other' branch`);
+    if (!hasOther) {
+      throw this.error(`The ${kind} argument requires an 'other' branch`);
+    }
   }
 
   private scanStyle(): void {
-    while (this.position < this.input.length && this.input[this.position] !== "}") this.position++;
+    while (this.position < this.input.length && this.input[this.position] !== "}") {
+      this.position += 1;
+    }
     this.expect("}");
   }
 
   private addArgument(name: string, kind: string): void {
     const existing = this.args[name];
     if (existing !== undefined && existing !== kind) {
-      if (compatible(existing, kind)) return;
+      if (compatible(existing, kind)) {
+        return;
+      }
       throw this.error(`Argument '${name}' is used as both '${existing}' and '${kind}'`);
     }
     this.args[name] = kind;
@@ -197,23 +251,30 @@ class IcuScanner {
 
   private readToken(...terminators: string[]): string {
     const start = this.position;
-    while (this.position < this.input.length && !terminators.includes(this.input[this.position]!))
-      this.position++;
+    while (this.position < this.input.length && !terminators.includes(this.input[this.position])) {
+      this.position += 1;
+    }
     return this.input.slice(start, this.position).trim();
   }
 
   private skipWhitespace(): void {
-    while (this.position < this.input.length && /\s/.test(this.input[this.position]!)) this.position++;
+    while (this.position < this.input.length && WHITESPACE.test(this.input[this.position])) {
+      this.position += 1;
+    }
   }
 
   private consume(expected: string): boolean {
-    if (this.position >= this.input.length || this.input[this.position] !== expected) return false;
-    this.position++;
+    if (this.position >= this.input.length || this.input[this.position] !== expected) {
+      return false;
+    }
+    this.position += 1;
     return true;
   }
 
   private expect(expected: string): void {
-    if (!this.consume(expected)) throw this.error(`Expected '${expected}'`);
+    if (!this.consume(expected)) {
+      throw this.error(`Expected '${expected}'`);
+    }
   }
 
   private error(message: string): MessageFormatError {
@@ -221,7 +282,8 @@ class IcuScanner {
   }
 }
 
-const numeric = (kind: string) => kind === "number" || kind === "plural" || kind === "selectordinal";
+const numeric = (kind: string) =>
+  kind === "number" || kind === "plural" || kind === "selectordinal";
 const textual = (kind: string) => kind === "string" || kind === "select";
 const compatible = (left: string, right: string) =>
   (numeric(left) && numeric(right)) || (textual(left) && textual(right));

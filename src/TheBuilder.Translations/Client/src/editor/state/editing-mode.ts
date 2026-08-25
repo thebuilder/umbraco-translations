@@ -17,10 +17,14 @@ import type { LocaleFacet } from "../../api/generated/models.js";
 export type EditingMode = "search" | "queue";
 
 export const editingMode = (locale: LocaleFacet | undefined): EditingMode => {
-  if (locale === undefined) return "search";
+  if (locale === undefined) {
+    return "search";
+  }
 
   // Nothing at all in this language yet, so there is nothing but authoring to do.
-  if (locale.messageCount === 0) return "queue";
+  if (locale.messageCount === 0) {
+    return "queue";
+  }
 
   /*
    * Every row this language has exists only because somebody wrote it here, and there are still

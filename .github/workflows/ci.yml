@@ -52,7 +52,8 @@ jobs:
             echo "::notice::Playwright is not a dependency on this branch; skipping browser install."
           fi
 
-      - name: Typecheck
+      # Types, lint and formatting (ultracite/biome), then dead code (fallow).
+      - name: Check
         run: pnpm check
 
       - name: Test
