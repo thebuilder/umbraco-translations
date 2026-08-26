@@ -4,13 +4,15 @@ using TheBuilder.Translations.Core.Persistence;
 using TheBuilder.Translations.Core.Sources;
 using TheBuilder.Translations.Core.Synchronization;
 using TheBuilder.Translations.Core.Output;
+using TheBuilder.Translations.Notifications;
+using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Infrastructure.Scoping;
 
 namespace TheBuilder.Translations.Persistence;
 
 internal sealed class UmbracoTranslationStore(
     IScopeProvider scopeProvider,
-    ITranslationSnapshotChangePublisher snapshotChanges,
+    IEventAggregator events,
     TimeProvider timeProvider)
     : ITranslationSourceRepository, ITranslationSynchronizationStore, ITranslationMessageRepository, ITranslationEditorRepository
 {
@@ -201,21 +203,29 @@ internal sealed class UmbracoTranslationStore(
         return Task.CompletedTask;
     }
 
-    public Task DeleteSourceAsync(Guid sourceId, CancellationToken cancellationToken)
+    public async Task DeleteSourceAsync(Guid sourceId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (DeleteSource(sourceId) is { } announcement)
+            await AnnounceAsync(announcement);
+    }
+
+    private TranslationsUpdatedNotification? DeleteSource(Guid sourceId)
+    {
         using var scope = scopeProvider.CreateScope();
         var source = scope.Database.SingleOrDefaultById<SourceRow>(sourceId);
         if (source is null)
-            return Task.CompletedTask;
+            return null;
 
         TranslationSourceDeletion.Delete(scope.Database, sourceId);
+        // Described before the scope closes: afterwards there is no row left to name the source by.
+        var announcement = new TranslationsUpdatedNotification(
+            sourceId, source.Alias, TranslationChange.SourceDeleted, timeProvider.GetUtcNow());
         scope.Complete();
-        snapshotChanges.Publish(sourceId);
-        return Task.CompletedTask;
+        return announcement;
     }
 
-    public Task<TranslationSyncResult> ApplySynchronizationAsync(
+    public async Task<TranslationSyncResult> ApplySynchronizationAsync(
         TranslationSourceDefinition source,
         TranslationSynchronizationLease lease,
         IReadOnlyCollection<TranslationSourceMessage> messages,
@@ -224,6 +234,19 @@ internal sealed class UmbracoTranslationStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var result = ApplySynchronization(source, lease, messages, revision, startedAt);
+        if (TranslationsUpdatedNotification.ForSynchronization(source, result, timeProvider.GetUtcNow()) is { } announcement)
+            await AnnounceAsync(announcement);
+        return result;
+    }
+
+    private TranslationSyncResult ApplySynchronization(
+        TranslationSourceDefinition source,
+        TranslationSynchronizationLease lease,
+        IReadOnlyCollection<TranslationSourceMessage> messages,
+        string revision,
+        DateTimeOffset startedAt)
+    {
         var now = timeProvider.GetUtcNow();
         using var scope = scopeProvider.CreateScope();
         var persistedSource = scope.Database.SingleOrDefaultById<SourceRow>(source.Id);
@@ -311,8 +334,7 @@ internal sealed class UmbracoTranslationStore(
             TranslationSyncStatus.Succeeded, added, changed, missing, 0);
         scope.Database.Insert(TranslationRowMapper.ToRow(result));
         scope.Complete();
-        snapshotChanges.Publish(source.Id);
-        return Task.FromResult(result);
+        return result;
     }
 
     public Task RecordFailedSynchronizationAsync(TranslationSyncResult result, CancellationToken cancellationToken)
@@ -380,7 +402,7 @@ internal sealed class UmbracoTranslationStore(
         return Task.FromResult(TranslationFacetQueries.Read(scope.Database));
     }
 
-    public Task<TranslationOverride> SaveOverrideAsync(
+    public async Task<TranslationOverride> SaveOverrideAsync(
         Guid messageId,
         string value,
         long? expectedVersion,
@@ -388,6 +410,17 @@ internal sealed class UmbracoTranslationStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var (saved, announcement) = SaveOverride(messageId, value, expectedVersion, userId);
+        await AnnounceAsync(announcement);
+        return saved;
+    }
+
+    private (TranslationOverride Saved, TranslationsUpdatedNotification Announcement) SaveOverride(
+        Guid messageId,
+        string value,
+        long? expectedVersion,
+        string userId)
+    {
         using var scope = scopeProvider.CreateScope();
         var message = scope.Database.SingleOrDefaultById<MessageRow>(messageId)
             ?? throw new KeyNotFoundException($"Translation message '{messageId}' was not found.");
@@ -409,26 +442,32 @@ internal sealed class UmbracoTranslationStore(
             scope.Database.Insert(row);
         else
             scope.Database.Update(row);
+        var announcement = Announcement(scope.Database, message, TranslationChange.OverrideSaved);
         scope.Complete();
-        snapshotChanges.Publish(message.SourceId);
-        return Task.FromResult(TranslationRowMapper.ToDomain(row));
+        return (TranslationRowMapper.ToDomain(row), announcement);
     }
 
-    public Task DeleteOverrideAsync(Guid messageId, long? expectedVersion, CancellationToken cancellationToken)
+    public async Task DeleteOverrideAsync(Guid messageId, long? expectedVersion, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (DeleteOverride(messageId, expectedVersion) is { } announcement)
+            await AnnounceAsync(announcement);
+    }
+
+    private TranslationsUpdatedNotification? DeleteOverride(Guid messageId, long? expectedVersion)
+    {
         using var scope = scopeProvider.CreateScope();
         var existing = scope.Database.SingleOrDefaultById<OverrideRow>(messageId);
         if (existing is null)
-            return Task.CompletedTask;
+            return null;
         EnsureVersion(existing.Version, expectedVersion);
         var message = scope.Database.SingleById<MessageRow>(messageId);
         scope.Database.Delete(existing);
         if (RemovedMessageRetention.DeleteAfterOverrideReset(Enum.Parse<TranslationMessageState>(message.State)))
             scope.Database.Delete(message);
+        var announcement = Announcement(scope.Database, message, TranslationChange.OverrideRemoved);
         scope.Complete();
-        snapshotChanges.Publish(message.SourceId);
-        return Task.CompletedTask;
+        return announcement;
     }
 
     public Task<IReadOnlyList<TranslationMessageView>> GetOutputMessagesAsync(
@@ -451,4 +490,29 @@ internal sealed class UmbracoTranslationStore(
             throw new TranslationConcurrencyException($"The translation changed after it was loaded. Expected version {expected}, current version {current?.ToString() ?? "none"}.");
     }
 
+    /// <summary>
+    /// Describes an edit to one message, naming its source while the writing scope is still open.
+    /// A second scope opened afterwards just to look the name up would be reporting on a source
+    /// that may have been renamed in between.
+    /// </summary>
+    private TranslationsUpdatedNotification Announcement(
+        NPoco.IDatabase database,
+        MessageRow message,
+        TranslationChange change) =>
+        new(message.SourceId,
+            database.SingleById<SourceRow>(message.SourceId).Alias,
+            change,
+            timeProvider.GetUtcNow(),
+            new MessageIdentity(message.SourceId, message.Namespace, message.Key, message.Locale));
+
+    /// <summary>
+    /// Announces a change once its scope has committed. Raising it earlier would let a subscriber
+    /// that reacts by re-reading be handed the snapshot it was just told had gone.
+    ///
+    /// The caller's token is deliberately not passed on. By this point the write has landed, and a
+    /// browser that has navigated away is no reason to leave every subscriber holding a dictionary
+    /// Umbraco knows is stale.
+    /// </summary>
+    private Task AnnounceAsync(TranslationsUpdatedNotification announcement) =>
+        events.PublishAsync(announcement, CancellationToken.None);
 }
