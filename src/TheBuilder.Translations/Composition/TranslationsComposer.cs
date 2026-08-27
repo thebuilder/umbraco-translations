@@ -11,6 +11,7 @@ using TheBuilder.Translations.Core.Validation;
 using TheBuilder.Translations.Localization;
 using TheBuilder.Translations.Migrations;
 using TheBuilder.Translations.Persistence;
+using TheBuilder.Translations.Webhooks;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Extensions;
@@ -45,7 +46,7 @@ public sealed class TranslationsComposer : IComposer
         builder.Services.AddHttpClient<ITranslationSourceTransport, HttpTranslationSourceTransport>()
             .ConfigurePrimaryHttpMessageHandler(services => TranslationSourceHttpHandler.Create(
                 services.GetRequiredService<IOptions<TranslationSourceSecurityOptions>>().Value));
-        builder.Services.AddSingleton<ITranslationSnapshotChangePublisher, NullTranslationSnapshotChangePublisher>();
+        builder.AddWebhookEvent<TranslationsUpdatedWebhookEvent>();
         builder.Services.AddScoped<UmbracoTranslationStore>();
         builder.Services.AddScoped<ITranslationSourceRepository>(services => services.GetRequiredService<UmbracoTranslationStore>());
         builder.Services.AddScoped<ITranslationSynchronizationStore>(services => services.GetRequiredService<UmbracoTranslationStore>());

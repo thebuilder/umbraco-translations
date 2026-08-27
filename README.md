@@ -26,6 +26,8 @@ Phases 1–5 are represented by one vertical slice:
   Danish" is an ordinary filter.
 - A React/TanStack editor hosted behind an Umbraco custom element.
 - An administrator Settings dashboard for source setup, testing, synchronization, history, limits, and output guidance.
+- An Umbraco webhook event that announces every committed change to what a source serves, so a
+  consumer can rebuild instead of polling.
 - A runnable sample that exposes English and Danish source messages at `/sample/messages/{locale}.json`.
 - The sample also exposes i18next JSON v4 string resources at `/sample/i18next/{locale}.json`.
 
@@ -138,6 +140,52 @@ GET /umbraco/delivery/api/v1/translations/all?locale=da&namespace=website&format
 ```
 
 The resource preserves nested string keys, `{{variable}}` interpolation, context keys, and CLDR plural/ordinal suffixes such as `_one`, `_other`, and `_ordinal_one`. Message values are not converted between ICU and i18next syntax; configure each source with the syntax its application uses. A locale/namespace containing mixed ICU and i18next messages is not advertised as an output endpoint and direct requests return a conflict until the syntaxes are separated into namespaces. i18next object/array return values are outside the editorial string-message model and are rejected during source validation.
+
+## Change notifications
+
+A consumer that caches the delivery response needs to know when to drop it. Rather than ship a
+second notification mechanism, this package adds one event to the ones Umbraco already offers, so a
+webhook is created the ordinary way in **Settings -> Webhooks** and Umbraco keeps ownership of the
+URL, the headers, the retries and the request log.
+
+The event is listed under **Other** as **Translations updated**, with the alias
+`TheBuilder.TranslationsUpdated`. It fires once per committed change:
+
+| `change`          | Cause                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| `Synchronized`    | A synchronization added, changed or removed at least one message. |
+| `OverrideSaved`   | An editor wrote an override.                                      |
+| `OverrideRemoved` | An editor reset one back to the value its application ships.      |
+| `SourceDeleted`   | A source was deleted, along with everything it contributed.       |
+
+A synchronization that found the application's messages exactly as it left them is not announced.
+Sources are polled on a schedule and most runs change nothing; announcing those would teach every
+subscriber to re-fetch an unchanged dictionary on a timer.
+
+```json
+{
+  "sourceId": "6f2f5d3e-1f4a-4a1e-9a5b-2c7d8e9f0a1b",
+  "sourceAlias": "website",
+  "change": "OverrideSaved",
+  "occurredAt": "2026-08-26T09:30:00+00:00",
+  "message": { "namespace": "website", "key": "cart.title", "locale": "da-DK" },
+  "synchronization": null
+}
+```
+
+`message` names one message and is present only for the two override changes. Because the delivery
+endpoints are addressed by locale and namespace, those two fields are enough to purge exactly the
+dictionary that moved. `synchronization` carries `revision`, `added`, `changed` and `removed`
+instead, and is present only for `Synchronized`; a whole source moved, so no single message is
+named. Exactly one of the two is set, except on `SourceDeleted`, where neither is.
+
+The notification is raised after the change is committed, never before, so a subscriber that reacts
+by re-reading is not handed the snapshot it was just told had gone.
+
+Two limits are Umbraco's rather than this package's. Webhooks must be enabled
+(`Umbraco:CMS:Webhook:Enabled`, on by default), and in a load-balanced setup Umbraco fires webhooks
+only from the Single or SchedulingPublisher server. An override saved on a subscriber node is
+committed and served as usual, but announces nothing.
 
 ## Verification
 
