@@ -12,6 +12,17 @@
   "json": { "formatter": { "lineWidth": 100 } },
   "linter": {
     "rules": {
+      "nursery": {
+        // How the selected row lost its highlight, and its layout with it. Applied to a class
+        // list built by concatenation -- `grid__row${open ? " grid__row--selected" : ""}` -- the
+        // rule reads the interpolated string on its own, decides its leading space is stray, and
+        // `pnpm fix` deletes it: the two classes run together into one that matches nothing. The
+        // sorting itself buys nothing here. It exists for utility frameworks, where the order of
+        // a long class list is a readability problem; this stylesheet is hand-written BEM, where
+        // a block and its modifier are two classes and the order they are written in is not a
+        // question anyone has.
+        "useSortedClasses": "off"
+      },
       "performance": {
         // The rule pays off when the receiving component is memoized, so a new closure each render
         // forces a re-render. Nothing here is: every one of the 36 sites it flagged passes a handler

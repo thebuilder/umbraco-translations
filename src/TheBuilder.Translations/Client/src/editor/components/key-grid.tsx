@@ -237,7 +237,7 @@ export const KeyGrid = ({
               <div
                 aria-rowindex={item.index + 2}
                 aria-selected={open}
-                className={`grid__row${open ? "grid__row--selected" : ""}`}
+                className={`grid__row${open ? " grid__row--selected" : ""}`}
                 key={row.id}
                 onClick={() => target && onSelect(target)}
                 role="row"

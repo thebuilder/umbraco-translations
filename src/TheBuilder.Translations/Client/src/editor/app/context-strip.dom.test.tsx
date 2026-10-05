@@ -121,3 +121,31 @@ describe("with no language chosen yet", () => {
     expect(picker.selectedOptions[0]?.textContent).toBe("Choose a language");
   });
 });
+
+/**
+ * The failure this fixes: the pair is only implied until the URL names it, and the server's rule
+ * for the language being edited is "whatever was asked for, otherwise the reference". So a request
+ * naming a reference and nothing else asked it to edit that reference -- picking a language to
+ * compare against moved the editor onto that language and took the second column away with it.
+ */
+describe("changing the language compared against", () => {
+  it("says which language is being edited too, even though it has not changed", () => {
+    // As the editor hands the strip its filters: the language resolved for display, and no
+    // comparison yet. Only the second of those is in the URL, which is the whole problem.
+    const { update } = strip(TWO, { locale: "en-US", referenceLocale: null });
+
+    const picker = screen.getByRole("combobox", { name: "Language to compare against" });
+    fireEvent.change(picker, { target: { value: "da-DK" } });
+
+    expect(update).toHaveBeenCalledWith({ locale: "en-US", referenceLocale: "da-DK" });
+  });
+
+  it("expresses no comparison as the two being the same language", () => {
+    const { update } = strip(TWO, { locale: "en-US", referenceLocale: "da-DK" });
+
+    const picker = screen.getByRole("combobox", { name: "Language to compare against" });
+    fireEvent.change(picker, { target: { value: "" } });
+
+    expect(update).toHaveBeenCalledWith({ locale: "en-US", referenceLocale: "en-US" });
+  });
+});

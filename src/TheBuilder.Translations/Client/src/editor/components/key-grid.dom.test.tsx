@@ -241,3 +241,37 @@ describe("a language the application ships nothing for", () => {
     expect(screen.getByText("App text changed")).toBeTruthy();
   });
 });
+
+/**
+ * The pane opens beside the list, and the row it opened from has to stay findable in it: scrolling
+ * away and back, or saving while the order is by what changed last, is how you end up looking at a
+ * screenful of rows with no idea which one the pane is about.
+ */
+describe("the row the pane is open on", () => {
+  it("marks it without taking the row's own layout with it", () => {
+    // Both classes, not one: the modifier carries the tint and the bar, and `grid__row` is what
+    // makes a row a row. Written as one string with the space left out, the marked row lost its
+    // grid entirely and stacked its columns on top of each other.
+    const { container } = show(
+      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") })],
+      {},
+      "search",
+      {
+        sourceId: "s1",
+        namespace: "website",
+        key: "a",
+        locale: "da",
+      }
+    );
+
+    const open = container.querySelector('[role="row"][aria-selected="true"]');
+    expect(open?.classList.contains("grid__row")).toBe(true);
+    expect(open?.classList.contains("grid__row--selected")).toBe(true);
+  });
+
+  it("marks nothing while the pane is closed", () => {
+    const { container } = show([key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") })]);
+
+    expect(container.querySelector(".grid__row--selected")).toBeNull();
+  });
+});
