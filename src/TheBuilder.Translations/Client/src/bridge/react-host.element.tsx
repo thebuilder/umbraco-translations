@@ -5,6 +5,7 @@ import { type ComponentType, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import styles from "../styles.css?inline";
 import type { BackofficeBridge } from "./backoffice-bridge.js";
+import { onQueryCacheReset } from "./query-cache-reset.js";
 
 /**
  * Shared across mounts on purpose. The backoffice destroys and recreates the host element on every
@@ -15,7 +16,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 15_000, retry: 1 } },
 });
 
-export const resetQueryCache = (): void => queryClient.clear();
+onQueryCacheReset(() => queryClient.clear());
 
 // Parsed once for the lifetime of the bundle rather than on every remount.
 const styleSheet = new CSSStyleSheet();

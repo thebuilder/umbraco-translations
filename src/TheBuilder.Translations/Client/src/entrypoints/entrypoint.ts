@@ -3,13 +3,20 @@ import type {
   UmbEntryPointOnInit,
   UmbEntryPointOnUnload,
 } from "@umbraco-cms/backoffice/extension-api";
-import { umbExtensionsRegistry } from "@umbraco-cms/backoffice/extension-registry";
+import { UMB_TRANSLATION_SECTION_PATH } from "@umbraco-cms/backoffice/translation";
 import { configureApi } from "../api/generated/client.js";
-import { resetQueryCache } from "../bridge/react-host.element.js";
+import { resetQueryCache } from "../bridge/query-cache-reset.js";
+import { editorUrlFor } from "../translation-section.js";
 
 export const onInit: UmbEntryPointOnInit = (host) => {
-  for (const alias of ["Umb.SidebarMenu.Translation", "Umb.Dashboard.Dictionary.Overview"]) {
-    umbExtensionsRegistry.exclude(alias);
+  // Here rather than in the bundle: Umbraco evaluates the bundle while it is still deciding whether
+  // to open the backoffice, and changing the address then cancels that and starts it over.
+  const editorUrl = editorUrlFor(
+    location.href,
+    new URL(UMB_TRANSLATION_SECTION_PATH, document.baseURI).href
+  );
+  if (editorUrl) {
+    history.replaceState(history.state, "", editorUrl);
   }
   host.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
     const config = authContext?.getOpenApiConfiguration();
