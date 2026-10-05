@@ -1,0 +1,198 @@
+/* ---- The list ------------------------------------------------------------------------------ */
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.grid__body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+/* The column template is set once, as --columns on the grid, from the visible columns' widths:
+   which columns exist is decided at runtime, and a template written here would restate that rule
+   and then drift. Every row and the open editor read the same variable, so the editor's field sits
+   under its column without being told where that is. One line a row, so a screenful holds twice
+   what it used to. */
+.grid__row {
+  display: grid;
+  grid-template-columns: var(--columns);
+  align-items: center;
+  column-gap: 20px;
+  inline-size: 100%;
+  min-block-size: 41px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.grid__row:not(.grid__row--head) {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  cursor: pointer;
+}
+.grid__row:not(.grid__row--head):hover {
+  background: var(--hover);
+}
+.grid__row--selected {
+  background: var(--accent-wash);
+}
+.grid__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-block-size: 32px;
+  background: var(--sunk);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.grid__row--pending {
+  cursor: default;
+}
+
+.grid__cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-inline-size: 0;
+  padding-block: 10px;
+}
+.grid__row--head .grid__cell {
+  padding-block: 0;
+}
+.grid__cell--status {
+  align-items: flex-end;
+}
+/* The ring is drawn outside the cell, because an inset outline on a box exactly as tall as its
+   line of text is drawn straight through the words it is pointing at. */
+.grid__row:not(.grid__row--selected):has(.grid__cell:focus-visible) {
+  background: var(--hover);
+}
+.grid__cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.row__heading {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Identity, not content: the key is set in the voice of code and a step quieter than the words,
+   and the namespace dimmer still because it is where the key lives rather than what the row is. */
+.row__key {
+  min-inline-size: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row__namespace {
+  color: var(--ink-3);
+}
+/* Why a row that looks unrelated is a result. A sentence in the row's own voice, because this is
+   the one line on a result that has to be read rather than scanned past. */
+.row__source {
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row__value {
+  min-inline-size: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row__value--quiet {
+  color: var(--ink-2);
+}
+.row__value--absent {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.row__custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.row__dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
+   as a hit even to somebody who cannot tell two text colours apart. */
+.hit {
+  background: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 75%, var(--uui-color-surface));
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.skeleton {
+  display: block;
+  block-size: 8px;
+  inline-size: 70%;
+  border-radius: 4px;
+  background: var(--line);
+}
+.skeleton--meta {
+  block-size: 6px;
+  opacity: 0.6;
+}
+
+/* Whatever the list has instead of rows. Centred in the card, because there is nothing above it
+   for the eye to start from. */
+.state {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.state h2 {
+  font-size: 15px;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.state__detail {
+  max-inline-size: 34rem;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.state--loading {
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+}
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  block-size: 41px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}

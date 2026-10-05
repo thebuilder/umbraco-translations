@@ -1,0 +1,353 @@
+/* ---- The open row ------------------------------------------------------------------------- */
+
+/* Editing happens where the text was found. The row opens in place on the same white as the
+   rows around it, lifted rather than sunk: a hairline and a soft shadow set it apart, and the
+   field's accent border is what says where to type. A grey fill read as switched off. */
+.grid__row.grid__row--open,
+.grid__row.grid__row--open:hover {
+  display: block;
+  padding: 0;
+  background: var(--surface);
+  /* auto, not default: the row's pointer must go, but default is inherited by everything inside and
+     took the text cursor off the words, which in here are there to be read and copied. */
+  cursor: auto;
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    0 10px 24px -12px rgb(0 0 0 / 0.2);
+  z-index: 1;
+}
+.editor {
+  display: grid;
+  grid-template-columns: var(--columns);
+  column-gap: 20px;
+  padding: 14px 16px 0;
+}
+.editor__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-inline-size: 0;
+  padding-block-end: 14px;
+}
+/* Each part under the column it belongs to: the key, the language being edited, the reference. */
+.editor__meta {
+  grid-column: 1;
+  gap: 8px;
+}
+.editor__field {
+  grid-column: 2;
+}
+.editor__reference {
+  grid-column: 3;
+}
+/* The key, which is also how it is copied: it reads as the key and only shows it is a button when
+   the pointer or the focus is on it. */
+.editor__key {
+  display: inline;
+  inline-size: fit-content;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.editor__key:hover {
+  color: var(--accent);
+}
+.editor__key:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.editor__copied {
+  margin-inline-start: 8px;
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.editor__key:hover .editor__copied,
+.editor__key:focus-visible .editor__copied {
+  opacity: 1;
+}
+.editor__namespace {
+  color: var(--ink-3);
+}
+.editor__note {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.editor__block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.editor__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+/* Said only where the open row stacks; beside the columns, their sticky heading says it. */
+.editor__label--stacked {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.editor__copy {
+  align-self: flex-start;
+}
+
+/* The message as the site will show it, once per case, read straight down under the field. */
+.examples {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 12px;
+  margin: 2px 0 0;
+  padding-inline: 12px;
+  font-size: 13px;
+}
+.examples__row {
+  display: contents;
+}
+.examples dt {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 19px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.examples dd {
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.examples__gap {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  color: var(--accent);
+}
+.examples__gap::before {
+  content: "{";
+}
+.examples__gap::after {
+  content: "}";
+}
+
+/* The field is the thing being written, so it is the brightest surface in the open row. */
+.code {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.code:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-line);
+}
+.code--invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-wash);
+}
+.code--invalid:focus-within {
+  box-shadow: 0 0 0 3px var(--danger-line);
+}
+/* What cannot be typed in: the text alone, with no frame, starting at the column's edge like the
+   rows above it. Only the vertical spacing of the field is kept, so the two sit on one baseline. */
+.code--readonly {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The editor's own chrome, brought into line with the rest. Its base theme sets a monospace face,
+   its own line height, a dotted focus outline and padding on every line; the words here are prose
+   and only the syntax is code. */
+.code .cm-editor.cm-focused {
+  outline: none;
+}
+.code .cm-editor .cm-scroller {
+  font-family: var(--font);
+  line-height: 1.5;
+}
+.code .cm-editor .cm-content {
+  min-block-size: 38px;
+  padding: 8px 11px;
+  font-size: 14px;
+  caret-color: var(--ink);
+  color: var(--ink);
+}
+.code .cm-editor .cm-line {
+  padding: 0;
+}
+.code .cm-editor .cm-placeholder {
+  color: var(--ink-2);
+}
+.code__text {
+  margin: 0;
+  padding: 8px 11px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.code__text em {
+  color: var(--ink-3);
+}
+.code--readonly .code__text {
+  padding-inline: 0;
+}
+/* The field as it will be, before the message behind it has arrived. */
+.code--loading {
+  color: var(--ink-2);
+}
+.code--loading .code__text {
+  min-block-size: 38px;
+}
+
+/* Two kinds of thing, and only two: the words that get translated, in the reading face, and the
+   syntax that must not be, in monospace and one syntax colour. The face does the separating; the
+   colour only confirms it. The placeholder names and the plural count are the accent, because they
+   are what goes missing most. Monospace runs large beside a sans at the same size, so it is set a
+   step down to sit level with the words. */
+.syn {
+  font-family: var(--mono);
+  font-size: 0.88em;
+}
+.syn--punct,
+.syn--type,
+.syn--option {
+  color: color-mix(in srgb, var(--uui-color-selected) 55%, var(--uui-color-text));
+}
+.syn--name,
+.syn--hash {
+  color: var(--accent);
+}
+
+/* What a revert goes back to, said once custom text has replaced it. */
+.editor__default {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12.5px;
+}
+.editor__default-text {
+  flex: 1;
+  min-inline-size: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.editor__default .button {
+  block-size: 24px;
+  padding-inline: 8px;
+  font-size: 12px;
+}
+
+/* What the application will substitute, listed where the text that has to contain them is typed. */
+.placeholders {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.placeholders__lead {
+  margin-inline-end: 2px;
+  font-size: 12px;
+  color: var(--danger);
+}
+.token {
+  display: inline-flex;
+  align-items: center;
+  block-size: 20px;
+  padding-inline: 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.token--missing {
+  border-color: var(--danger-line);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.callout {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  text-wrap: pretty;
+}
+.callout--warning {
+  background: var(--warn-wash);
+  border-color: var(--warn-line);
+  color: var(--warn);
+}
+.callout--danger {
+  background: var(--danger-wash);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+.notice--error {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+/* The bottom edge of the open row: the state of the text, the keys, and the ways out. */
+.editor__foot {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--line);
+}
+.editor__state {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.editor__state--dirty {
+  color: var(--ink);
+  font-weight: 500;
+}
+.editor__foot--asking .editor__state {
+  color: var(--ink);
+  font-weight: 500;
+}
+.editor__actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+.keys {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.keys__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.keys__item kbd:last-of-type {
+  margin-inline-end: 3px;
+}

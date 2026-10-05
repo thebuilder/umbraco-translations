@@ -67,7 +67,7 @@ export const defaultFilters: EditorFilters = {
  * Anything else leaves the reference alone.
  *
  * This lives here because there are two call sites, the strip's language menu and opening a
- * translation in the reference language from the pane. They disagreed, and the one that did not
+ * translation in the reference language from the editor. They disagreed, and the one that did not
  * swap was the one people used.
  */
 export const editingLocale = (

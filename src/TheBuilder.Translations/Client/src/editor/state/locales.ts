@@ -65,10 +65,51 @@ export const defaultLocale = (locales: readonly LocaleFacet[]): string | null =>
   (locales.find((locale) => locale.isDefault) ?? locales[0])?.code ?? null;
 
 /**
- * The language an editor recognises. Falls back to the code, which is what a language the facets
- * do not know about deserves -- naming it badly is better than dropping it from the sentence.
+ * The language an editor recognises, alone: a code beside a name is the same fact said twice. By
+ * the time a facet gets here a language the backoffice has no name for has been given one by the
+ * browser (see withNames), so the code is only what a tag nobody can read falls back to.
+ */
+export const facetName = (facet: LocaleFacet): string => facet.name || facet.code;
+
+/**
+ * The name for a code, looked up among the facets. Falls back to the code, which is what a language
+ * the facets do not know about deserves -- naming it badly is better than dropping it.
  */
 export const localeName = (
   locales: readonly LocaleFacet[],
   code: string | null | undefined
-): string => facetFor(locales, code)?.name || code || "";
+): string => {
+  const facet = facetFor(locales, code);
+  return facet ? facetName(facet) : (code ?? "");
+};
+
+/**
+ * A name for a language the backoffice has not been told about.
+ *
+ * A source can ship languages Umbraco has no language configured for, and those arrive with no
+ * name. Printing the code then put "da-DK" beside "da-DK" wherever a name and its code were drawn
+ * together. The browser knows what the tag means, so it names it; a tag it cannot read stays a
+ * code rather than disappearing.
+ */
+const displayNames =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(undefined, { type: "language" })
+    : undefined;
+
+const nameForCode = (code: string): string | null => {
+  try {
+    const name = displayNames?.of(code);
+    return name && name !== code ? name : null;
+  } catch {
+    // Not a well-formed language tag. The code is the honest answer.
+    return null;
+  }
+};
+
+/** Facets with every language named, by the backoffice where it can and the browser otherwise. */
+export const withNames = <T extends { locales: LocaleFacet[] }>(facets: T): T => ({
+  ...facets,
+  locales: facets.locales.map((locale) =>
+    locale.name ? locale : { ...locale, name: nameForCode(locale.code) }
+  ),
+});

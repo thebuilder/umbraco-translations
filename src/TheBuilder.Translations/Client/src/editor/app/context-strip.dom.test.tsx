@@ -24,7 +24,6 @@ const strip = (locales: LocaleFacet[], filters: Partial<EditorFilters> = {}, upd
       filters={{ ...defaultFilters, locale: "en-US", referenceLocale: "en-US", ...filters }}
       locales={locales}
       mode="search"
-      totalKeys={100}
       update={update}
     />
   );
@@ -49,7 +48,7 @@ describe("a site with only one language", () => {
   it("says nothing about comparing, because there is nothing to compare against", () => {
     strip(ONE);
 
-    expect(screen.queryByText("compared with")).toBeNull();
+    expect(screen.queryByText("Compare")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Language to compare against" })).toBeNull();
   });
 
@@ -57,7 +56,7 @@ describe("a site with only one language", () => {
     strip(TWO);
 
     expect(screen.getByRole("combobox", { name: "Language being edited" })).toBeTruthy();
-    expect(screen.getByText("compared with")).toBeTruthy();
+    expect(screen.getByText("Compare")).toBeTruthy();
   });
 
   /*
@@ -68,7 +67,7 @@ describe("a site with only one language", () => {
   it("keeps the comparison even when no other language has anything to compare yet", () => {
     strip([...ONE, locale("da-DK", "Danish", { messageCount: 0, overriddenCount: 0 })]);
 
-    expect(screen.getByText("compared with")).toBeTruthy();
+    expect(screen.getByText("Compare")).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Language to compare against" })).toBeTruthy();
   });
 });

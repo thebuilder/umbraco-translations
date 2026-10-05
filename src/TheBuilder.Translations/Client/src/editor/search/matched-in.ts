@@ -1,7 +1,5 @@
 import type { MessageKey } from "../../api/generated/models.js";
-import type { EditingMode } from "../state/editing-mode.js";
 import { localeIn, sameLocale } from "../state/locales.js";
-import { matchesTerm } from "./matching.js";
 
 /**
  * What naming the hit needs to know: which languages have columns, what they are called, and how
@@ -13,7 +11,6 @@ export interface MatchedInOptions {
   comparisonName: string;
   editing: string | null;
   editingName: string;
-  mode: EditingMode;
   /** How a language with no column reads to an editor, since neither name above covers it. */
   nameOf: (locale: string) => string;
   term: string;
@@ -29,9 +26,9 @@ export interface MatchedInOptions {
  */
 
 /** Which columns the list is showing, in the order the row reads them. */
-const columns = ({ editing, comparison, mode }: MatchedInOptions) => ({
-  lead: mode === "queue" ? comparison : editing,
-  second: mode === "queue" ? editing : comparison,
+const columns = ({ editing, comparison }: MatchedInOptions) => ({
+  lead: editing,
+  second: comparison,
 });
 
 /**
@@ -67,25 +64,24 @@ export const matchedElsewhere = (
  * be decoded first.
  */
 export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | null => {
-  const { term, mode } = options;
+  const { term } = options;
   if (term.trim() === "") {
     return null;
   }
 
   const { lead, second } = columns(options);
   const matched = row.matchedLocales;
-  const leadName = mode === "queue" ? options.comparisonName : options.editingName;
-  const secondName = mode === "queue" ? options.editingName : options.comparisonName;
+  const leadName = options.editingName;
+  const secondName = options.comparisonName;
 
   /*
-   * A hit in a column on screen is marked where it stands. The lead column therefore says nothing
-   * -- repeating it under every row would be a label down the whole list telling the reader what
-   * they can see -- and the second column is named, because it is the quiet one and the eye goes to
-   * the lead.
+   * A hit in a column on screen is marked where it stands, and so is one in the key. The highlight
+   * already says it, so a sentence under the row would be a label down the whole list repeating
+   * what the reader can see.
    *
-   * Both change when the row is showing a preview rather than the whole message. A hit past the cut
-   * has nothing marked and nothing to look at, so the row has to say which language it is in and
-   * that the words are further along than the ones on screen.
+   * Except when the row is showing a preview rather than the whole message. A hit past the cut has
+   * nothing marked and nothing to look at, so the row has to say which language it is in and that
+   * the words are further along than the ones on screen.
    */
   if (matched.some((locale) => sameLocale(locale, lead))) {
     return truncated(row, lead) ? `matched further along in ${leadName}` : null;
@@ -96,17 +92,12 @@ export const matchedIn = (row: MessageKey, options: MatchedInOptions): string | 
     !sameLocale(second, lead) &&
     matched.some((locale) => sameLocale(locale, second))
   ) {
-    return truncated(row, second)
-      ? `matched further along in ${secondName}`
-      : `matched in ${secondName}`;
+    return truncated(row, second) ? `matched further along in ${secondName}` : null;
   }
 
+  // The one hit nothing on screen can mark: a language with no column.
   const elsewhere = matchedElsewhere(row, term, [lead, second]);
-  if (elsewhere.length > 0) {
-    return `matched in ${listOf(elsewhere.map(options.nameOf))}`;
-  }
-
-  return matchesTerm(`${row.namespace}.${row.key}`, term) ? "matched in the key" : null;
+  return elsewhere.length > 0 ? `matched in ${listOf(elsewhere.map(options.nameOf))}` : null;
 };
 
 /** Whether the row is showing a cut-down preview of this language rather than the whole message. */

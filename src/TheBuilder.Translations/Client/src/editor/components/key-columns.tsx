@@ -7,10 +7,10 @@ import {
 import type { MessageCell, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/highlight.js";
 import { type MatchedInOptions, matchedIn } from "../search/matched-in.js";
-import type { EditingMode } from "../state/editing-mode.js";
-import { localeIn } from "../state/locales.js";
-import { keyId } from "../state/target.js";
+import { matchesTerm } from "../search/matching.js";
+import { cellOf } from "../state/cells.js";
 import { cellStatus } from "./cell-status.js";
+import { StatusBadge } from "./status-badge.js";
 
 /**
  * What the renderer needs to know about a column that the table itself does not model: the track it
@@ -21,13 +21,13 @@ import { cellStatus } from "./cell-status.js";
  * written in CSS would have to duplicate that rule and then drift from it.
  */
 interface KeyColumnMeta {
-  /** Cells holding content an editor reads. The status a row carries is not one. */
+  /** Cells holding content an editor reads. The key and the status a row carries are not. */
   navigable?: boolean;
   width: string;
 }
 
 /**
- * No sorting feature: order is chosen once for the whole result in the filter bar, not per column.
+ * No sorting feature: order is chosen once for the whole result in the toolbar, not per column.
  * Two of the three orders an editor can pick -- most recently edited, and what needs attention --
  * are not any single column, so a header that claimed to own them would be lying about its scope.
  */
@@ -38,120 +38,117 @@ export const keyTableFeatures = tableFeatures({
 
 const helper = createColumnHelper<typeof keyTableFeatures, MessageKey>();
 
-const cellOf = (key: MessageKey | undefined, locale: string | null): MessageCell | undefined =>
-  key ? localeIn(key.cells, locale) : undefined;
-
-export const textOf = (cell: MessageCell | undefined): string | null =>
-  cell === undefined ? null : (cell.overrideValue ?? cell.defaultValue);
-
 /**
  * Extends what naming a search hit needs -- the two languages, their names, a way to name a third,
- * the term and the mode -- because a row is where that naming is done and passing the same object
+ * and the term -- because a row is where that naming is done and passing the same object
  * on is cheaper than restating it.
  */
 export interface KeyColumnOptions extends MatchedInOptions {
-  /**
-   * The row the editing pane is open on, as `keyId`, or null.
-   *
-   * Only the queue reads it. Working down a queue every row says the same two things, "Not
-   * written" and an offer to write it, so the row being written says something else. The highlight
-   * marks where you are in the list; this marks what you are doing there. In search mode a row
-   * keeps its own status while open, because a badge that vanished on opening would be the one
-   * thing worth reading disappearing at the moment of reading.
-   */
-  openKey: string | null;
   /** False once the view is scoped to one namespace, where repeating it on every row says nothing. */
   showNamespace: boolean;
 }
 
+/**
+ * One line per key: the key, the two languages, and whatever the row is asking for.
+ *
+ * The key has a column of its own rather than a second line under the words. Two lines a row
+ * halved how much of the list fit on screen, and a list that has to be scrolled to be scanned is
+ * the opposite of what search results are for. Set in mono and a quieter colour, it still reads as
+ * identity rather than content.
+ */
 export const keyColumns = (options: KeyColumnOptions) => {
-  const { editing, comparison, showNamespace, term, mode, openKey } = options;
-  /** Whether this row is the one in the pane, which only changes what the queue says. */
-  const writing = (key: MessageKey): boolean => mode === "queue" && keyId(key) === openKey;
-  // In queue mode the two languages swap roles: the reference is the text being read and the
-  // language being edited is the empty space beside it.
-  const lead = mode === "queue" ? comparison : editing;
-  const second = mode === "queue" ? editing : comparison;
-  const secondName = mode === "queue" ? options.editingName : options.comparisonName;
+  const { editing, comparison, showNamespace, term } = options;
+  // The language being edited always sits next to the key, whatever the job. Swapping it with the
+  // reference for a language with nothing written yet put the language somebody had just chosen to
+  // edit in the second column, under a heading they had not picked.
+  const lead = editing;
+  const second = comparison;
 
   return helper.columns([
-    /*
-     * The words come first, because they are what the row is about; the key identifies it but is
-     * not what it says, so it sits underneath in a quieter voice -- still readable, still searched,
-     * and still available in full in the editing pane.
-     */
-    helper.accessor((key) => cellOf(key, lead), {
-      id: "lead",
-      header: () => (
-        <Heading name={mode === "queue" ? options.comparisonName : options.editingName} />
-      ),
-      meta: { width: mode === "queue" ? "minmax(0, 1fr)" : "minmax(0, 1.45fr)", navigable: true },
-      cell: (info) => (
-        <>
-          <span className="row__line">
-            <Value
-              absent={`Not written in ${options.editingName}`}
-              cell={info.getValue()}
-              term={term}
-            />
-          </span>
-          <span className="row__key">
-            {/* Part of the key, written the way the key is written, and dimmer because it is where
-                the key lives rather than what the row is. */}
-            {showNamespace ? (
-              <span className="row__namespace">{info.row.original.namespace}.</span>
-            ) : null}
-            <span
-              className="row__id"
-              title={`${info.row.original.namespace}.${info.row.original.key}`}
-            >
-              <Highlight term={term} text={info.row.original.key} />
-            </span>
-          </span>
-        </>
-      ),
-    }),
-
-    helper.accessor((key) => cellOf(key, second), {
-      id: "second",
-      header: () => <Heading name={secondName} />,
-      meta: { width: mode === "queue" ? "minmax(0, 1fr)" : "minmax(0, 1.15fr)", navigable: true },
+    helper.display({
+      id: "key",
+      header: () => <span className="row__heading">Key</span>,
+      meta: { width: "minmax(9rem, 0.85fr)" },
       cell: (info) => {
         const source = matchedIn(info.row.original, options);
         return (
           <>
-            <span className="row__line">
-              {writing(info.row.original) && info.getValue() === undefined ? (
-                <span className="row__value row__value--absent">Writing now…</span>
-              ) : (
-                <Value
-                  absent={mode === "queue" ? "Not written" : `Not written in ${secondName}`}
-                  cell={info.getValue()}
-                  quiet
-                  term={term}
-                />
-              )}
+            <span
+              className="row__key"
+              title={`${info.row.original.namespace}.${info.row.original.key}`}
+            >
+              <KeyName
+                full={showNamespace}
+                keyName={info.row.original.key}
+                namespace={info.row.original.namespace}
+                term={term}
+              />
             </span>
-            {/* Why this row is a result, when the reason is not in the words above it. */}
+            {/* Why this row is a result, when the reason is not in the words beside it. */}
             {source && <span className="row__source">{source}</span>}
           </>
         );
       },
     }),
 
+    helper.accessor((key) => cellOf(key, lead), {
+      id: "lead",
+      header: () => <Heading name={options.editingName} />,
+      meta: { width: "minmax(0, 1.3fr)", navigable: true },
+      cell: (info) => <Value cell={info.getValue()} term={term} />,
+    }),
+
+    helper.accessor((key) => cellOf(key, second), {
+      id: "second",
+      header: () => <Heading name={options.comparisonName} />,
+      meta: { width: "minmax(0, 1.3fr)", navigable: true },
+      cell: (info) => <Value cell={info.getValue()} quiet term={term} />,
+    }),
+
     helper.display({
       id: "status",
       header: () => <span className="visually-hidden">Status</span>,
-      meta: { width: "8.5rem" },
-      cell: (info) => (
-        <Status
-          cell={cellOf(info.row.original, editing)}
-          mode={mode}
-          writing={writing(info.row.original)}
-        />
-      ),
+      meta: { width: "7.5rem" },
+      cell: (info) => <Status cell={cellOf(info.row.original, editing)} />,
     }),
   ]);
+};
+
+/**
+ * The key, with its namespace before it in a dimmer voice because it is where the key lives rather
+ * than what the row is.
+ *
+ * Everything the search matched is marked, because a hit with nothing marked on the row is a result
+ * nobody can account for. So the namespace is shown when it was hit even in a view scoped to one,
+ * and a search for the whole dotted key -- which neither half contains -- is marked as one piece.
+ */
+const KeyName = ({
+  namespace,
+  keyName,
+  term,
+  full,
+}: {
+  namespace: string;
+  keyName: string;
+  term: string;
+  /** Whether the namespace is shown at all, which it is not once the view is scoped to one. */
+  full: boolean;
+}) => {
+  const whole = `${namespace}.${keyName}`;
+  if (matchesTerm(whole, term) && !matchesTerm(keyName, term) && !matchesTerm(namespace, term)) {
+    return <Highlight term={term} text={whole} />;
+  }
+
+  return (
+    <>
+      {full || matchesTerm(namespace, term) ? (
+        <span className="row__namespace">
+          <Highlight term={term} text={namespace} />.
+        </span>
+      ) : null}
+      <Highlight term={term} text={keyName} />
+    </>
+  );
 };
 
 /** Which language the column holds. What it is for is said once, above the list. */
@@ -161,20 +158,11 @@ const Heading = ({ name }: { name: string }) => <span className="row__heading">{
  * The text an editor would see at runtime: their custom text where there is any, the application's
  * otherwise. Three states would read as an empty cell without help -- no row in this language at
  * all, text deliberately set to nothing, and ordinary text -- so the first two say what they are.
+ * The column heading names the language, so the absence does not have to.
  */
-const Value = ({
-  cell,
-  quiet,
-  term,
-  absent,
-}: {
-  cell?: MessageCell;
-  quiet?: boolean;
-  term: string;
-  absent: string;
-}) => {
+const Value = ({ cell, quiet, term }: { cell?: MessageCell; quiet?: boolean; term: string }) => {
   if (!cell) {
-    return <span className="row__value row__value--absent">{absent}</span>;
+    return <span className="row__value row__value--absent">Not written</span>;
   }
 
   const text = cell.overrideValue ?? cell.defaultValue;
@@ -183,7 +171,7 @@ const Value = ({
   }
 
   return (
-    <span className={quiet ? "row__value row__value--quiet" : "row__value"}>
+    <span className={quiet ? "row__value row__value--quiet" : "row__value"} title={text}>
       <Highlight term={term} text={text} />
     </span>
   );
@@ -192,50 +180,25 @@ const Value = ({
 /**
  * What the row is asking of the editor, at the end of it where the eye lands last.
  *
- * The two states that need a decision are badges with their own colour, because they are rare and
- * the whole point of them is to be picked out of a screen of ordinary rows. The two that need
- * nothing recede to a word: saying "custom text" loudly on most of a list is a label repeated down
- * a column that buries the rows that actually need attention.
+ * Only the two states that need a decision get a badge, because they are rare and the whole point
+ * of them is to be picked out of a screen of ordinary rows. Custom text recedes to a dot and a
+ * word. Application text and an absence say nothing here: the words beside it already do, and a
+ * label repeated down every row buries the ones that matter.
  */
-const Status = ({
-  cell,
-  mode,
-  writing,
-}: {
-  cell: MessageCell | undefined;
-  mode: EditingMode;
-  /** The row in the pane, which in a queue of identical offers is the one thing worth marking. */
-  writing: boolean;
-}) => {
-  // Already the row in the pane, so the offer to start on it has been taken and repeating it is an
-  // invitation to do what is already being done.
-  if (writing) {
-    return <span className="row__open">Open</span>;
-  }
-
-  // Nothing here yet, so the useful thing to offer is the way to start. The whole row opens the
-  // pane; this names the action for somebody scanning the last column for what to do next.
-  if (!cell) {
-    return <span className="row__write">Write</span>;
-  }
-
+const Status = ({ cell }: { cell: MessageCell | undefined }) => {
   const status = cellStatus(cell);
   if (status.warning) {
-    return (
-      <span className={status.state === "Removed" ? "badge badge--danger" : "badge badge--warning"}>
-        {status.text}
-      </span>
-    );
+    return <StatusBadge status={status} />;
   }
 
   if (status.custom) {
     return (
       <span className="row__custom">
         <span aria-hidden="true" className="row__dot" />
-        {mode === "queue" ? "Written" : "Custom"}
+        Custom
       </span>
     );
   }
 
-  return <span className="row__plain">App text</span>;
+  return null;
 };

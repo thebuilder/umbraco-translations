@@ -66,8 +66,8 @@ export const useGridNavigation = ({ rowCount, columns, scrollToRow, onActivate }
   latest.current = focus;
 
   /**
-   * Takes focus back to the coordinate after something else claimed it. The editor opens as an
-   * overlay, so closing it with nothing to return to drops a keyboard user at the top of the page
+   * Takes focus back to the coordinate after something else claimed it. The editor takes focus into
+   * its field, so closing it with nothing to return to drops a keyboard user at the top of the page
    * with the whole list to walk again.
    *
    * The row is passed explicitly because the list can reorder while the editor is open -- saving a

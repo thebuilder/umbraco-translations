@@ -1,0 +1,178 @@
+/* ---- The board: the summary bar and the list ---------------------------------------------- */
+
+.board {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  overflow: hidden;
+  container: board / inline-size;
+}
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  min-block-size: 46px;
+  padding: 7px 10px 7px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  min-inline-size: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.summary strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+.summary__item {
+  white-space: nowrap;
+}
+.summary__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+.summary__link:hover {
+  text-decoration: underline;
+}
+.summary__link--warning {
+  color: var(--warn);
+}
+.progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.progress__track {
+  display: flex;
+  inline-size: 80px;
+  block-size: 5px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.progress__fill {
+  background: var(--accent);
+}
+
+/* A filter that is doing something says so and can be taken off; one doing nothing is a quiet
+   menu. The failure mode of a row of identical dropdowns is an editor staring at an incomplete list
+   without noticing a status filter is still on. */
+.chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.picker--add .picker__face {
+  block-size: 30px;
+  padding-inline: 10px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.picker--add:hover .picker__face {
+  background: var(--hover);
+  color: var(--ink);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  block-size: 28px;
+  margin-inline: 2px;
+  padding-inline: 10px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  max-inline-size: 100%;
+}
+.chip:not(:has(.chip__remove)) {
+  padding-inline-end: 10px;
+}
+.chip__face,
+.picker--chip .picker__face {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-inline-size: 0;
+}
+.chip__label {
+  flex: none;
+  font-weight: 400;
+  opacity: 0.75;
+}
+.chip__value {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip__code {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.picker--chip:hover .chip__value {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.chip__remove {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.chip__remove:hover {
+  background: var(--accent-line);
+  opacity: 1;
+}
+.chip__cross {
+  inline-size: 8px;
+  block-size: 8px;
+}
+
+.link {
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link:hover {
+  color: var(--ink);
+}

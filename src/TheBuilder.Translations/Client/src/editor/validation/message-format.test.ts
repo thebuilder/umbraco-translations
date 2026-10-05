@@ -113,7 +113,7 @@ describe("describeOverride", () => {
     expect(problem?.missing).toEqual(["name"]);
     expect(problem?.unexpected).toEqual(["navn"]);
     expect(problem?.message).toBe(
-      "Your text is missing {name} and uses {navn}, which the application does not provide."
+      "Your text is missing {name} and uses {navn}, which is not available here."
     );
   });
 
@@ -124,7 +124,7 @@ describe("describeOverride", () => {
     // "your text is missing {count}" about text that plainly contains {count}.
     expect(problem?.missing).toEqual([]);
     expect(problem?.message).toBe(
-      "Your text uses {count} as plain text where the application uses it as a number."
+      "Your text uses {count} as plain text where the default text uses it as a number."
     );
   });
 

@@ -1,0 +1,107 @@
+/* ---- Controls ------------------------------------------------------------------------------ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  block-size: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.button:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: color-mix(in srgb, var(--uui-color-text) 26%, var(--uui-color-surface));
+}
+.button:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.button--primary:hover:not(:disabled) {
+  background: var(--uui-color-selected-emphasis);
+  border-color: var(--uui-color-selected-emphasis);
+}
+.button--danger {
+  color: var(--danger);
+}
+/* An offer rather than an action: it fills a field with a starting point. */
+.button--soft {
+  block-size: 24px;
+  padding-inline: 8px;
+  border-color: transparent;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 12px;
+}
+.button--soft:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--uui-color-selected) 14%, var(--uui-color-surface));
+  border-color: transparent;
+}
+.button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+.button--quiet:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--ink);
+}
+.button--small {
+  block-size: 22px;
+  padding-inline: 7px;
+  font-size: 12px;
+}
+.button:focus-visible,
+.link:focus-visible,
+.summary__link:focus-visible,
+.chip__remove:focus-visible,
+.search__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Badges -------------------------------------------------------------------------------- */
+
+/* Reserved for the two states that ask the editor to decide something. They are rare, and the
+   point of them is to be picked out of a screen of ordinary rows. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  block-size: 20px;
+  padding-inline: 7px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.badge--warning {
+  background: var(--warn-wash);
+  border-color: var(--warn-line);
+  color: var(--warn);
+}
+.badge--danger {
+  background: var(--danger-wash);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}

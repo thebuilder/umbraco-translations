@@ -57,7 +57,6 @@ const options = (overrides: Partial<MatchedInOptions> = {}): MatchedInOptions =>
   comparisonName: "English",
   nameOf,
   term: "",
-  mode: "search",
   ...overrides,
 });
 
@@ -68,10 +67,8 @@ describe("matchedIn", () => {
     expect(matchedIn(key({ matchedLocales: ["da-DK"] }), options({ term: "kurv" }))).toBeNull();
   });
 
-  it("names the quiet column when the hit is only there", () => {
-    expect(matchedIn(key({ matchedLocales: ["en-US"] }), options({ term: "cart" }))).toBe(
-      "matched in English"
-    );
+  it("says nothing when the hit is in the other column, which is marked too", () => {
+    expect(matchedIn(key({ matchedLocales: ["en-US"] }), options({ term: "cart" }))).toBeNull();
   });
 
   it("names a language the list has no column for", () => {
@@ -94,26 +91,12 @@ describe("matchedIn", () => {
     ).toBe("matched in German, Norwegian, and Swedish");
   });
 
-  it("names the key when no language matched at all", () => {
-    // The words above the key look unrelated to what was typed, so the identifier is the only
-    // thing that can have made this a result.
-    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "cart.empty" }))).toBe(
-      "matched in the key"
-    );
+  it("says nothing when the key is the hit, because the key has a column of its own", () => {
+    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "cart.empty" }))).toBeNull();
   });
 
   it("says nothing when nothing was searched for", () => {
     expect(matchedIn(key({ matchedLocales: ["de-DE"] }), options({ term: "   " }))).toBeNull();
-  });
-
-  it("follows the swap when the reference leads the row", () => {
-    // In queue mode the reference is the text being read and the language being written is the
-    // empty space beside it, so a hit in the reference is the one that needs no words.
-    const queue = options({ term: "cart", mode: "queue" });
-
-    expect(matchedIn(key({ matchedLocales: ["en-US"] }), queue)).toBeNull();
-    expect(matchedIn(key({ matchedLocales: ["da-DK"] }), queue)).toBe("matched in Danish");
-    expect(matchedIn(key({ matchedLocales: ["de-DE"] }), queue)).toBe("matched in German");
   });
 
   it("prefers the server's answer over the cells in hand", () => {
@@ -165,12 +148,6 @@ describe("matchedIn", () => {
     });
 
     expect(matchedIn(row, options({ term: "later" }))).toBe("matched further along in English");
-  });
-
-  it("matches the same text the highlight marks, case and all", () => {
-    expect(matchedIn(key({ name: "cart.empty" }), options({ term: "CART.EMPTY" }))).toBe(
-      "matched in the key"
-    );
   });
 });
 
