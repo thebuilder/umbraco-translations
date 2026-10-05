@@ -19,6 +19,11 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TheBuilder.Translations.Core/TheBuilder.Translations.Core.csproj" />
+    <PackageReference Include="Umbraco.AI" />
+    <!-- Not used directly. Umbraco.AI's SQLite persistence brings in 2.1.11, which has a known
+         high-severity vulnerability (GHSA-2m69-gcr7-jv3q); referencing the fixed version here lifts
+         it for every site that installs this package. Drop it once Umbraco.AI depends on 2.1.12. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
     <PackageReference Include="Umbraco.Cms.Web.Website" />
     <PackageReference Include="Umbraco.Cms.Web.Common" />
     <PackageReference Include="Umbraco.Cms.Api.Common" />

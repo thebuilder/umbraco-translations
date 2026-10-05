@@ -27,6 +27,7 @@ import {
   sourceEndpoint,
   sourceRequest,
 } from "./app/source-form.js";
+import "./assistant-settings.element.js";
 import "./output-api.element.js";
 import "./source-editor.element.js";
 
@@ -539,6 +540,7 @@ class TranslationsSettingsDashboardElement extends UmbElementMixin(LitElement) {
             .conflicts=${this._outputConflicts}
             .languages=${this._languages}>
           </thebuilder-translations-output-api>
+          <thebuilder-translations-assistant-settings></thebuilder-translations-assistant-settings>
         `;
   }
 

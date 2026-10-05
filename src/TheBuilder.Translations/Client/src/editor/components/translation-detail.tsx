@@ -10,11 +10,13 @@ import type {
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { Button } from "../../bridge/uui/index.js";
 import { queryKeys } from "../api/keys.js";
+import { useAssistantStatus } from "../api/queries.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { cellOf, textOf } from "../state/cells.js";
 import { localeName } from "../state/locales.js";
 import type { EditTarget } from "../state/target.js";
 import { SyntaxText } from "../syntax/syntax-text.js";
+import { AssistantActions } from "./assistant-actions.js";
 import { DefaultValue } from "./default-value.js";
 import { EditorFoot } from "./editor-foot.js";
 import { EditorMeta } from "./editor-meta.js";
@@ -61,6 +63,7 @@ export const TranslationDetail = ({
 }) => {
   const { target, next, select, close } = open;
   const queryClient = useQueryClient();
+  const assistant = useAssistantStatus();
   const cell = cellOf(row, target.locale);
   const id = cell?.id;
 
@@ -194,6 +197,14 @@ export const TranslationDetail = ({
               setDraft={setDraft}
               value={value}
             />
+            {canEdit && assistant.data?.available ? (
+              <AssistantActions
+                onSuggestion={setDraft}
+                reference={reference}
+                target={target}
+                text={value}
+              />
+            ) : null}
             <DefaultValue
               canEdit={canEdit}
               message={message}

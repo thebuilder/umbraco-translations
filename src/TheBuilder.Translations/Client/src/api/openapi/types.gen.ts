@@ -4,6 +4,48 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AssistantProfile = {
+    id: string;
+    alias: string;
+    name: string;
+};
+
+export type AssistantSettingsRequest = {
+    enabled: boolean;
+    profileId?: string | null;
+    instructions?: string | null;
+};
+
+export type AssistantSettingsResponse = {
+    installed: boolean;
+    hasDefaultProfile: boolean;
+    profiles: Array<AssistantProfile>;
+    enabled: boolean;
+    profileId?: string | null;
+    instructions?: string | null;
+    defaultInstructions: string;
+};
+
+export type AssistantStatusResponse = {
+    available: boolean;
+};
+
+export type AssistantSuggestionRequest = {
+    sourceId: string;
+    namespace: string;
+    key: string;
+    locale: string;
+    task: AssistantTask;
+    text?: string | null;
+    referenceLocale?: string | null;
+};
+
+export type AssistantSuggestionResponse = {
+    value: string;
+};
+
+export type AssistantTask = 'Translate' | 'Improve' | 'Simplify' | 'Shorten' | 'FixSpelling';
+
 export type FacetResponse = {
     locales: Array<LocaleFacetResponse>;
     defaultLocale?: string | null;
@@ -185,6 +227,15 @@ export type PermissionsResponse = {
     canSync: boolean;
 };
 
+export type ProblemDetails = {
+    type?: string | null;
+    title?: string | null;
+    status?: number | null;
+    detail?: string | null;
+    instance?: string | null;
+    [key: string]: unknown;
+};
+
 export type ResetOverrideRequest = {
     sourceId: string;
     namespace: string;
@@ -317,6 +368,134 @@ export type SourceResponseWritable = {
     syncLeaseExpiresAt?: string | null;
     lastSync?: TranslationSyncResult;
 };
+
+export type AssistantGetStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/assistant';
+};
+
+export type AssistantGetStatusErrors = {
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+};
+
+export type AssistantGetStatusResponses = {
+    /**
+     * OK
+     */
+    200: AssistantStatusResponse;
+};
+
+export type AssistantGetStatusResponse = AssistantGetStatusResponses[keyof AssistantGetStatusResponses];
+
+export type AssistantGetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/assistant/settings';
+};
+
+export type AssistantGetSettingsErrors = {
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+    /**
+     * The authenticated user does not have access to this resource
+     */
+    403: unknown;
+};
+
+export type AssistantGetSettingsResponses = {
+    /**
+     * OK
+     */
+    200: AssistantSettingsResponse;
+};
+
+export type AssistantGetSettingsResponse = AssistantGetSettingsResponses[keyof AssistantGetSettingsResponses];
+
+export type AssistantSaveSettingsData = {
+    body?: AssistantSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/assistant/settings';
+};
+
+export type AssistantSaveSettingsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+    /**
+     * The authenticated user does not have access to this resource
+     */
+    403: unknown;
+};
+
+export type AssistantSaveSettingsError = AssistantSaveSettingsErrors[keyof AssistantSaveSettingsErrors];
+
+export type AssistantSaveSettingsResponses = {
+    /**
+     * OK
+     */
+    200: AssistantSettingsResponse;
+};
+
+export type AssistantSaveSettingsResponse = AssistantSaveSettingsResponses[keyof AssistantSaveSettingsResponses];
+
+export type AssistantSuggestData = {
+    body?: AssistantSuggestionRequest;
+    path?: never;
+    query?: never;
+    url: '/umbraco/management/api/v1/translations/assistant/suggestions';
+};
+
+export type AssistantSuggestErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * The resource is protected and requires an authentication token
+     */
+    401: unknown;
+    /**
+     * The authenticated user does not have access to this resource
+     */
+    403: unknown;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Unprocessable Content
+     */
+    422: ProblemDetails;
+    /**
+     * Bad Gateway
+     */
+    502: ProblemDetails;
+};
+
+export type AssistantSuggestError = AssistantSuggestErrors[keyof AssistantSuggestErrors];
+
+export type AssistantSuggestResponses = {
+    /**
+     * OK
+     */
+    200: AssistantSuggestionResponse;
+};
+
+export type AssistantSuggestResponse = AssistantSuggestResponses[keyof AssistantSuggestResponses];
 
 export type MessagesGetMessageFacetsData = {
     body?: never;

@@ -70,6 +70,17 @@ export const useFacets = () =>
     staleTime: 60_000,
   });
 
+/**
+ * Whether to offer the AI assistant. Checked once a minute rather than once a session, so turning
+ * it on in the settings shows up in an editor somebody already has open.
+ */
+export const useAssistantStatus = () =>
+  useQuery({
+    queryKey: queryKeys.assistant(),
+    queryFn: ({ signal }) => api.assistantStatus(signal),
+    staleTime: 60_000,
+  });
+
 export const usePermissions = () =>
   useQuery({
     queryKey: queryKeys.permissions(),
