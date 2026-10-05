@@ -145,7 +145,6 @@ const open = (canEdit: boolean, options: Options = {}) => {
         bridge={{ notify: vi.fn() } as never}
         canEdit={canEdit}
         locales={[locale("da", "Danish"), locale("en", "English")]}
-        mode="search"
         open={{
           target: opened,
           previous,
@@ -419,7 +418,6 @@ describe("a translation that does not exist yet", () => {
       target: { ...target, locale: "nb" },
       locales: [locale("nb", "Norwegian", { messageCount: 0 }), locale("en", "English")],
       reference: { locale: "en", name: "English" },
-      mode: "queue",
       ...props,
     });
 

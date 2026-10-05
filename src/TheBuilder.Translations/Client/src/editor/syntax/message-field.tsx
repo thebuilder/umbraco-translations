@@ -9,14 +9,9 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { MessageFormat } from "../../api/generated/models.js";
 import { type TokenKind, tokenize } from "./tokens.js";
-
-export interface FieldHandle {
-  /** Focuses the field with the caret after what is already there, so a keystroke adds to it. */
-  focus: () => void;
-}
 
 const KINDS: readonly TokenKind[] = ["name", "type", "option", "hash", "punct"];
 const MARKS = new Map(KINDS.map((kind) => [kind, Decoration.mark({ class: `syn syn--${kind}` })]));
@@ -71,7 +66,7 @@ export const MessageField = ({
   placeholder,
   invalid,
   describedBy,
-  ref,
+  focusOnMount,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -80,7 +75,11 @@ export const MessageField = ({
   placeholder: string;
   invalid: boolean;
   describedBy: string;
-  ref?: Ref<FieldHandle>;
+  /**
+   * Takes focus as it appears, with the caret after what is already there rather than selecting
+   * it, so a keystroke adds to an existing translation instead of wiping it.
+   */
+  focusOnMount: boolean;
 }) => {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -121,6 +120,10 @@ export const MessageField = ({
       }),
     });
     view.current = editor;
+    if (focusOnMount) {
+      editor.focus();
+      editor.dispatch({ selection: { anchor: editor.state.doc.length } });
+    }
     return () => {
       editor.destroy();
       view.current = null;
@@ -144,20 +147,6 @@ export const MessageField = ({
   useEffect(() => {
     view.current?.dispatch({ effects: attributes.current.reconfigure(describe()) });
   }, [label, invalid, describedBy]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => {
-        const editor = view.current;
-        if (editor) {
-          editor.focus();
-          editor.dispatch({ selection: { anchor: editor.state.doc.length } });
-        }
-      },
-    }),
-    []
-  );
 
   return <div className={invalid ? "code code--invalid" : "code"} ref={host} />;
 };

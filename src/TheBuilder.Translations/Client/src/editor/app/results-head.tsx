@@ -2,7 +2,7 @@ import type { LocaleFacet } from "../../api/generated/models.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { coverageOf } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
-import { hasNarrowingFilters } from "../state/list-state.js";
+import { workInList } from "../state/summary.js";
 
 /**
  * The shape of the result, said before it is scrolled.
@@ -34,20 +34,7 @@ export const ResultsHead = ({
   viewOnly: boolean;
   update: (patch: Partial<EditorFilters>) => void;
 }) => {
-  /*
-   * The counts behind the two offers are the whole language's. Beside a namespace, a key path or a
-   * search they contradicted the count next to them -- "20 keys, 48 not written" -- and taking the
-   * offer showed fewer rows than it promised. So they are offered only where they describe the
-   * list.
-   */
-  const unfiltered = !hasNarrowingFilters(filters);
-  /*
-   * Not the language's own count of missing keys. The list holds the keys the two languages on
-   * screen have between them, not every key any language has, so that count could be larger than
-   * the list: "24 keys, 115 not written". Every message the language has is in the list, so what
-   * the list holds beyond those is exactly what is not written in it.
-   */
-  const notWritten = current ? Math.max(0, total - current.messageCount) : 0;
+  const { notWritten, defaultChanged } = workInList(total, current, filters);
   return (
     <div className="summary">
       <span className="summary__count">
@@ -68,7 +55,7 @@ export const ResultsHead = ({
         <Progress locale={current} totalKeys={totalKeys} />
       ) : null}
 
-      {unfiltered && notWritten > 0 ? (
+      {notWritten > 0 ? (
         <button
           className="summary__item summary__link"
           onClick={() => update({ status: "Absent" })}
@@ -77,13 +64,13 @@ export const ResultsHead = ({
           {notWritten.toLocaleString()} not written
         </button>
       ) : null}
-      {unfiltered && current && current.needsReviewCount > 0 ? (
+      {defaultChanged > 0 ? (
         <button
           className="summary__item summary__link summary__link--warning"
           onClick={() => update({ status: "NeedsReview" })}
           type="button"
         >
-          {current.needsReviewCount.toLocaleString()} default changed
+          {defaultChanged.toLocaleString()} default changed
         </button>
       ) : null}
 

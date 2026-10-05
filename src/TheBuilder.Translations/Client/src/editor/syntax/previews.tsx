@@ -190,9 +190,9 @@ export const Previews = ({ text, locale }: { text: string; locale: string }) => 
   }
 
   return (
-    <dl className="examples">
+    <dl className="previews">
       {previews.map((preview) => (
-        <div className="examples__row" key={preview.label}>
+        <div className="previews__row" key={preview.label}>
           <dt>{preview.label || "Preview"}</dt>
           <dd>
             {preview.parts.map((part, index) =>
@@ -200,7 +200,7 @@ export const Previews = ({ text, locale }: { text: string; locale: string }) => 
                 part
               ) : (
                 // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one rendered string, in order; position is their identity and they never reorder.
-                <span className="examples__gap" key={index}>
+                <span className="previews__gap" key={index}>
                   {part.gap}
                 </span>
               )

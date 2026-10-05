@@ -1,6 +1,5 @@
-import type { Ref } from "react";
 import type { MessageDetail } from "../../api/generated/models.js";
-import { type FieldHandle, MessageField } from "../syntax/message-field.js";
+import { MessageField } from "../syntax/message-field.js";
 import { Previews } from "../syntax/previews.js";
 import { SyntaxText } from "../syntax/syntax-text.js";
 import type { OverrideProblem } from "../validation/override.js";
@@ -21,7 +20,7 @@ export const OverrideField = ({
   canEdit,
   value,
   problem,
-  field,
+  focusOnMount,
   setDraft,
 }: {
   message: MessageDetail;
@@ -32,7 +31,8 @@ export const OverrideField = ({
   canEdit: boolean;
   value: string;
   problem: OverrideProblem | null;
-  field: Ref<FieldHandle>;
+  /** Whether the field takes focus as it appears: the editor took it, and this is where it goes. */
+  focusOnMount: boolean;
   setDraft: (value: string) => void;
 }) => (
   <section className="editor__block">
@@ -43,12 +43,12 @@ export const OverrideField = ({
     {canEdit ? (
       <MessageField
         describedBy={problem ? "override-problem" : "override-state"}
+        focusOnMount={focusOnMount}
         format={message.format}
         invalid={problem !== null}
         label={`Your text in ${language}`}
         onChange={setDraft}
         placeholder={`Write the ${language} text`}
-        ref={field}
         value={value}
       />
     ) : (
