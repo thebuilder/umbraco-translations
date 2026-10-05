@@ -82,7 +82,18 @@ export const ContextStrip = ({
         <Picker
           className="picker--lang"
           label="Language to compare against"
-          onChange={(value) => update({ referenceLocale: value || editing })}
+          /*
+           * The language being edited is pinned along with the comparison, even though it has not
+           * been asked to change.
+           *
+           * Until somebody picks one it is only implied: the URL names no language, and the server
+           * answers with the pair it chose. Its rule for the language being edited is "whatever was
+           * asked for, otherwise the reference" -- so naming a reference and nothing else asks it to
+           * edit that reference, and the comparison an editor had just chosen came back as the
+           * language they were already on with the second column gone. Saying both makes the
+           * request the pair the strip is showing.
+           */
+          onChange={(value) => update({ locale: editing, referenceLocale: value || editing })}
           options={comparisons}
           value={comparing ? (filters.referenceLocale ?? "") : NO_COMPARISON}
         >

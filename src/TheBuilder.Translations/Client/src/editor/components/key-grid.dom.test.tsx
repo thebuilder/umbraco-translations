@@ -242,3 +242,36 @@ describe("a language the application ships nothing for", () => {
     expect(screen.getByText("Default changed")).toBeTruthy();
   });
 });
+
+/**
+ * The row a translation is open on has to stay findable in the list: scrolling away and back, or
+ * saving while the order is by what changed last, is how you end up looking at a screenful of rows
+ * with no idea which one is being edited.
+ */
+describe("the row a translation is open on", () => {
+  it("marks it without taking the row's own layout with it", () => {
+    // Both classes, not one: the modifier carries the tint and the bar, and `grid__row` is what
+    // makes a row a row. Written as one string with the space left out, the marked row lost its
+    // grid entirely and stacked its columns on top of each other.
+    const { container } = show(
+      [key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") })],
+      {},
+      {
+        sourceId: "s1",
+        namespace: "website",
+        key: "a",
+        locale: "da",
+      }
+    );
+
+    const open = container.querySelector('[role="row"][aria-selected="true"]');
+    expect(open?.classList.contains("grid__row")).toBe(true);
+    expect(open?.classList.contains("grid__row--selected")).toBe(true);
+  });
+
+  it("marks nothing while no translation is open", () => {
+    const { container } = show([key("a", { da: cell("da", "Hej"), en: cell("en", "Hi") })]);
+
+    expect(container.querySelector(".grid__row--selected")).toBeNull();
+  });
+});
