@@ -71,13 +71,16 @@ export const useFacets = () =>
   });
 
 /**
- * Whether to offer the AI assistant. Checked once a minute rather than once a session, so turning
- * it on in the settings shows up in an editor somebody already has open.
+ * Whether to offer the AI assistant. Not asked for someone who cannot edit, who is never offered
+ * it. Stale after a minute rather than kept for the session, so turning it on in the settings shows
+ * up the next time an editor somebody already has open asks.
  */
-export const useAssistantStatus = () =>
+export const useAssistantStatus = (canEdit: boolean) =>
   useQuery({
     queryKey: queryKeys.assistant(),
     queryFn: ({ signal }) => api.assistantStatus(signal),
+    enabled: canEdit,
+    select: (status) => status.available,
     staleTime: 60_000,
   });
 

@@ -58,9 +58,8 @@ public sealed class TranslationsComposer : IComposer
         // No caching wrapper: ILanguageService is already cached inside Umbraco, and a second layer
         // would only introduce staleness after a language is added or the default one changes.
         builder.Services.AddScoped<ITranslationLocaleCatalog, UmbracoTranslationLocaleCatalog>();
-        // Registered whether or not Umbraco.AI is installed: the chat adapter asks for its services
-        // when used and reports their absence, so a site without it gets an assistant that says it is
-        // unavailable rather than a failure to start.
+        // The assistant runs on Umbraco.AI, which the package depends on, so its services are always
+        // there; whether the assistant is offered is a setting, and a profile, rather than an install.
         builder.Services.AddScoped<IAssistantChat, UmbracoAiAssistantChat>();
         builder.Services.AddScoped<AssistantSettingsStore>();
         builder.Services.AddScoped<TranslationAssistant>();

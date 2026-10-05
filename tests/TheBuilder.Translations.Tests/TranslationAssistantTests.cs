@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using TheBuilder.Translations.Assistant;
 using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
@@ -33,8 +34,19 @@ public sealed class TranslationAssistantTests
         var chat = new FakeChat(replies);
         var editor = new FakeEditor();
         var settings = new AssistantSettingsStore(new FakeKeyValues());
-        return (new TranslationAssistant(chat, settings, editor, new MessageFormatValidator()), chat, editor, settings);
+        settings.Save(On);
+        var assistant = new TranslationAssistant(
+            chat, settings, editor, new MessageFormatValidator(), NullLogger<TranslationAssistant>.Instance);
+        return (assistant, chat, editor, settings);
     }
+
+    private static readonly AssistantSettings On = AssistantSettings.Default with { Enabled = true };
+
+    private static AssistantRequest Rewrite(string text, string locale = "da-DK") =>
+        new(Identity(locale), AssistantTask.Shorten, text, ReferenceLocale: null);
+
+    private static async Task<AssistantRefusedException> RefusedAsync(TranslationAssistant assistant, AssistantRequest request) =>
+        await Assert.ThrowsAsync<AssistantRefusedException>(() => assistant.SuggestAsync(request, CancellationToken.None));
 
     private static AssistantRequest Translate(string to = "da-DK", string? from = "en-US") =>
         new(Identity(to), AssistantTask.Translate, Text: null, ReferenceLocale: from);
@@ -45,9 +57,7 @@ public sealed class TranslationAssistantTests
         var (assistant, chat, editor, _) = Create("Betal {amount}");
         editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
 
-        var outcome = await assistant.SuggestAsync(Translate(), CancellationToken.None);
-
-        Assert.Equal(new AssistantOutcome.Suggested("Betal {amount}"), outcome);
+        Assert.Equal("Betal {amount}", await assistant.SuggestAsync(Translate(), CancellationToken.None));
         // The reference text, the key and the placeholders all reach the model.
         var asked = chat.Conversations.Single()[^1].Text;
         Assert.Contains("Pay {amount}", asked);
@@ -75,13 +85,22 @@ public sealed class TranslationAssistantTests
         var (assistant, chat, editor, _) = Create("Betal {beløb}", "Betal {amount}");
         editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
 
-        var outcome = await assistant.SuggestAsync(Translate(), CancellationToken.None);
-
-        Assert.Equal(new AssistantOutcome.Suggested("Betal {amount}"), outcome);
+        Assert.Equal("Betal {amount}", await assistant.SuggestAsync(Translate(), CancellationToken.None));
         var retry = chat.Conversations[1];
         Assert.Equal(ChatRole.Assistant, retry[^2].Role);
         Assert.Equal("Betal {beløb}", retry[^2].Text);
         Assert.Contains(MessageOverrideValidation.ArgumentMismatchError, retry[^1].Text);
+        Assert.Contains("{amount} (string)", retry[^1].Text);
+    }
+
+    [Fact]
+    public async Task Sends_an_empty_reply_back_rather_than_blanking_the_field()
+    {
+        var (assistant, chat, editor, _) = Create("  ", "Betal {amount}");
+        editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
+
+        Assert.Equal("Betal {amount}", await assistant.SuggestAsync(Translate(), CancellationToken.None));
+        Assert.Equal(2, chat.Conversations.Count);
     }
 
     [Fact]
@@ -90,9 +109,7 @@ public sealed class TranslationAssistantTests
         var (assistant, chat, editor, _) = Create("Betal {beløb}", "Betal {sum}", "Betal {amount}");
         editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
 
-        var outcome = await assistant.SuggestAsync(Translate(), CancellationToken.None);
-
-        Assert.IsType<AssistantOutcome.Rejected>(outcome);
+        Assert.Equal(AssistantRefusal.Rejected, (await RefusedAsync(assistant, Translate())).Refusal);
         Assert.Equal(2, chat.Conversations.Count);
     }
 
@@ -102,12 +119,32 @@ public sealed class TranslationAssistantTests
         var (assistant, chat, editor, _) = Create("Betal {amount}");
         editor.Messages[Identity("da-DK")] = new(Message("da-DK", "Betal {amount}"), null);
 
-        var outcome = await assistant.SuggestAsync(
-            new AssistantRequest(Identity("da-DK"), AssistantTask.Shorten, "Betal venligst nu {amount}", null),
-            CancellationToken.None);
-
-        Assert.Equal(new AssistantOutcome.Suggested("Betal {amount}"), outcome);
+        Assert.Equal("Betal {amount}", await assistant.SuggestAsync(Rewrite("Betal venligst nu {amount}"), CancellationToken.None));
         Assert.Contains("Betal venligst nu {amount}", chat.Conversations.Single()[^1].Text);
+    }
+
+    [Fact]
+    public async Task Rewrites_a_translation_that_has_never_been_written_with_the_key_s_shape()
+    {
+        // Only English ships the key; Danish exists as nothing but the draft in the editor's field.
+        var (assistant, chat, editor, _) = Create("Betal {beløb}", "Betal {amount}");
+        editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
+
+        Assert.Equal("Betal {amount}", await assistant.SuggestAsync(Rewrite("Betal venligst {amount}"), CancellationToken.None));
+        Assert.Contains("{amount}", chat.Conversations[0][^1].Text);
+        Assert.Equal(0, editor.Ensured);
+    }
+
+    [Fact]
+    public async Task Refuses_text_too_long_to_rewrite()
+    {
+        var (assistant, chat, editor, _) = Create();
+        editor.Messages[Identity("da-DK")] = new(Message("da-DK", "Betal {amount}"), null);
+
+        var refused = await RefusedAsync(assistant, Rewrite(new string('a', TranslationAssistant.MaximumTextLength + 1)));
+
+        Assert.Equal(AssistantRefusal.Invalid, refused.Refusal);
+        Assert.Empty(chat.Conversations);
     }
 
     [Fact]
@@ -126,23 +163,19 @@ public sealed class TranslationAssistantTests
     [InlineData("de-DE", "There is no text in that language to translate from.")]
     public async Task Explains_a_translation_with_nothing_to_translate_from(string? from, string reason)
     {
-        var (assistant, chat, _, _) = Create();
+        var (assistant, chat, editor, _) = Create();
 
-        var outcome = await assistant.SuggestAsync(Translate(from: from), CancellationToken.None);
+        editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
 
-        Assert.Equal(new AssistantOutcome.Invalid(reason), outcome);
+        var refused = await RefusedAsync(assistant, Translate(from: from));
+
+        Assert.Equal((AssistantRefusal.Invalid, reason), (refused.Refusal, refused.Message));
         Assert.Empty(chat.Conversations);
     }
 
     [Fact]
-    public async Task Is_unavailable_without_Umbraco_AI()
-    {
-        var (assistant, chat, _, _) = Create();
-        chat.Installed = false;
-
-        Assert.False(await assistant.IsAvailableAsync(CancellationToken.None));
-        Assert.IsType<AssistantOutcome.Unavailable>(await assistant.SuggestAsync(Translate(), CancellationToken.None));
-    }
+    public void Is_off_until_an_administrator_turns_it_on() =>
+        Assert.False(new AssistantSettingsStore(new FakeKeyValues()).Get().Enabled);
 
     [Fact]
     public async Task Is_unavailable_when_turned_off_or_without_a_profile_to_use()
@@ -150,17 +183,18 @@ public sealed class TranslationAssistantTests
         var (assistant, chat, _, settings) = Create();
         Assert.True(await assistant.IsAvailableAsync(CancellationToken.None));
 
-        settings.Save(AssistantSettings.Default with { Enabled = false });
+        settings.Save(On with { Enabled = false });
         Assert.False(await assistant.IsAvailableAsync(CancellationToken.None));
+        Assert.Equal(AssistantRefusal.Unavailable, (await RefusedAsync(assistant, Translate())).Refusal);
 
-        settings.Save(AssistantSettings.Default);
+        settings.Save(On);
         chat.DefaultProfile = false;
         Assert.False(await assistant.IsAvailableAsync(CancellationToken.None));
 
         // A chosen profile stands in for the missing default -- while it exists.
         var chosen = new AssistantProfile(Guid.NewGuid(), "translator", "Translator");
         chat.Profiles.Add(chosen);
-        settings.Save(AssistantSettings.Default with { ProfileId = chosen.Id });
+        settings.Save(On with { ProfileId = chosen.Id });
         Assert.True(await assistant.IsAvailableAsync(CancellationToken.None));
 
         chat.Profiles.Clear();
@@ -185,15 +219,43 @@ public sealed class TranslationAssistantTests
     }
 
     [Fact]
-    public async Task Reports_a_provider_failure_with_its_message()
+    public async Task Reports_a_provider_failure_without_passing_on_what_the_provider_said()
     {
         var (assistant, chat, editor, _) = Create();
         editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
-        chat.Failure = new InvalidOperationException("The API key is invalid.");
+        chat.Failure = new InvalidOperationException("Invalid key for https://internal.example/org-123.");
 
-        var outcome = await assistant.SuggestAsync(Translate(), CancellationToken.None);
+        var refused = await RefusedAsync(assistant, Translate());
 
-        Assert.Equal(new AssistantOutcome.Failed("The API key is invalid."), outcome);
+        Assert.Equal(AssistantRefusal.Failed, refused.Refusal);
+        Assert.DoesNotContain("org-123", refused.Message);
+    }
+
+    [Fact]
+    public async Task Reports_a_provider_timeout_as_a_failure_rather_than_a_cancellation()
+    {
+        var (assistant, chat, editor, _) = Create();
+        editor.Messages[Identity("en-US")] = new(Message("en-US", "Pay {amount}"), null);
+        chat.Failure = new TaskCanceledException("The request timed out.");
+
+        Assert.Equal(AssistantRefusal.Failed, (await RefusedAsync(assistant, Translate())).Refusal);
+    }
+
+    [Fact]
+    public async Task Saves_only_settings_that_can_be_used()
+    {
+        var (assistant, chat, _, settings) = Create();
+        var chosen = new AssistantProfile(Guid.NewGuid(), "translator", "Translator");
+        chat.Profiles.Add(chosen);
+
+        Assert.NotNull(await assistant.SaveSettingsAsync(On with { ProfileId = Guid.NewGuid() }, CancellationToken.None));
+        Assert.NotNull(await assistant.SaveSettingsAsync(
+            On with { Instructions = new string('a', TranslationAssistant.MaximumInstructionsLength + 1) },
+            CancellationToken.None));
+        Assert.Equal(On, settings.Get());
+
+        Assert.Null(await assistant.SaveSettingsAsync(On with { ProfileId = chosen.Id }, CancellationToken.None));
+        Assert.Equal(chosen.Id, settings.Get().ProfileId);
     }
 
     [Theory]
@@ -204,6 +266,8 @@ public sealed class TranslationAssistantTests
     [InlineData("```icu\nBetal {amount}\n```", "Betal {amount}")]
     // Quotes that belong to the message stay.
     [InlineData("\"Betal\" eller \"Annuller\"", "\"Betal\" eller \"Annuller\"")]
+    // ICU quoting, which starts and ends with an apostrophe but is not wrapped in one.
+    [InlineData("'{'Betal'}'", "'{'Betal'}'")]
     public void Takes_off_the_wrapping_models_add(string reply, string expected) =>
         Assert.Equal(expected, TranslationAssistant.Clean(reply));
 
@@ -220,19 +284,19 @@ public sealed class TranslationAssistantTests
     {
         private readonly Queue<string> _replies = new(replies);
 
-        public bool Installed { get; set; } = true;
         public bool DefaultProfile { get; set; } = true;
         public List<AssistantProfile> Profiles { get; } = [];
         public List<IReadOnlyList<ChatMessage>> Conversations { get; } = [];
         public List<Guid?> ProfileIds { get; } = [];
         public Exception? Failure { get; set; }
 
-        public bool IsInstalled => Installed;
-
         public Task<IReadOnlyList<AssistantProfile>> GetProfilesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<AssistantProfile>>(Profiles.ToArray());
 
         public Task<bool> HasDefaultProfileAsync(CancellationToken cancellationToken) => Task.FromResult(DefaultProfile);
+
+        public Task<bool> ProfileExistsAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(Profiles.Any(profile => profile.Id == id));
 
         public Task<string> CompleteAsync(Guid? profileId, IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken)
         {
@@ -251,6 +315,14 @@ public sealed class TranslationAssistantTests
 
         public Task<TranslationMessageView?> FindMessageAsync(MessageIdentity identity, CancellationToken cancellationToken) =>
             Task.FromResult(Messages.GetValueOrDefault(identity));
+
+        public Task<TranslationMessage?> FindKeyShapeAsync(MessageIdentity identity, CancellationToken cancellationToken) =>
+            Task.FromResult(Messages.Values
+                .Select(view => view.Message)
+                .Where(message => message.Identity with { Locale = identity.Locale } == identity)
+                .OrderBy(message => message.Identity.Locale == identity.Locale ? 0 : 1)
+                .ThenBy(message => message.Identity.Locale, StringComparer.Ordinal)
+                .FirstOrDefault());
 
         public Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken)
         {

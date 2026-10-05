@@ -1,15 +1,18 @@
-// biome-ignore-all lint/suspicious/noUnnecessaryConditions: Lit's @state decorator assigns these fields from outside the class, so the initializer is a default and not the only value they ever hold. The rule reads the initializer's literal type and calls every check on them constant.
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: Lit's @property decorator assigns these fields from outside the class, so the initializer is a default and not the only value they ever hold. The rule reads the initializer's literal type and calls every check on them constant.
 
-import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
-import { css, customElement, html, LitElement, state } from "@umbraco-cms/backoffice/external/lit";
+import {
+  css,
+  customElement,
+  html,
+  LitElement,
+  property,
+} from "@umbraco-cms/backoffice/external/lit";
 import type {
   UUISelectElement,
   UUITextareaElement,
   UUIToggleElement,
 } from "@umbraco-cms/backoffice/external/uui";
-import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { api } from "../api/generated/client.js";
 import type { AssistantSettings, AssistantSettingsRequest } from "../api/generated/models.js";
 
 /** Where Umbraco.AI's connections and profiles are set up. */
@@ -18,6 +21,13 @@ const AI_SECTION = "/umbraco/section/ai";
 /** The select's value for "use the site's default chat profile". */
 const DEFAULT_PROFILE = "";
 
+/** The settings as they would be saved: the request shape, read off what the server sent. */
+export const assistantDraft = (settings: AssistantSettings): AssistantSettingsRequest => ({
+  enabled: settings.enabled,
+  profileId: settings.profileId ?? null,
+  instructions: settings.instructions ?? null,
+});
+
 /**
  * The AI assistant's settings: whether editors are offered it, which Umbraco.AI chat profile it
  * uses, and the instructions it is given.
@@ -25,70 +35,30 @@ const DEFAULT_PROFILE = "";
  * Model, provider, brand voice and guardrails all belong to the profile and are set up in the AI
  * section; this only chooses one. The instructions are about translating and nothing else, so they
  * do not compete with the voice the profile carries.
+ *
+ * Holds no state of its own, like the source editor: the dashboard keeps the draft, so opening a
+ * source and coming back does not lose an unsaved change here.
  */
 @customElement("thebuilder-translations-assistant-settings")
-class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
-  @state() private _settings?: AssistantSettings;
-  @state() private _draft?: AssistantSettingsRequest;
-  @state() private _loadError?: string;
-  @state() private _saving = false;
-
-  #notification?: typeof UMB_NOTIFICATION_CONTEXT.TYPE;
-
-  constructor() {
-    super();
-    this.consumeContext(UMB_NOTIFICATION_CONTEXT, (context) => {
-      this.#notification = context;
-    });
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#load();
-  }
-
-  async #load(): Promise<void> {
-    try {
-      this.#apply(await api.assistantSettings());
-      this._loadError = undefined;
-    } catch (error) {
-      this._loadError = error instanceof Error ? error.message : String(error);
-    }
-  }
-
-  #apply(settings: AssistantSettings): void {
-    this._settings = settings;
-    this._draft = {
-      enabled: settings.enabled,
-      profileId: settings.profileId ?? null,
-      instructions: settings.instructions ?? null,
-    };
-  }
+class TranslationAssistantSettingsElement extends LitElement {
+  /** What the server has. */
+  @property({ attribute: false }) settings!: AssistantSettings;
+  /** What the form shows. */
+  @property({ attribute: false }) value!: AssistantSettingsRequest;
+  @property({ type: Boolean }) saving = false;
 
   #patch(patch: Partial<AssistantSettingsRequest>): void {
-    if (this._draft) {
-      this._draft = { ...this._draft, ...patch };
-    }
+    this.dispatchEvent(
+      new CustomEvent<AssistantSettingsRequest>("assistant-change", {
+        detail: { ...this.value, ...patch },
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
-  async #save(): Promise<void> {
-    if (!this._draft) {
-      return;
-    }
-    this._saving = true;
-    try {
-      this.#apply(await api.saveAssistantSettings(this._draft));
-      this.#notification?.peek("positive", { data: { message: "AI assistant settings saved." } });
-    } catch (error) {
-      this.#notification?.peek("danger", {
-        data: {
-          headline: "Could not save the AI assistant settings",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      });
-    } finally {
-      this._saving = false;
-    }
+  #save(): void {
+    this.dispatchEvent(new CustomEvent("assistant-submit", { bubbles: true, composed: true }));
   }
 
   render() {
@@ -96,15 +66,7 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
   }
 
   #renderBody() {
-    if (this._loadError) {
-      return html`<p class="error" role="alert">${this._loadError}</p>
-        <uui-button look="secondary" label="Load the AI assistant settings again" @click=${() => this.#load()}>Try again</uui-button>`;
-    }
-    const settings = this._settings;
-    const draft = this._draft;
-    if (!(settings && draft)) {
-      return html`<uui-loader></uui-loader>`;
-    }
+    const { settings, value } = this;
 
     // Nothing to choose from: the assistant needs a chat profile, and those are made in the AI section.
     if (settings.profiles.length === 0 && !settings.hasDefaultProfile) {
@@ -119,22 +81,20 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
 
     // Without a default to fall back on, nothing chosen means nothing to use: say so in the menu
     // rather than showing the first profile as though it were already the choice.
-    const fallback = settings.hasDefaultProfile
-      ? { name: "The default chat profile", value: DEFAULT_PROFILE, selected: !draft.profileId }
-      : {
-          name: "Choose a profile",
-          value: DEFAULT_PROFILE,
-          selected: !draft.profileId,
-          disabled: true,
-        };
     const profileOptions = [
-      ...(settings.hasDefaultProfile || !draft.profileId ? [fallback] : []),
+      {
+        name: settings.hasDefaultProfile ? "The default chat profile" : "Choose a profile",
+        value: DEFAULT_PROFILE,
+        selected: !value.profileId,
+        disabled: !settings.hasDefaultProfile,
+      },
       ...settings.profiles.map((profile) => ({
         name: profile.name,
         value: profile.id,
-        selected: draft.profileId === profile.id,
+        selected: value.profileId === profile.id,
       })),
     ];
+    const unchanged = JSON.stringify(value) === JSON.stringify(assistantDraft(settings));
 
     return html`
       <p class="intro">
@@ -146,7 +106,7 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
         <uui-label slot="label">Translation editor</uui-label>
         <uui-toggle
           label="Offer AI suggestions in the translation editor"
-          ?checked=${draft.enabled}
+          ?checked=${value.enabled}
           @change=${(event: Event) => this.#patch({ enabled: (event.target as UUIToggleElement).checked })}>
           Offer AI suggestions
         </uui-toggle>
@@ -159,8 +119,8 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
           label="AI profile"
           .options=${profileOptions}
           @change=${(event: Event) => {
-            const value = String((event.target as UUISelectElement).value);
-            this.#patch({ profileId: value === DEFAULT_PROFILE ? null : value });
+            const chosen = String((event.target as UUISelectElement).value);
+            this.#patch({ profileId: chosen === DEFAULT_PROFILE ? null : chosen });
           }}>
         </uui-select>
       </uui-form-layout-item>
@@ -174,10 +134,10 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
           label="Instructions for the AI"
           auto-height
           placeholder=${settings.defaultInstructions}
-          .value=${draft.instructions ?? ""}
+          .value=${value.instructions ?? ""}
           @input=${(event: Event) => {
-            const value = String((event.target as UUITextareaElement).value);
-            this.#patch({ instructions: value.trim() === "" ? null : value });
+            const typed = String((event.target as UUITextareaElement).value);
+            this.#patch({ instructions: typed.trim() === "" ? null : typed });
           }}>
         </uui-textarea>
       </uui-form-layout-item>
@@ -186,8 +146,8 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
           look="primary"
           color="positive"
           label="Save the AI assistant settings"
-          .state=${this._saving ? "waiting" : undefined}
-          ?disabled=${this._saving}
+          .state=${this.saving ? "waiting" : undefined}
+          ?disabled=${this.saving || unchanged}
           @click=${() => this.#save()}>
           Save
         </uui-button>
@@ -200,7 +160,6 @@ class TranslationAssistantSettingsElement extends UmbElementMixin(LitElement) {
     css`
       :host { display: block; }
       .intro { color: var(--uui-color-text-alt); margin: 0 0 var(--uui-size-space-5); max-inline-size: 70ch; }
-      .error { color: var(--uui-color-danger); }
       uui-form-layout-item { margin-bottom: var(--uui-size-space-5); }
       uui-select, uui-textarea { inline-size: 100%; }
       uui-textarea { --uui-textarea-min-height: 8rem; }

@@ -1,7 +1,13 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { LocaleFacet } from "../../api/generated/models.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
-import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
+import {
+  useAssistantStatus,
+  useFacets,
+  useKeyRows,
+  usePermissions,
+  useSyncStatus,
+} from "../api/queries.js";
 import { KeyGrid } from "../components/key-grid.js";
 import { ListState } from "../components/list-state.js";
 import { TranslationDetail } from "../components/translation-detail.js";
@@ -58,6 +64,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   // Defaults to withheld rather than granted: until the answer arrives, offering a field that
   // cannot be saved is the more expensive of the two mistakes to make.
   const canEdit = permissions.data?.canEdit ?? false;
+  const assistant = useAssistantStatus(canEdit);
   const sync = useSyncStatus();
   const rows = useKeyRows(filters);
 
@@ -143,6 +150,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
             editor={(row) =>
               open ? (
                 <TranslationDetail
+                  assistant={canEdit && assistant.data === true}
                   bridge={bridge}
                   canEdit={canEdit}
                   key={targetId(open.target)}

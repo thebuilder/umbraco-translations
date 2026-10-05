@@ -36,6 +36,15 @@ public interface ITranslationEditorRepository
     /// </summary>
     Task<TranslationMessageView?> FindMessageAsync(MessageIdentity identity, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The key as the application ships it: the message whose format, placeholders and description
+    /// any text for <paramref name="identity"/> has to keep. The identity's own locale when the
+    /// application ships it, otherwise the first shipped locale, which is also where
+    /// <see cref="EnsureMessageAsync"/> takes a new row's shape from. Null when no locale has the
+    /// key. Creates nothing.
+    /// </summary>
+    Task<TranslationMessage?> FindKeyShapeAsync(MessageIdentity identity, CancellationToken cancellationToken);
+
     Task<Page<TranslationMessageKeyView>> QueryKeysAsync(MessageKeyQuery query, CancellationToken cancellationToken);
 
     /// <summary>

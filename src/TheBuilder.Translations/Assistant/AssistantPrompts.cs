@@ -39,7 +39,7 @@ public static class AssistantPrompts
     /// <summary>The conversation for one request: the instructions, then the task with its message.</summary>
     public static IReadOnlyList<ChatMessage> For(AssistantSettings settings, AssistantBrief brief) =>
     [
-        new(ChatRole.System, settings.EffectiveInstructions + "\n\n" + FormatRules(brief.Format)),
+        new(ChatRole.System, settings.EffectiveInstructions + "\n\n" + FormatRules(brief.Message.Format)),
         new(ChatRole.User, Task(brief)),
     ];
 
@@ -72,17 +72,15 @@ public static class AssistantPrompts
         text.AppendLine("Reply with the message only: no quotes, no explanation, no notes.");
         text.AppendLine();
 
-        text.AppendLine($"Key: {brief.Namespace}.{brief.Key}");
-        if (!string.IsNullOrWhiteSpace(brief.Description))
-            text.AppendLine($"What it is for: {brief.Description}");
-        if (brief.Arguments.Count > 0)
-            text.AppendLine($"Placeholders it must keep, unchanged: {Placeholders(brief.Arguments)}");
+        var message = brief.Message;
+        text.AppendLine($"Key: {message.Identity.Namespace}.{message.Identity.Key}");
+        if (!string.IsNullOrWhiteSpace(message.Description))
+            text.AppendLine($"What it is for: {message.Description}");
+        if (message.Arguments.Count > 0)
+            text.AppendLine($"Placeholders it must keep, unchanged: {Placeholders(message.Arguments)}");
         text.AppendLine();
 
-        if (brief.Task == AssistantTask.Translate)
-            text.AppendLine($"The message in {LanguageName(brief.FromLocale ?? "")}:");
-        else
-            text.AppendLine("The message:");
+        text.AppendLine(brief.FromLocale is { } from ? $"The message in {LanguageName(from)}:" : "The message:");
         text.Append(brief.Text);
 
         return text.ToString();
@@ -102,7 +100,8 @@ public static class AssistantPrompts
             """
             Messages use i18next. Keep every {{placeholder}} and $t(...) reference exactly as it is.
             """,
-        _ => "Messages are plain text.",
+        MessageFormat.PlainText => "Messages are plain text.",
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
     };
 
     private static string Placeholders(IReadOnlyDictionary<string, string> arguments) =>
@@ -114,8 +113,6 @@ public static class AssistantPrompts
     /// </summary>
     private static string LanguageName(string locale)
     {
-        if (string.IsNullOrWhiteSpace(locale))
-            return "the source language";
         try
         {
             var culture = CultureInfo.GetCultureInfo(locale);
@@ -130,14 +127,12 @@ public static class AssistantPrompts
     }
 }
 
-/// <summary>Everything about one message that goes into a request.</summary>
+/// <summary>Everything about one request that goes into the prompt.</summary>
+/// <param name="FromLocale">The language <paramref name="Text"/> is in when translating; null for a rewrite.</param>
+/// <param name="Message">The key as the application ships it: its format, placeholders and description.</param>
 public sealed record AssistantBrief(
     AssistantTask Task,
-    string Namespace,
-    string Key,
     string Locale,
     string? FromLocale,
     string Text,
-    string? Description,
-    MessageFormat Format,
-    IReadOnlyDictionary<string, string> Arguments);
+    TranslationMessage Message);

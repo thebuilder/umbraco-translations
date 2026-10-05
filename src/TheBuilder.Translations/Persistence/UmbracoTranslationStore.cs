@@ -35,6 +35,22 @@ internal sealed class UmbracoTranslationStore(
             current is null ? null : TranslationRowMapper.ToDomain(current));
     }
 
+    public Task<TranslationMessage?> FindKeyShapeAsync(MessageIdentity identity, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var scope = scopeProvider.CreateScope(autoComplete: true);
+        return Task.FromResult(KeyShape(scope.Database, identity) is { } row ? TranslationRowMapper.ToDomain(row) : null);
+    }
+
+    /// <summary>
+    /// A shipped row of the identity's key, its own locale first. Authored rows are skipped: they are
+    /// copies made by <see cref="EnsureMessageAsync"/>, with no description and nothing of their own.
+    /// </summary>
+    private static MessageRow? KeyShape(NPoco.IDatabase database, MessageIdentity identity) =>
+        database.FirstOrDefault<MessageRow>(
+            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND State <> @3 ORDER BY CASE WHEN Locale = @4 THEN 0 ELSE 1 END, Locale",
+            identity.SourceId, identity.Namespace, identity.Key, TranslationMessageState.Authored.ToString(), identity.Locale);
+
     public Task<TranslationMessageView> EnsureMessageAsync(MessageIdentity identity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,9 +65,7 @@ internal sealed class UmbracoTranslationStore(
         // not one they invented. Any shipped locale carries the same format and argument signature,
         // so the new row inherits its shape rather than starting with none -- otherwise argument
         // validation would reject the very placeholders the message requires.
-        var shape = scope.Database.FirstOrDefault<MessageRow>(
-            $"SELECT * FROM {Constants.Tables.Messages} WHERE SourceId = @0 AND Namespace = @1 AND [Key] = @2 AND State <> @3 ORDER BY Locale",
-            identity.SourceId, identity.Namespace, identity.Key, TranslationMessageState.Authored.ToString())
+        var shape = KeyShape(scope.Database, identity)
             ?? throw new KeyNotFoundException(
                 $"Translation key '{identity.Namespace}.{identity.Key}' was not found for source '{identity.SourceId}'.");
 

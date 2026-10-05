@@ -12,6 +12,8 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { api } from "../api/generated/client.js";
 import type {
+  AssistantSettings,
+  AssistantSettingsRequest,
   OutputConflict,
   OutputEndpoint,
   Source,
@@ -27,7 +29,7 @@ import {
   sourceEndpoint,
   sourceRequest,
 } from "./app/source-form.js";
-import "./assistant-settings.element.js";
+import { assistantDraft } from "./assistant-settings.element.js";
 import "./output-api.element.js";
 import "./source-editor.element.js";
 
@@ -72,6 +74,9 @@ class TranslationsSettingsDashboardElement extends UmbElementMixin(LitElement) {
   @state() private _histories: Record<string, SyncResult[]> = {};
   @state() private _openHistoryIds: string[] = [];
   @state() private _sourceApiLocales: Record<string, string> = {};
+  @state() private _assistant?: AssistantSettings;
+  @state() private _assistantDraft?: AssistantSettingsRequest;
+  @state() private _savingAssistant = false;
 
   #notification?: typeof UMB_NOTIFICATION_CONTEXT.TYPE;
   readonly #languageRepository = new UmbLanguageCollectionRepository(this);
@@ -92,11 +97,13 @@ class TranslationsSettingsDashboardElement extends UmbElementMixin(LitElement) {
     this._loading = true;
     this._loadError = undefined;
     try {
-      const [sources, languageResponse, facets] = await Promise.all([
+      const [sources, languageResponse, facets, assistant] = await Promise.all([
         api.sources(),
         this.#loadLanguages(),
         api.facets(),
+        api.assistantSettings(),
       ]);
+      this.#applyAssistant(assistant);
       this._sources = sources;
       this._languages = languageResponse;
       this._outputEndpoints = facets.outputEndpoints;
@@ -389,6 +396,31 @@ class TranslationsSettingsDashboardElement extends UmbElementMixin(LitElement) {
     }
   }
 
+  #applyAssistant(settings: AssistantSettings): void {
+    this._assistant = settings;
+    this._assistantDraft = assistantDraft(settings);
+  }
+
+  async #saveAssistant(): Promise<void> {
+    if (!this._assistantDraft) {
+      return;
+    }
+    this._savingAssistant = true;
+    try {
+      this.#applyAssistant(await api.saveAssistantSettings(this._assistantDraft));
+      this.#notification?.peek("positive", { data: { message: "AI assistant settings saved." } });
+    } catch (error) {
+      this.#notification?.peek("danger", {
+        data: {
+          headline: "Could not save the AI assistant settings",
+          message: this.#message(error, "Try again."),
+        },
+      });
+    } finally {
+      this._savingAssistant = false;
+    }
+  }
+
   #message(error: unknown, fallback: string): string {
     return error instanceof Error && error.message ? error.message : fallback;
   }
@@ -540,7 +572,19 @@ class TranslationsSettingsDashboardElement extends UmbElementMixin(LitElement) {
             .conflicts=${this._outputConflicts}
             .languages=${this._languages}>
           </thebuilder-translations-output-api>
-          <thebuilder-translations-assistant-settings></thebuilder-translations-assistant-settings>
+          ${
+            this._assistant && this._assistantDraft
+              ? html`<thebuilder-translations-assistant-settings
+                  .settings=${this._assistant}
+                  .value=${this._assistantDraft}
+                  .saving=${this._savingAssistant}
+                  @assistant-change=${(event: CustomEvent<AssistantSettingsRequest>) => {
+                    this._assistantDraft = event.detail;
+                  }}
+                  @assistant-submit=${() => this.#saveAssistant()}>
+                </thebuilder-translations-assistant-settings>`
+              : null
+          }
         `;
   }
 

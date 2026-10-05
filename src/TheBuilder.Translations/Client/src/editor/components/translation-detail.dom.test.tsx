@@ -142,6 +142,7 @@ const open = (canEdit: boolean, options: Options = {}) => {
   return render(
     <QueryClientProvider client={client}>
       <TranslationDetail
+        assistant={false}
         bridge={{ notify: vi.fn() } as never}
         canEdit={canEdit}
         locales={[locale("da", "Danish"), locale("en", "English")]}

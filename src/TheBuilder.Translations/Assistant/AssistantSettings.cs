@@ -11,7 +11,11 @@ namespace TheBuilder.Translations.Assistant;
 /// </summary>
 public sealed record AssistantSettings(bool Enabled, Guid? ProfileId, string? Instructions)
 {
-    public static AssistantSettings Default { get; } = new(Enabled: true, ProfileId: null, Instructions: null);
+    /// <summary>
+    /// Off until an administrator turns it on: it sends the site's text to an AI provider, and
+    /// installing or upgrading this package is not agreeing to that.
+    /// </summary>
+    public static AssistantSettings Default { get; } = new(Enabled: false, ProfileId: null, Instructions: null);
 
     /// <summary>The instructions actually sent: the site's own, or the default when it has none.</summary>
     public string EffectiveInstructions =>
@@ -41,7 +45,7 @@ public sealed class AssistantSettingsStore(IKeyValueService keyValues)
         catch (JsonException)
         {
             // Something else wrote the key, or a later version did and this one is reading it back.
-            // The defaults are a working assistant; refusing to start over a settings blob is not.
+            // Falling back to the defaults turns the assistant off, which is safer than guessing what was meant.
             return AssistantSettings.Default;
         }
     }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using TheBuilder.Translations.Core.Messages;
 using TheBuilder.Translations.Core.Persistence;
 using TheBuilder.Translations.Core.Validation;
@@ -14,25 +15,26 @@ public sealed record AssistantRequest(
     string? Text,
     string? ReferenceLocale);
 
-/// <summary>How a request ended. Exactly one of these, so the caller cannot read a value off a failure.</summary>
-public abstract record AssistantOutcome
+/// <summary>Why the assistant gave no suggestion, which decides how the request is answered.</summary>
+public enum AssistantRefusal
 {
-    private AssistantOutcome() { }
-
-    /// <summary>Text that passes the same validation a save does.</summary>
-    public sealed record Suggested(string Value) : AssistantOutcome;
-
-    /// <summary>The assistant is not set up: Umbraco.AI is missing, turned off here, or has no profile.</summary>
-    public sealed record Unavailable(string Reason) : AssistantOutcome;
+    /// <summary>Not set up: turned off here, or no profile to use.</summary>
+    Unavailable,
 
     /// <summary>The request itself was unusable: nothing to translate from, or nothing to rewrite.</summary>
-    public sealed record Invalid(string Reason) : AssistantOutcome;
+    Invalid,
 
     /// <summary>The model answered twice with text that would break the message.</summary>
-    public sealed record Rejected(string Reason) : AssistantOutcome;
+    Rejected,
 
     /// <summary>Umbraco.AI or the provider behind it failed.</summary>
-    public sealed record Failed(string Reason) : AssistantOutcome;
+    Failed,
+}
+
+/// <summary>The assistant gave no suggestion. The message is written for the editor.</summary>
+public sealed class AssistantRefusedException(AssistantRefusal refusal, string message) : Exception(message)
+{
+    public AssistantRefusal Refusal { get; } = refusal;
 }
 
 /// <summary>
@@ -48,134 +50,135 @@ public sealed class TranslationAssistant(
     IAssistantChat chat,
     AssistantSettingsStore settings,
     ITranslationEditorRepository editor,
-    IMessageFormatValidator validator)
+    IMessageFormatValidator validator,
+    ILogger<TranslationAssistant> logger)
 {
     /// <summary>
-    /// Whether an editor should be offered the assistant: Umbraco.AI is installed, the assistant is
-    /// turned on here, and there is a profile for it to use.
+    /// Far longer than any instructions need to be, and short enough that the settings cannot be used
+    /// to make every request expensive.
     /// </summary>
+    public const int MaximumInstructionsLength = 4000;
+
+    /// <summary>The longest text a rewrite takes. Interface text is short; this is room for a page of it.</summary>
+    public const int MaximumTextLength = 10_000;
+
+    /// <summary>The first reply, and the one correction it is allowed.</summary>
+    private const int MaximumAttempts = 2;
+
+    /// <summary>Whether an editor should be offered the assistant: it is turned on here and has a profile to use.</summary>
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken) =>
         await UnavailableReasonAsync(settings.Get(), cancellationToken) is null;
 
-    public async Task<AssistantOutcome> SuggestAsync(AssistantRequest request, CancellationToken cancellationToken)
+    /// <summary>Saves the settings, or says why they cannot be saved.</summary>
+    public async Task<string?> SaveSettingsAsync(AssistantSettings next, CancellationToken cancellationToken)
+    {
+        if (next.Instructions?.Length > MaximumInstructionsLength)
+            return $"The instructions must be {MaximumInstructionsLength} characters or fewer.";
+        if (next.ProfileId is { } id && !await chat.ProfileExistsAsync(id, cancellationToken))
+            return "That AI profile does not exist, or is not a chat profile.";
+
+        settings.Save(next);
+        return null;
+    }
+
+    /// <summary>Text for the translation that passes the same validation a save does.</summary>
+    /// <exception cref="AssistantRefusedException">There is no suggestion, and the message says why.</exception>
+    public async Task<string> SuggestAsync(AssistantRequest request, CancellationToken cancellationToken)
     {
         var current = settings.Get();
         if (await UnavailableReasonAsync(current, cancellationToken) is { } unavailable)
-            return new AssistantOutcome.Unavailable(unavailable);
+            throw new AssistantRefusedException(AssistantRefusal.Unavailable, unavailable);
+        if (Describe(request) is { } invalid)
+            throw new AssistantRefusedException(AssistantRefusal.Invalid, invalid);
 
-        return await PrepareAsync(request, cancellationToken) switch
-        {
-            Preparation.Ready ready => await AskAsync(current, ready.Brief, ready.Shape, cancellationToken),
-            Preparation.Problem problem => new AssistantOutcome.Invalid(problem.Reason),
-            _ => throw new InvalidOperationException("Unknown preparation."),
-        };
+        // A translation that has never been written has no row of its own, so the format and
+        // placeholders it must keep are the key's. Nothing is created to find them: asking for a
+        // suggestion must not leave a row behind.
+        var shape = await editor.FindKeyShapeAsync(request.Target, cancellationToken)
+            ?? throw new AssistantRefusedException(AssistantRefusal.Invalid, "The message could not be found.");
+
+        var text = request.ReferenceLocale is { } from
+            ? await ReferenceTextAsync(request.Target with { Locale = from }, cancellationToken)
+            // Describe has already refused a rewrite with no text.
+            : request.Text!;
+
+        var brief = new AssistantBrief(request.Task, request.Target.Locale, request.ReferenceLocale, text, shape);
+        return await AskAsync(current, brief, cancellationToken);
     }
 
-    private async Task<AssistantOutcome> AskAsync(
-        AssistantSettings current,
-        AssistantBrief brief,
-        TranslationMessage shape,
-        CancellationToken cancellationToken)
+    /// <summary>The reference language's text as the site shows it: its custom text, or the application's.</summary>
+    private async Task<string> ReferenceTextAsync(MessageIdentity reference, CancellationToken cancellationToken)
+    {
+        var message = await editor.FindMessageAsync(reference, cancellationToken);
+        var text = message?.Override?.Value ?? message?.Message.DefaultValue;
+        return string.IsNullOrWhiteSpace(text)
+            ? throw new AssistantRefusedException(AssistantRefusal.Invalid, "There is no text in that language to translate from.")
+            : text;
+    }
+
+    /// <summary>What is wrong with the request on its face, before anything is looked up.</summary>
+    private static string? Describe(AssistantRequest request) => request.Task switch
+    {
+        AssistantTask.Translate when string.IsNullOrWhiteSpace(request.ReferenceLocale) =>
+            "Choose a language to translate from.",
+        AssistantTask.Translate => null,
+        _ when request.ReferenceLocale is not null => "Only a translation has a language to translate from.",
+        _ when string.IsNullOrWhiteSpace(request.Text) => "There is no text to rewrite.",
+        _ when request.Text.Length > MaximumTextLength => $"The text to rewrite must be {MaximumTextLength} characters or fewer.",
+        _ => null,
+    };
+
+    private async Task<string> AskAsync(AssistantSettings current, AssistantBrief brief, CancellationToken cancellationToken)
     {
         var conversation = AssistantPrompts.For(current, brief).ToList();
+        for (var attempt = 1; ; attempt++)
+        {
+            var reply = Clean(await CompleteAsync(current.ProfileId, conversation, cancellationToken));
+            var problem = reply.Length == 0
+                ? "The reply was empty."
+                : MessageOverrideValidation.Describe(reply, brief.Message, validator);
+            if (problem is null)
+                return reply;
+            if (attempt == MaximumAttempts)
+                throw new AssistantRefusedException(
+                    AssistantRefusal.Rejected,
+                    $"The AI could not produce text that keeps this message working. {problem}");
+
+            conversation.Add(new(ChatRole.Assistant, reply));
+            conversation.Add(AssistantPrompts.Correction(problem, brief.Message.Arguments));
+        }
+    }
+
+    private async Task<string> CompleteAsync(Guid? profileId, IReadOnlyList<ChatMessage> conversation, CancellationToken cancellationToken)
+    {
         try
         {
-            for (var attempt = 0; ; attempt++)
-            {
-                var reply = Clean(await chat.CompleteAsync(current.ProfileId, conversation, cancellationToken));
-                var problem = MessageOverrideValidation.Describe(reply, shape, validator);
-                if (problem is null)
-                    return new AssistantOutcome.Suggested(reply);
-                if (attempt == 1)
-                    return new AssistantOutcome.Rejected(problem);
-
-                conversation.Add(new(ChatRole.Assistant, reply));
-                conversation.Add(AssistantPrompts.Correction(problem, shape.Arguments));
-            }
+            return await chat.CompleteAsync(profileId, conversation, cancellationToken);
         }
-        catch (OperationCanceledException)
+        // A provider's own timeout arrives as a cancellation too; only the editor's is passed on.
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            // Provider errors arrive as whatever the provider's SDK throws. The message is what an
-            // administrator needs to fix it (a key, a quota, a model name); the type is noise.
-            return new AssistantOutcome.Failed(exception.Message);
+            // Provider errors are whatever the provider's SDK throws, and can carry endpoints and
+            // account ids. The administrator who has to fix it reads the log; the editor is told
+            // where to send them.
+            logger.LogError(exception, "The translation assistant's request to Umbraco.AI failed.");
+            throw new AssistantRefusedException(
+                AssistantRefusal.Failed,
+                "The AI request failed. The site's log has the details for an administrator.");
         }
     }
 
     private async Task<string?> UnavailableReasonAsync(AssistantSettings current, CancellationToken cancellationToken)
     {
-        if (!chat.IsInstalled)
-            return "Umbraco.AI is not installed on this site.";
         if (!current.Enabled)
             return "The translation assistant is turned off in the translation settings.";
         if (current.ProfileId is { } profileId)
-        {
-            var profiles = await chat.GetProfilesAsync(cancellationToken);
-            return profiles.Any(profile => profile.Id == profileId)
+            return await chat.ProfileExistsAsync(profileId, cancellationToken)
                 ? null
                 : "The AI profile chosen for translations no longer exists. Choose another in the translation settings.";
-        }
         return await chat.HasDefaultProfileAsync(cancellationToken)
             ? null
             : "No AI profile is set up for chat. Create one in the AI section, or choose one in the translation settings.";
-    }
-
-    /// <summary>A request turned into what the model is asked, or the reason it cannot be.</summary>
-    private abstract record Preparation
-    {
-        public sealed record Ready(AssistantBrief Brief, TranslationMessage Shape) : Preparation;
-
-        public sealed record Problem(string Reason) : Preparation;
-    }
-
-    /// <summary>
-    /// The text to work on, and the message whose shape it must keep. A translation that has never
-    /// been written has no row of its own, so its format and placeholders come from the reference
-    /// language's message -- the same key, which the validator holds every language to. Nothing is
-    /// created to find them: asking for a suggestion must not leave a row behind.
-    /// </summary>
-    private async Task<Preparation> PrepareAsync(AssistantRequest request, CancellationToken cancellationToken)
-    {
-        var target = await editor.FindMessageAsync(request.Target, cancellationToken);
-        TranslationMessageView? reference = null;
-        string text;
-
-        if (request.Task == AssistantTask.Translate)
-        {
-            if (string.IsNullOrWhiteSpace(request.ReferenceLocale))
-                return new Preparation.Problem("Choose a language to translate from.");
-            reference = await editor.FindMessageAsync(
-                request.Target with { Locale = request.ReferenceLocale }, cancellationToken);
-            var from = reference?.Override?.Value ?? reference?.Message.DefaultValue;
-            if (string.IsNullOrWhiteSpace(from))
-                return new Preparation.Problem("There is no text in that language to translate from.");
-            text = from;
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(request.Text))
-                return new Preparation.Problem("There is no text to rewrite.");
-            text = request.Text;
-        }
-
-        if ((target?.Message ?? reference?.Message) is not { } shape)
-            return new Preparation.Problem("The message could not be found.");
-
-        return new Preparation.Ready(
-            new AssistantBrief(
-                request.Task,
-                request.Target.Namespace,
-                request.Target.Key,
-                request.Target.Locale,
-                request.ReferenceLocale,
-                text,
-                shape.Description,
-                shape.Format,
-                shape.Arguments),
-            shape);
     }
 
     /// <summary>

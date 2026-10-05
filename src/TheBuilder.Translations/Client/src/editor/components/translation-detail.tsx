@@ -10,7 +10,6 @@ import type {
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { Button } from "../../bridge/uui/index.js";
 import { queryKeys } from "../api/keys.js";
-import { useAssistantStatus } from "../api/queries.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { cellOf, textOf } from "../state/cells.js";
 import { localeName } from "../state/locales.js";
@@ -47,6 +46,7 @@ export const TranslationDetail = ({
   locales,
   reference,
   canEdit,
+  assistant,
 }: {
   open: OpenTranslation;
   /** The list row this was opened from, which already holds the text of both languages on screen. */
@@ -60,10 +60,11 @@ export const TranslationDetail = ({
    * editor offers a field to type in and a Save button that can only ever fail.
    */
   canEdit: boolean;
+  /** Whether to offer the AI assistant's suggestions. Only ever true for someone who can edit. */
+  assistant: boolean;
 }) => {
   const { target, next, select, close } = open;
   const queryClient = useQueryClient();
-  const assistant = useAssistantStatus();
   const cell = cellOf(row, target.locale);
   const id = cell?.id;
 
@@ -197,7 +198,7 @@ export const TranslationDetail = ({
               setDraft={setDraft}
               value={value}
             />
-            {canEdit && assistant.data?.available ? (
+            {assistant ? (
               <AssistantActions
                 onSuggestion={setDraft}
                 reference={reference}

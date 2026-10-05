@@ -12,11 +12,9 @@ namespace TheBuilder.Translations.ManagementApi;
 public sealed record AssistantStatusResponse(bool Available);
 
 /// <summary>Everything the settings dashboard shows about the assistant, and what it can be set to.</summary>
-/// <param name="Installed">Whether Umbraco.AI is installed. Without it there is nothing else to set.</param>
 /// <param name="HasDefaultProfile">Whether Umbraco.AI has a default chat profile to fall back on.</param>
 /// <param name="Instructions">The site's own instructions, or null to use <paramref name="DefaultInstructions"/>.</param>
 public sealed record AssistantSettingsResponse(
-    bool Installed,
     bool HasDefaultProfile,
     IReadOnlyList<AssistantProfile> Profiles,
     bool Enabled,
@@ -49,12 +47,6 @@ public sealed class AssistantController(
     AssistantSettingsStore settings,
     IAssistantChat chat) : TranslationsApiControllerBase
 {
-    /// <summary>
-    /// Far longer than any instructions need to be, and short enough that the settings cannot be used
-    /// to make every request expensive.
-    /// </summary>
-    private const int MaximumInstructionsLength = 4000;
-
     [HttpGet("assistant")]
     public async Task<AssistantStatusResponse> GetStatus(CancellationToken cancellationToken) =>
         new(await assistant.IsAvailableAsync(cancellationToken));
@@ -67,22 +59,18 @@ public sealed class AssistantController(
     [HttpPut("assistant/settings")]
     [Authorize(Policy = TranslationPolicies.ManageSources)]
     [ProducesResponseType(typeof(AssistantSettingsResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AssistantSettingsResponse>> SaveSettings(
         AssistantSettingsRequest request,
         CancellationToken cancellationToken)
     {
-        var instructions = string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim();
-        if (instructions?.Length > MaximumInstructionsLength)
-            return Problem($"The instructions must be {MaximumInstructionsLength} characters or fewer.", statusCode: StatusCodes.Status400BadRequest);
-
-        if (request.ProfileId is { } profileId &&
-            (await chat.GetProfilesAsync(cancellationToken)).All(profile => profile.Id != profileId))
-            return Problem("That AI profile does not exist, or is not a chat profile.", statusCode: StatusCodes.Status400BadRequest);
-
-        var saved = new AssistantSettings(request.Enabled, request.ProfileId, instructions);
-        settings.Save(saved);
-        return await SettingsResponseAsync(saved, cancellationToken);
+        var next = new AssistantSettings(
+            request.Enabled,
+            request.ProfileId,
+            string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim());
+        if (await assistant.SaveSettingsAsync(next, cancellationToken) is { } problem)
+            return BadRequest(problem);
+        return await SettingsResponseAsync(next, cancellationToken);
     }
 
     /// <summary>
@@ -92,32 +80,35 @@ public sealed class AssistantController(
     [HttpPost("assistant/suggestions")]
     [Authorize(Policy = TranslationPolicies.Edit)]
     [ProducesResponseType(typeof(AssistantSuggestionResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<ActionResult<AssistantSuggestionResponse>> Suggest(
         AssistantSuggestionRequest request,
-        CancellationToken cancellationToken) =>
-        await assistant.SuggestAsync(request.ToRequest(), cancellationToken) switch
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            AssistantOutcome.Suggested suggested => new AssistantSuggestionResponse(suggested.Value),
-            // Not set up is a state of the site rather than a fault in the request.
-            AssistantOutcome.Unavailable outcome => Problem(outcome.Reason, statusCode: StatusCodes.Status409Conflict),
-            AssistantOutcome.Invalid outcome => Problem(outcome.Reason, statusCode: StatusCodes.Status400BadRequest),
-            AssistantOutcome.Rejected outcome => Problem(
-                $"The AI could not produce text that keeps this message working. {outcome.Reason}",
-                statusCode: StatusCodes.Status422UnprocessableEntity),
-            AssistantOutcome.Failed outcome => Problem(
-                $"The AI request failed: {outcome.Reason}", statusCode: StatusCodes.Status502BadGateway),
-            _ => throw new InvalidOperationException("Unknown assistant outcome."),
-        };
+            return new AssistantSuggestionResponse(await assistant.SuggestAsync(request.ToRequest(), cancellationToken));
+        }
+        catch (AssistantRefusedException refused)
+        {
+            return refused.Refusal switch
+            {
+                // Not set up is a state of the site rather than a fault in the request.
+                AssistantRefusal.Unavailable => Conflict(refused.Message),
+                AssistantRefusal.Invalid => BadRequest(refused.Message),
+                AssistantRefusal.Rejected => UnprocessableEntity(refused.Message),
+                _ => StatusCode(StatusCodes.Status502BadGateway, refused.Message),
+            };
+        }
+    }
 
     private async Task<AssistantSettingsResponse> SettingsResponseAsync(
         AssistantSettings current,
         CancellationToken cancellationToken) =>
         new(
-            Installed: chat.IsInstalled,
             HasDefaultProfile: await chat.HasDefaultProfileAsync(cancellationToken),
             Profiles: await chat.GetProfilesAsync(cancellationToken),
             current.Enabled,

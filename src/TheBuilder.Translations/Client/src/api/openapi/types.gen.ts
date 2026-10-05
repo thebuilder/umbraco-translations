@@ -17,7 +17,6 @@ export type AssistantSettingsRequest = {
 };
 
 export type AssistantSettingsResponse = {
-    installed: boolean;
     hasDefaultProfile: boolean;
     profiles: Array<AssistantProfile>;
     enabled: boolean;
@@ -227,15 +226,6 @@ export type PermissionsResponse = {
     canSync: boolean;
 };
 
-export type ProblemDetails = {
-    type?: string | null;
-    title?: string | null;
-    status?: number | null;
-    detail?: string | null;
-    instance?: string | null;
-    [key: string]: unknown;
-};
-
 export type ResetOverrideRequest = {
     sourceId: string;
     namespace: string;
@@ -430,7 +420,7 @@ export type AssistantSaveSettingsErrors = {
     /**
      * Bad Request
      */
-    400: ProblemDetails;
+    400: unknown;
     /**
      * The resource is protected and requires an authentication token
      */
@@ -440,8 +430,6 @@ export type AssistantSaveSettingsErrors = {
      */
     403: unknown;
 };
-
-export type AssistantSaveSettingsError = AssistantSaveSettingsErrors[keyof AssistantSaveSettingsErrors];
 
 export type AssistantSaveSettingsResponses = {
     /**
@@ -463,7 +451,7 @@ export type AssistantSuggestErrors = {
     /**
      * Bad Request
      */
-    400: ProblemDetails;
+    400: unknown;
     /**
      * The resource is protected and requires an authentication token
      */
@@ -475,18 +463,16 @@ export type AssistantSuggestErrors = {
     /**
      * Conflict
      */
-    409: ProblemDetails;
+    409: unknown;
     /**
      * Unprocessable Content
      */
-    422: ProblemDetails;
+    422: unknown;
     /**
      * Bad Gateway
      */
-    502: ProblemDetails;
+    502: unknown;
 };
-
-export type AssistantSuggestError = AssistantSuggestErrors[keyof AssistantSuggestErrors];
 
 export type AssistantSuggestResponses = {
     /**

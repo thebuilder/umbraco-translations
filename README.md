@@ -70,9 +70,9 @@ text in the field (improve, simplify, shorten, fix spelling). It runs on
 package as well, for example `Umbraco.AI.OpenAI`, then set up a connection and a chat profile in the
 AI section. Brand voice and tone belong on that profile's contexts.
 
-The "AI assistant" card in the translation settings turns the assistant on or off, chooses the
-profile (the site's default chat profile when none is chosen), and holds the instructions sent with
-every request.
+The "AI assistant" card in the translation settings turns the assistant on, chooses the profile
+(the site's default chat profile when none is chosen), and holds the instructions sent with every
+request. It starts off: it sends the site's text to an AI provider, so an administrator opts in.
 
 A suggestion only fills the field. Nothing is saved until the editor saves it, and every suggestion
 is checked with the same validation a save uses: a reply that drops or renames a placeholder is sent

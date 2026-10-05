@@ -11,6 +11,7 @@ vi.mock("../../api/generated/client.js", () => ({
 }));
 
 const TRANSLATE = /^Translate from/;
+const CHANGED = /^The text changed/;
 
 const target: EditTarget = { sourceId: "s1", namespace: "checkout", key: "pay", locale: "da-DK" };
 
@@ -44,12 +45,15 @@ describe("the AI assistant's actions", () => {
     screen.getByRole("button", { name: "Translate from English" }).click();
 
     await waitFor(() => expect(onSuggestion).toHaveBeenCalledWith("Betal {amount}"));
-    expect(api.suggest).toHaveBeenCalledWith({
-      ...target,
-      task: "Translate",
-      text: null,
-      referenceLocale: "en-US",
-    });
+    expect(api.suggest).toHaveBeenCalledWith(
+      {
+        ...target,
+        task: "Translate",
+        text: null,
+        referenceLocale: "en-US",
+      },
+      expect.any(AbortSignal)
+    );
   });
 
   it("rewrites the text that is in the field", async () => {
@@ -61,12 +65,15 @@ describe("the AI assistant's actions", () => {
     });
 
     await waitFor(() => expect(onSuggestion).toHaveBeenCalledWith("Betal"));
-    expect(api.suggest).toHaveBeenCalledWith({
-      ...target,
-      task: "Shorten",
-      text: "Betal venligst nu",
-      referenceLocale: null,
-    });
+    expect(api.suggest).toHaveBeenCalledWith(
+      {
+        ...target,
+        task: "Shorten",
+        text: "Betal venligst nu",
+        referenceLocale: null,
+      },
+      expect.any(AbortSignal)
+    );
   });
 
   it("offers no translation without a language to translate from", () => {
@@ -81,6 +88,49 @@ describe("the AI assistant's actions", () => {
     const menu = screen.getByRole("combobox", { name: "Rewrite with AI" }) as HTMLSelectElement;
     const offered = [...menu.options].filter((option) => option.value !== "");
     expect(offered.every((option) => option.disabled)).toBe(true);
+  });
+
+  it("drops a suggestion for text that changed while it was being written", async () => {
+    let reply: (value: { value: string }) => void = () => undefined;
+    vi.mocked(api.suggest).mockReturnValue(
+      new Promise((resolve) => {
+        reply = resolve;
+      })
+    );
+    const onSuggestion = vi.fn();
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const actions = (text: string) => (
+      <QueryClientProvider client={client}>
+        <AssistantActions onSuggestion={onSuggestion} target={target} text={text} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(actions("Betal venligst nu"));
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
+      target: { value: "Shorten" },
+    });
+    rerender(actions("Betal venligst nu, tak"));
+    reply({ value: "Betal" });
+
+    expect((await screen.findByRole("alert")).textContent).toMatch(CHANGED);
+    expect(onSuggestion).not.toHaveBeenCalled();
+  });
+
+  it("cancels the request when the translation is closed", async () => {
+    vi.mocked(api.suggest).mockReturnValue(new Promise(() => undefined));
+    const { unmount } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AssistantActions onSuggestion={vi.fn()} target={target} text="Betal" />
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
+      target: { value: "Shorten" },
+    });
+    unmount();
+
+    await waitFor(() => expect(api.suggest).toHaveBeenCalled());
+    expect(vi.mocked(api.suggest).mock.calls[0]?.[1]?.aborted).toBe(true);
   });
 
   it("says what went wrong, beside the actions, and leaves the field alone", async () => {
