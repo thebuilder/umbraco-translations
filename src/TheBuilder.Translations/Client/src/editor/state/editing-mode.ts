@@ -1,15 +1,19 @@
 import type { LocaleFacet } from "../../api/generated/models.js";
 
 /**
- * The two jobs this screen is used for, which need the same rows presented in opposite directions.
+ * The two jobs this screen is used for, as a fact about the language being edited.
  *
  * "search" is the ordinary one: the application ships text in this language and the editor is
- * correcting it, so the language being edited leads and the reference is context beside it.
+ * correcting it, reading it against another language.
  *
  * "queue" is a language the applications do not ship at all. Nothing exists to override; every row
- * is written from the reference. Leading with the language being edited there produces a column of
- * "Not written", which is a list of absences rather than a queue of work -- so the reference leads
- * and the language being edited is the empty space to fill.
+ * is written from the reference, so the reference is what it is written "from", and how much of it
+ * is written is the number worth showing.
+ *
+ * That is all it decides, at the level of the whole screen. What a single row offers -- copying the
+ * reference in, moving on to the next one -- follows from whether that row has any text yet, not
+ * from this. And it no longer reorders the columns: the language being edited always sits next to
+ * the key, because swapping it put the language somebody had just picked under the other heading.
  *
  * Not a new screen and not a mode switch an editor has to find: it follows from the language they
  * picked, because it is a fact about that language rather than a preference.
