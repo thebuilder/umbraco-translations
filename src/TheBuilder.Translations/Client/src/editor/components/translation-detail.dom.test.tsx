@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
-import type { EditTarget } from "../state/target.js";
+import type { OpenTranslation } from "../app/use-editor-selection.js";
+import { createDraftStore } from "../state/drafts.js";
+import { type EditTarget, targetId } from "../state/target.js";
 import { TranslationDetail } from "./translation-detail.js";
 
 vi.mock("../../api/generated/client.js", () => ({
@@ -112,22 +114,51 @@ afterEach(() => {
 
 type Props = Parameters<typeof TranslationDetail>[0];
 
-const open = (canEdit: boolean, props: Partial<Props> = {}) => {
+/**
+ * The editor's own props, plus the parts of the open translation a test wants to set: where it is,
+ * its neighbours, the question it is asking, its ways out, and any unsaved text already in it.
+ */
+type Options = Partial<Omit<Props, "open">> &
+  Partial<Omit<OpenTranslation, "drafts">> & { initialDraft?: string };
+
+const open = (canEdit: boolean, options: Options = {}) => {
+  const {
+    target: opened = target,
+    previous,
+    next,
+    pending,
+    select = vi.fn(),
+    close = vi.fn(),
+    discard = vi.fn(),
+    keepEditing = vi.fn(),
+    claimFocus = () => true,
+    initialDraft,
+    ...props
+  } = options;
+  const drafts = createDraftStore();
+  drafts.set(targetId(opened), initialDraft);
+
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <TranslationDetail
         bridge={{ notify: vi.fn() } as never}
         canEdit={canEdit}
-        close={vi.fn()}
         locales={[locale("da", "Danish"), locale("en", "English")]}
         mode="search"
-        onDiscard={vi.fn()}
-        onDraftChange={vi.fn()}
-        onKeepEditing={vi.fn()}
+        open={{
+          target: opened,
+          previous,
+          next,
+          pending,
+          drafts,
+          claimFocus,
+          select,
+          close,
+          discard,
+          keepEditing,
+        }}
         row={written}
-        select={vi.fn()}
-        target={target}
         {...props}
       />
     </QueryClientProvider>
@@ -227,14 +258,14 @@ describe("leaving with unsaved text", () => {
 
   it("answers the question with Escape instead of closing over it", async () => {
     const close = vi.fn();
-    const onKeepEditing = vi.fn();
-    open(true, { pending: "close", close, onKeepEditing });
+    const keepEditing = vi.fn();
+    open(true, { pending: "close", close, keepEditing });
     await screen.findByRole("button", { name: "Discard" });
 
     pressEscape();
 
     // Escape is what got them here, so it must not also be what throws the text away.
-    expect(onKeepEditing).toHaveBeenCalledOnce();
+    expect(keepEditing).toHaveBeenCalledOnce();
     expect(close).not.toHaveBeenCalled();
   });
 
@@ -382,7 +413,7 @@ describe("a translation that does not exist yet", () => {
     },
   });
 
-  const queue = (props: Partial<Props> = {}) =>
+  const queue = (props: Options = {}) =>
     open(true, {
       row: empty,
       target: { ...target, locale: "nb" },
@@ -400,16 +431,18 @@ describe("a translation that does not exist yet", () => {
     expect(screen.getByText("Nothing written here yet")).toBeTruthy();
   });
 
-  it("leads with the text being written from, because that is what there is to read", async () => {
+  it("is read in the order it is drawn: the field, then the text it is written from", async () => {
+    // The reference used to come first in the document but second on screen, so a screen reader
+    // met the two in the opposite order to everybody looking at them.
     const { container } = queue();
     await screen.findByRole("textbox");
 
-    // The reference reading comes before the field in the document, which is the reading order the
-    // work happens in when there is nothing to correct yet.
-    const lead = container.querySelector(".code--readonly");
+    const reference = container.querySelector(".code--readonly");
     const field = container.querySelector(".cm-content");
-    expect(lead?.textContent).toBe("Your basket is empty");
-    expect(field && lead?.compareDocumentPosition(field)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(reference?.textContent).toBe("Your basket is empty");
+    expect(field && reference && field.compareDocumentPosition(reference)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
   });
 
   it("offers the reference as a starting point rather than an empty box", async () => {

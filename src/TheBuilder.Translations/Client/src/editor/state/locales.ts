@@ -65,13 +65,23 @@ export const defaultLocale = (locales: readonly LocaleFacet[]): string | null =>
   (locales.find((locale) => locale.isDefault) ?? locales[0])?.code ?? null;
 
 /**
- * The language an editor recognises. Falls back to the code, which is what a language the facets
- * do not know about deserves -- naming it badly is better than dropping it from the sentence.
+ * The language an editor recognises, alone: a code beside a name is the same fact said twice. By
+ * the time a facet gets here a language the backoffice has no name for has been given one by the
+ * browser (see withNames), so the code is only what a tag nobody can read falls back to.
+ */
+export const facetName = (facet: LocaleFacet): string => facet.name || facet.code;
+
+/**
+ * The name for a code, looked up among the facets. Falls back to the code, which is what a language
+ * the facets do not know about deserves -- naming it badly is better than dropping it.
  */
 export const localeName = (
   locales: readonly LocaleFacet[],
   code: string | null | undefined
-): string => facetFor(locales, code)?.name || code || "";
+): string => {
+  const facet = facetFor(locales, code);
+  return facet ? facetName(facet) : (code ?? "");
+};
 
 /**
  * A name for a language the backoffice has not been told about.

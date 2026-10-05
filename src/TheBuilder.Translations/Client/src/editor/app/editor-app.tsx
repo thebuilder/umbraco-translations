@@ -90,18 +90,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
   const referenceName = localeName(locales, shown.referenceLocale);
 
-  const {
-    selected,
-    pending,
-    onDraftChange,
-    draftFor,
-    claimFocus,
-    select,
-    close,
-    discard,
-    keepEditing,
-    drop,
-  } = useEditorSelection({
+  const { selected, editing, select, drop } = useEditorSelection({
     locale: shown.locale,
     referenceLocale: shown.referenceLocale,
     update,
@@ -193,32 +182,21 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
 
         {listState.kind === "rows" ? (
           <KeyGrid
-            editor={(row, columns) =>
-              selected && shown.locale ? (
+            editor={(row) =>
+              selected ? (
                 <TranslationDetail
                   bridge={bridge}
                   canEdit={canEdit}
-                  claimFocus={() => claimFocus(selected)}
-                  close={close}
-                  columns={columns}
-                  initialDraft={draftFor(selected)}
                   key={targetId(selected)}
                   locales={locales}
                   mode={mode}
-                  next={next}
-                  onDiscard={discard}
-                  onDraftChange={(draft) => onDraftChange(selected, draft)}
-                  onKeepEditing={keepEditing}
-                  pending={pending}
-                  previous={previous}
+                  open={{ ...editing, target: selected, previous, next }}
                   reference={
                     comparing && shown.referenceLocale
                       ? { locale: shown.referenceLocale, name: referenceName }
                       : undefined
                   }
                   row={row}
-                  select={select}
-                  target={selected}
                 />
               ) : null
             }

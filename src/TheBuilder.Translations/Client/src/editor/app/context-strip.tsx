@@ -2,7 +2,7 @@ import type { LocaleFacet } from "../../api/generated/models.js";
 import { Caret, Picker } from "../components/picker.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { type EditorFilters, editingLocale } from "../state/filters.js";
-import { facetFor } from "../state/locales.js";
+import { facetFor, facetName } from "../state/locales.js";
 
 /** Setting the comparison to the language being edited is how "no comparison" is expressed. */
 const NO_COMPARISON = "";
@@ -30,7 +30,7 @@ export const ContextStrip = ({
   const comparing = filters.referenceLocale !== null && filters.referenceLocale !== editing;
   const current = facetFor(locales, editing);
 
-  const options = locales.map((locale) => ({ name: nameOf(locale), value: locale.code }));
+  const options = locales.map((locale) => ({ name: facetName(locale), value: locale.code }));
   // A comparison is only useful against a language with something to compare, and never against
   // the language being edited -- that is the same column printed twice.
   const comparisons = [
@@ -58,7 +58,7 @@ export const ContextStrip = ({
         <span className="picker picker--lang picker--fixed">
           <span className="picker__face">
             <span className="picker__label">Editing</span>
-            <span className="picker__name">{nameOf(only)}</span>
+            <span className="picker__name">{facetName(only)}</span>
           </span>
         </span>
       ) : (
@@ -73,7 +73,7 @@ export const ContextStrip = ({
           value={editing ?? ""}
         >
           <span className="picker__label">Editing</span>
-          <span className="picker__name">{current ? nameOf(current) : "Choose a language"}</span>
+          <span className="picker__name">{current ? facetName(current) : "Choose a language"}</span>
           <Caret />
         </Picker>
       )}
@@ -98,17 +98,10 @@ export const ContextStrip = ({
           value={comparing ? (filters.referenceLocale ?? "") : NO_COMPARISON}
         >
           <span className="picker__label">{mode === "queue" ? "From" : "Compare"}</span>
-          <span className="picker__name">{reference ? nameOf(reference) : "None"}</span>
+          <span className="picker__name">{reference ? facetName(reference) : "None"}</span>
           <Caret />
         </Picker>
       )}
     </div>
   );
 };
-
-/**
- * The language an editor recognises, alone: in the strip and in the menus alike, because a code
- * beside a name is the same fact said twice. A language the backoffice has no name for has been
- * given one by the browser by the time it gets here (see withNames).
- */
-const nameOf = (locale: LocaleFacet): string => locale.name || locale.code;

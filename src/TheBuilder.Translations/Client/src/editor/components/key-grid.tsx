@@ -4,13 +4,14 @@
 
 import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { EditorFilters } from "../state/filters.js";
 import { localeName } from "../state/locales.js";
 import { type EditTarget, keyId, sameTarget, targetId, targetOf } from "../state/target.js";
 import { keyColumns, keyTableFeatures } from "./key-columns.js";
 import { useGridNavigation } from "./use-grid-navigation.js";
+import { useOpenRowPlacement } from "./use-open-row-placement.js";
 
 /**
  * One line of text at a size that can actually be read. An estimate rather than a rule: every row
@@ -18,6 +19,9 @@ import { useGridNavigation } from "./use-grid-navigation.js";
  * a second line saying where it matched.
  */
 const ROW_HEIGHT = 41;
+
+/** A cell the keyboard moves between: the roving tabindex marks every one of them. */
+const NAVIGABLE_CELL = '[role="gridcell"][tabindex]';
 
 /** Rows left below the fold before the next page is requested. */
 const PREFETCH_MARGIN = 20;
@@ -48,10 +52,10 @@ export const KeyGrid = ({
   /**
    * The editor for the open row, drawn in that row's place. Editing happens where the text was
    * found rather than in a pane beside the list: the pane took half the width from the results it
-   * was opened from, and the job is one string at a time. Given the column template so the field
-   * lines up under the language it writes.
+   * was opened from, and the job is one string at a time. It lays itself out on the grid's own
+   * column template, so the field lines up under the language it writes.
    */
-  editor?: (key: MessageKey, columns: string) => ReactNode;
+  editor?: (key: MessageKey) => ReactNode;
 }) => {
   const scroller = useRef<HTMLDivElement>(null);
   // Comparing a language with itself is how "no comparison" is expressed, so that is also the
@@ -93,6 +97,17 @@ export const KeyGrid = ({
   const { rows } = table.getRowModel();
   const visible = table.getVisibleLeafColumns();
 
+  // Found once, by identity: the virtualizer's keys and the row being drawn both ask which row is
+  // open, and a position remembered from before would point at the wrong row once the list
+  // reorders under an open editor.
+  const openIndex = useMemo(
+    () =>
+      selected
+        ? rows.findIndex((row) => sameTarget(targetOf(row.original, selected.locale), selected))
+        : -1,
+    [rows, selected]
+  );
+
   const virtualizer = useVirtualizer({
     // The full result count rather than the rows in hand, so the scrollbar is the right size from
     // the first paint instead of shrinking under the cursor as each page arrives. Indices past what
@@ -114,8 +129,7 @@ export const KeyGrid = ({
       if (!key) {
         return `pending-${index}`;
       }
-      const open = selected !== undefined && sameTarget(targetOf(key, selected.locale), selected);
-      return open ? `${keyId(key)}:open` : keyId(key);
+      return index === openIndex ? `${keyId(key)}:open` : keyId(key);
     },
   });
   const items = virtualizer.getVirtualItems();
@@ -182,62 +196,12 @@ export const KeyGrid = ({
     restoreFocus(row >= 0 ? row : undefined);
   }, [selected, rows, restoreFocus]);
 
-  /*
-   * Where the row was on screen when it was clicked, so it opens there rather than wherever it
-   * lands once the editor above it has closed. Opening a row below an open one collapses that one
-   * first, which pulled the clicked row up by however tall the old editor happened to be.
-   */
-  const clickedAt = useRef<{ id: string; top: number } | null>(null);
-
-  const openIndex = useMemo(
-    () =>
-      selected
-        ? rows.findIndex((row) => sameTarget(targetOf(row.original, selected.locale), selected))
-        : -1,
-    [rows, selected]
-  );
-  const openId = selected === undefined ? null : targetId(selected);
-
-  /*
-   * Puts the open row where the editor expects it, before the frame is painted. A clicked row goes
-   * back under the pointer. Then, clicked or stepped to from the keyboard, the least scrolling that
-   * shows the whole editor -- and never so much that its top goes out of view.
-   *
-   * Keyed on which translation is open rather than its position, so a list that reorders under an
-   * open editor after a save does not yank the view back to it.
-   */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: openId is the trigger. openIndex and the virtualizer are read only for the fallback, and re-running when the list reorders under an open row is exactly what this must not do.
-  useLayoutEffect(() => {
-    const body = scroller.current;
-    const anchor = clickedAt.current;
-    clickedAt.current = null;
-    if (openId === null || body === null) {
-      return;
-    }
-
-    const open = body.querySelector<HTMLElement>(".grid__row--open");
-    if (open === null) {
-      // Not rendered: stepped to from the keyboard past the rows in view.
-      if (openIndex >= 0) {
-        virtualizer.scrollToIndex(openIndex, { align: "auto" });
-      }
-      return;
-    }
-
-    // Only for the row that was clicked: a click held up by the unsaved-changes question, and then
-    // abandoned, must not place whatever opens next.
-    if (anchor?.id === openId) {
-      body.scrollTop += open.getBoundingClientRect().top - anchor.top;
-    }
-
-    const view = body.getBoundingClientRect();
-    const box = open.getBoundingClientRect();
-    if (box.top < view.top) {
-      body.scrollTop -= view.top - box.top;
-    } else if (box.bottom > view.bottom) {
-      body.scrollTop += Math.min(box.bottom - view.bottom, box.top - view.top);
-    }
-  }, [openId]);
+  const rememberClick = useOpenRowPlacement({
+    scroller,
+    openId: selected === undefined ? null : targetId(selected),
+    openIndex,
+    scrollToIndex: (index) => virtualizer.scrollToIndex(index, { align: "auto" }),
+  });
 
   // Built from the columns actually on screen, so the reference column disappearing closes its
   // track rather than leaving a gap.
@@ -252,22 +216,19 @@ export const KeyGrid = ({
       aria-rowcount={total}
       className="grid"
       onKeyDown={(event) => {
-        // Keys typed into the open editor belong to the text, not to the list around it.
-        if ((event.target as HTMLElement).closest(".editor")) {
-          return;
+        // The list's keys are for moving between its cells, so they apply only with focus on one.
+        // Anywhere else -- the open editor's field, its buttons -- the key belongs to what has
+        // focus.
+        if (event.target instanceof HTMLElement && event.target.matches(NAVIGABLE_CELL)) {
+          onKeyDown(event);
         }
-        onKeyDown(event);
       }}
       role="grid"
+      // Every row and the open editor lay themselves out on this one template.
+      style={{ "--columns": template } as CSSProperties}
     >
       {table.getHeaderGroups().map((group) => (
-        <div
-          aria-rowindex={1}
-          className="grid__row grid__row--head"
-          key={group.id}
-          role="row"
-          style={{ gridTemplateColumns: template }}
-        >
+        <div aria-rowindex={1} className="grid__row grid__row--head" key={group.id} role="row">
           {group.headers.map((header) => (
             <span
               className={`grid__cell grid__cell--${header.column.id}`}
@@ -284,10 +245,7 @@ export const KeyGrid = ({
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {items.map((item) => {
             const row = rows[item.index];
-            const style = {
-              transform: `translateY(${item.start}px)`,
-              gridTemplateColumns: template,
-            };
+            const style = { transform: `translateY(${item.start}px)` };
 
             if (!row) {
               return (
@@ -311,7 +269,7 @@ export const KeyGrid = ({
 
             const target =
               filters.locale === null ? undefined : targetOf(row.original, filters.locale);
-            const open = sameTarget(target, selected);
+            const open = item.index === openIndex;
 
             if (open && editor) {
               return (
@@ -323,10 +281,10 @@ export const KeyGrid = ({
                   key={item.key}
                   ref={virtualizer.measureElement}
                   role="row"
-                  style={{ transform: style.transform }}
+                  style={style}
                 >
                   <div aria-colspan={visible.length} className="grid__editor" role="gridcell">
-                    {editor(row.original, template)}
+                    {editor(row.original)}
                   </div>
                 </div>
               );
@@ -341,10 +299,7 @@ export const KeyGrid = ({
                 key={item.key}
                 onClick={(event) => {
                   if (target) {
-                    clickedAt.current = {
-                      id: targetId(target),
-                      top: event.currentTarget.getBoundingClientRect().top,
-                    };
+                    rememberClick(targetId(target), event.currentTarget);
                     onSelect(target);
                   }
                 }}

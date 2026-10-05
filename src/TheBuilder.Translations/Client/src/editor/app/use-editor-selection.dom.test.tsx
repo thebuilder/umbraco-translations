@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { EditTarget } from "../state/target.js";
+import { type EditTarget, targetId } from "../state/target.js";
 import { leftResult, useEditorSelection } from "./use-editor-selection.js";
 
 const target = (key: string): EditTarget => ({
@@ -41,7 +41,7 @@ describe("unsaved text", () => {
   it("is kept when the row leaves the result, and given back when it is opened again", () => {
     const { result } = selection();
     act(() => result.current.select(target("a")));
-    act(() => result.current.onDraftChange(target("a"), "Halvskrevet"));
+    act(() => result.current.editing.drafts.set(targetId(target("a")), "Halvskrevet"));
 
     let kept: EditTarget | undefined;
     act(() => {
@@ -50,19 +50,19 @@ describe("unsaved text", () => {
 
     expect(kept).toEqual(target("a"));
     expect(result.current.selected).toBeUndefined();
-    expect(result.current.draftFor(target("a"))).toBe("Halvskrevet");
+    expect(result.current.editing.drafts.get(targetId(target("a")))).toBe("Halvskrevet");
   });
 
   it("is forgotten when it is discarded", () => {
     const { result } = selection();
     act(() => result.current.select(target("a")));
-    act(() => result.current.onDraftChange(target("a"), "Halvskrevet"));
-    act(() => result.current.close());
-    expect(result.current.pending).toBe("close");
+    act(() => result.current.editing.drafts.set(targetId(target("a")), "Halvskrevet"));
+    act(() => result.current.editing.close());
+    expect(result.current.editing.pending).toBe("close");
 
-    act(() => result.current.discard());
+    act(() => result.current.editing.discard());
 
-    expect(result.current.draftFor(target("a"))).toBeUndefined();
+    expect(result.current.editing.drafts.get(targetId(target("a")))).toBeUndefined();
   });
 
   it("says nothing was kept when there was nothing to keep", () => {
@@ -84,8 +84,8 @@ describe("focus", () => {
     const { result } = selection();
     act(() => result.current.select(target("a")));
 
-    expect(result.current.claimFocus(target("b"))).toBe(false);
-    expect(result.current.claimFocus(target("a"))).toBe(true);
-    expect(result.current.claimFocus(target("a"))).toBe(false);
+    expect(result.current.editing.claimFocus(target("b"))).toBe(false);
+    expect(result.current.editing.claimFocus(target("a"))).toBe(true);
+    expect(result.current.editing.claimFocus(target("a"))).toBe(false);
   });
 });

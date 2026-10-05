@@ -8,8 +8,9 @@ import type { MessageCell, MessageKey } from "../../api/generated/models.js";
 import { Highlight } from "../search/highlight.js";
 import { type MatchedInOptions, matchedIn } from "../search/matched-in.js";
 import { matchesTerm } from "../search/matching.js";
-import { localeIn } from "../state/locales.js";
+import { cellOf } from "../state/cells.js";
 import { cellStatus } from "./cell-status.js";
+import { StatusBadge } from "./status-badge.js";
 
 /**
  * What the renderer needs to know about a column that the table itself does not model: the track it
@@ -36,12 +37,6 @@ export const keyTableFeatures = tableFeatures({
 });
 
 const helper = createColumnHelper<typeof keyTableFeatures, MessageKey>();
-
-const cellOf = (key: MessageKey | undefined, locale: string | null): MessageCell | undefined =>
-  key ? localeIn(key.cells, locale) : undefined;
-
-export const textOf = (cell: MessageCell | undefined): string | null =>
-  cell === undefined ? null : (cell.overrideValue ?? cell.defaultValue);
 
 /**
  * Extends what naming a search hit needs -- the two languages, their names, a way to name a third,
@@ -193,11 +188,7 @@ const Value = ({ cell, quiet, term }: { cell?: MessageCell; quiet?: boolean; ter
 const Status = ({ cell }: { cell: MessageCell | undefined }) => {
   const status = cellStatus(cell);
   if (status.warning) {
-    return (
-      <span className={status.state === "Removed" ? "badge badge--danger" : "badge badge--warning"}>
-        {status.text}
-      </span>
-    );
+    return <StatusBadge status={status} />;
   }
 
   if (status.custom) {

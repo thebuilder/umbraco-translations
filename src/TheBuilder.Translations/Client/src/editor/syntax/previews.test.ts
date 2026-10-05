@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { examplesFor } from "./examples.js";
+import { previewsFor } from "./previews.js";
 
 const labels = (text: string, locale = "en") =>
-  examplesFor(text, locale).map((example) => example.label);
+  previewsFor(text, locale).map((preview) => preview.label);
 
-describe("examplesFor", () => {
+describe("previewsFor", () => {
   it("shows a plural once per branch, with a count that lands in each", () => {
     // `other` is 2, not 0: the =0 branch has already claimed nought.
     expect(labels("{count, plural, =0 {No results} one {# result} other {# results}}")).toEqual([
@@ -41,12 +41,21 @@ describe("examplesFor", () => {
     ]);
   });
 
-  it("holds the other arguments still while one is varied", () => {
-    const examples = examplesFor("{name} has {count, plural, one {# item} other {# items}}", "en");
-    expect(examples.map((example) => example.values.name)).toEqual([
-      { placeholder: "name" },
-      { placeholder: "name" },
+  it("renders each case, holding the other arguments still and leaving plain ones as gaps", () => {
+    expect(
+      previewsFor(
+        "{name} has {count, plural, =0 {nothing} one {# item} other {# items}}",
+        "en"
+      ).map((preview) => preview.parts)
+    ).toEqual([
+      [{ gap: "name" }, " has nothing"],
+      [{ gap: "name" }, " has 1 item"],
+      [{ gap: "name" }, " has 2 items"],
     ]);
+  });
+
+  it("writes numbers the way the language does", () => {
+    expect(previewsFor("Betal {amount, number}", "da-DK")[0]?.parts).toEqual(["Betal 1.234,5"]);
   });
 
   it("previews a message with no branches once, for how its numbers and dates are written", () => {

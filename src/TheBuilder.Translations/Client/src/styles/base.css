@@ -1,0 +1,82 @@
+/* Full height with a single bounded scroll container: the virtualized grid measures its own
+   scroller, so the shell must not be the thing that scrolls. */
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+
+  --ink: var(--uui-color-text);
+  --ink-2: color-mix(in srgb, var(--uui-color-text) 68%, var(--uui-color-surface));
+  --ink-3: color-mix(in srgb, var(--uui-color-text) 52%, var(--uui-color-surface));
+  --surface: var(--uui-color-surface);
+  /* The second neutral layer: the bars and the open row sit a step below the rows. */
+  --sunk: color-mix(in srgb, var(--uui-color-text) 2.5%, var(--uui-color-surface));
+  --hover: color-mix(in srgb, var(--uui-color-text) 4%, var(--uui-color-surface));
+  --line: color-mix(in srgb, var(--uui-color-text) 9%, var(--uui-color-surface));
+  --line-2: color-mix(in srgb, var(--uui-color-text) 17%, var(--uui-color-surface));
+  --accent: var(--uui-color-selected);
+  --accent-ink: var(--uui-color-selected-contrast);
+  --accent-wash: color-mix(in srgb, var(--uui-color-selected) 8%, var(--uui-color-surface));
+  --accent-line: color-mix(in srgb, var(--uui-color-selected) 35%, var(--uui-color-surface));
+  --warn: var(--uui-color-warning-emphasis, #8a6d00);
+  --warn-wash: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 40%, var(--uui-color-surface));
+  --warn-line: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 85%, var(--uui-color-surface));
+  --danger: var(--uui-color-danger);
+  --danger-wash: color-mix(in srgb, var(--uui-color-danger) 7%, var(--uui-color-surface));
+  --danger-line: color-mix(in srgb, var(--uui-color-danger) 28%, var(--uui-color-surface));
+
+  /* The platform's own sans: crisp at small sizes, with real tabular figures for the counts. */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+::selection {
+  background: var(--accent-line);
+}
+.mount {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+kbd {
+  font-family: var(--font);
+}
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Queried by size, not by viewport: this sits inside the backoffice chrome and is far narrower
+   than the window, so a viewport breakpoint fires at the wrong times. */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  gap: 12px;
+  padding: 20px 24px 24px;
+  container: shell / inline-size;
+}

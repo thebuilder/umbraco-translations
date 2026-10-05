@@ -1,27 +1,7 @@
 import { Button } from "../../bridge/uui/index.js";
+import type { OpenTranslation } from "../app/use-editor-selection.js";
 import type { EditingMode } from "../state/editing-mode.js";
-import type { EditTarget } from "../state/target.js";
 import { EditorKeys } from "./shortcuts.js";
-
-/**
- * The states the footer reports before anything is pressed. An override the server has never
- * been given is absent rather than empty, and it arrives as either `null` or `undefined` depending
- * on which endpoint answered, so both mean "nothing written here yet".
- */
-const describeDraftState = (
-  dirty: boolean,
-  overrideValue: string | null | undefined,
-  defaultValue: string | undefined
-) => {
-  if (dirty) {
-    return "Unsaved changes";
-  }
-  if (overrideValue !== null && overrideValue !== undefined) {
-    return "Your text is saved";
-  }
-  // The field starts from the application's text, so where there is some, that is what it holds.
-  return defaultValue ? "Default text" : "Nothing written here yet";
-};
 
 /**
  * The bottom edge of the open row: what state the text is in, and the ways out.
@@ -31,38 +11,26 @@ const describeDraftState = (
  * way past a row that needs somebody else.
  */
 export const EditorFoot = ({
-  pending,
+  open,
   canEdit,
+  state,
   dirty,
-  overrideValue,
-  defaultValue,
   mode,
-  next,
   savable,
   saving,
-  select,
   commit,
-  close,
-  onKeepEditing,
-  onDiscard,
 }: {
-  /** Set when leaving has been asked for and there is unsaved text in the way. */
-  pending?: EditTarget | "close";
+  open: Pick<OpenTranslation, "pending" | "next" | "select" | "close" | "discard" | "keepEditing">;
   canEdit: boolean;
+  /** What the text in the field is, in a few words: saved, unsaved, the default. */
+  state: string;
   dirty: boolean;
-  overrideValue: string | null | undefined;
-  /** The default text, which the field holds until something replaces it. */
-  defaultValue: string | undefined;
   mode: EditingMode;
-  next?: EditTarget;
   savable: boolean;
   saving: boolean;
-  select: (target: EditTarget) => void;
   commit: (then: "close" | "next") => void;
-  close: () => void;
-  onKeepEditing: () => void;
-  onDiscard: () => void;
 }) => {
+  const { pending, next, select, close } = open;
   if (pending) {
     return (
       <div className="editor__foot editor__foot--asking">
@@ -72,10 +40,10 @@ export const EditorFoot = ({
             : "Open another translation without saving?"}
         </p>
         <span className="editor__actions">
-          <Button look="danger" onClick={onDiscard}>
+          <Button look="danger" onClick={open.discard}>
             Discard
           </Button>
-          <Button look="primary" onClick={onKeepEditing}>
+          <Button look="primary" onClick={open.keepEditing}>
             Keep editing
           </Button>
         </span>
@@ -100,9 +68,7 @@ export const EditorFoot = ({
 
   return (
     <div className="editor__foot">
-      <p className={dirty ? "editor__state editor__state--dirty" : "editor__state"}>
-        {describeDraftState(dirty, overrideValue, defaultValue)}
-      </p>
+      <p className={dirty ? "editor__state editor__state--dirty" : "editor__state"}>{state}</p>
       <EditorKeys next={next !== undefined} />
       <span className="editor__actions">
         {closeButton}

@@ -21,10 +21,13 @@ export interface Token {
  * Splits a message into tokens for display.
  *
  * Lossless by contract: the tokens joined back together are the input, character for character,
- * whatever the input is. The field draws this behind a transparent textarea, so a dropped or
- * reordered character would move every glyph after it out from under the caret. That is also why
- * this is forgiving rather than strict: half-typed syntax is the normal state of a field being
- * edited, and saying whether it is valid is the validator's job, not this one's.
+ * whatever the input is. The field marks the text by position, adding up token lengths, so a
+ * dropped or reordered character would put every mark after it on the wrong letters. That is also
+ * why this is forgiving rather than strict: half-typed syntax is the normal state of a field
+ * being edited, and saying whether it is valid is the validator's job, not this one's.
+ *
+ * Hand-written rather than the formatjs parser the previews use, for the same reason: that parser
+ * rejects a message with an unclosed brace outright, and the field still has to colour it.
  */
 export const tokenize = (text: string, format: MessageFormat): Token[] => {
   if (format === "PlainText") {

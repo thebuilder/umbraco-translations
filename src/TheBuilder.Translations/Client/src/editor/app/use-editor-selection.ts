@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { createDraftStore, type DraftStore } from "../state/drafts.js";
 import { type EditorFilters, editingLocale } from "../state/filters.js";
 import { type EditTarget, sameTarget, targetId } from "../state/target.js";
 
@@ -21,11 +22,42 @@ export const leftResult = (
   !found && query.isSuccess && !query.isFetching && !query.isPlaceholderData && !query.hasNextPage;
 
 /**
+ * Everything the editor needs from the selection, as one value: which translation it is on, what is
+ * either side of it, the question it may be asking, and the ways out. Handed over whole, so the
+ * editor is not a list of a dozen props each forwarded from here by hand.
+ */
+export interface OpenTranslation {
+  /**
+   * True once, for the translation that was opened on purpose. An editor that mounts again because
+   * its row scrolled back into view, or came back into a search result, taking the caret out of
+   * wherever it was would be stealing focus.
+   */
+  claimFocus: (target: EditTarget) => boolean;
+  close: () => void;
+  discard: () => void;
+  /** Unsaved text, which outlives the editor. See DraftStore. */
+  drafts: DraftStore;
+  keepEditing: () => void;
+  /** The row after this one, so a reviewer can work down the list without returning to it. */
+  next?: EditTarget;
+  /**
+   * Set when leaving has been asked for and there is unsaved text in the way: where the editor is
+   * trying to go, or "close". The question is answered in the editor's footer rather than by a
+   * native dialog -- `confirm` is suppressed in enough contexts that relying on it left the editor
+   * with no way out at all.
+   */
+  pending?: EditTarget | "close";
+  previous?: EditTarget;
+  select: (target: EditTarget) => void;
+  target: EditTarget;
+}
+
+/**
  * Which translation is open, and what happens when something tries to leave it.
  *
- * The whole reason this is a state machine rather than a `setSelected` call is unsaved text: it
- * lives in the open row, so anything that would close that row has to ask first. Every route out
- * -- another row, the close button, Escape -- goes through the same question.
+ * The whole reason this is a state machine rather than a `setSelected` call is unsaved text:
+ * anything that would close the open row has to ask first while there is some. Every route out --
+ * another row, the close button, Escape -- goes through the same question.
  */
 export const useEditorSelection = ({
   locale,
@@ -37,44 +69,14 @@ export const useEditorSelection = ({
   update: (patch: Partial<EditorFilters>) => void;
 }) => {
   const [selected, setSelected] = useState<EditTarget>();
+  const [pending, setPending] = useState<EditTarget | "close">();
+  const [drafts] = useState(createDraftStore);
 
-  /**
-   * Typed text that has not been saved, by translation. Held here rather than in the editor, so it
-   * outlives the editor: a virtualized list unmounts the open row when it is scrolled out of view,
-   * and a search can filter it out altogether, and neither should cost anybody what they typed. A
-   * ref rather than state, because it changes on every keystroke and nothing here renders it.
-   */
-  const drafts = useRef(new Map<string, string>());
-  // Read by callbacks that must not change identity on every selection, so the open translation is
-  // reached through a ref rather than captured.
-  const selectedRef = useRef<EditTarget | undefined>(undefined);
-  selectedRef.current = selected;
   const unsaved = useCallback(
-    () => selectedRef.current !== undefined && drafts.current.has(targetId(selectedRef.current)),
-    []
+    (target: EditTarget | undefined) => target !== undefined && drafts.has(targetId(target)),
+    [drafts]
   );
 
-  /** Reported by the editor as the text changes: the draft, or undefined once it is saved. */
-  const onDraftChange = useCallback((target: EditTarget, draft: string | undefined) => {
-    if (draft === undefined) {
-      drafts.current.delete(targetId(target));
-    } else {
-      drafts.current.set(targetId(target), draft);
-    }
-  }, []);
-
-  /** What an editor opening on this translation should start from, if text was left in it. */
-  const draftFor = useCallback(
-    (target: EditTarget): string | undefined => drafts.current.get(targetId(target)),
-    []
-  );
-
-  /**
-   * The translation that was opened on purpose and has not yet had focus put in it. Focus moves
-   * only when somebody opens a row. An editor that mounts again because its row scrolled back into
-   * view, or came back into a search result, taking the caret out of wherever it was is the editor
-   * stealing focus.
-   */
   const focusFor = useRef<string | null>(null);
   const claimFocus = useCallback((target: EditTarget): boolean => {
     if (focusFor.current !== targetId(target)) {
@@ -83,16 +85,6 @@ export const useEditorSelection = ({
     focusFor.current = null;
     return true;
   }, []);
-
-  /**
-   * Where the editor is trying to go while unsaved text is in the way: another translation, or
-   * "close". The open row asks about it in its own footer.
-   *
-   * This used to be `confirm()`, which is suppressed in enough contexts that the dialog never
-   * appeared and its false return left the editor with no way out at all -- Escape and the close
-   * button both silently did nothing, with the text still in the field.
-   */
-  const [pending, setPending] = useState<EditTarget | "close">();
 
   /**
    * Opening a translation, including one in another language.
@@ -113,10 +105,9 @@ export const useEditorSelection = ({
     [locale, referenceLocale, update]
   );
 
-  // Both routes out of an open translation: picking another row, and closing altogether.
   const select = useCallback(
     (target: EditTarget) => {
-      if (!unsaved() || sameTarget(target, selected)) {
+      if (!unsaved(selected) || sameTarget(target, selected)) {
         go(target);
       } else {
         setPending(target);
@@ -126,16 +117,16 @@ export const useEditorSelection = ({
   );
 
   const close = useCallback(() => {
-    if (unsaved()) {
+    if (unsaved(selected)) {
       setPending("close");
     } else {
       setSelected(undefined);
     }
-  }, [unsaved]);
+  }, [selected, unsaved]);
 
   const discard = useCallback(() => {
-    if (selectedRef.current) {
-      drafts.current.delete(targetId(selectedRef.current));
+    if (selected) {
+      drafts.set(targetId(selected), undefined);
     }
     if (pending === undefined || pending === "close") {
       setSelected(undefined);
@@ -143,35 +134,29 @@ export const useEditorSelection = ({
       go(pending);
     }
     setPending(undefined);
-  }, [pending, go]);
+  }, [selected, pending, go, drafts]);
 
   const keepEditing = useCallback(() => setPending(undefined), []);
 
   /**
    * Closing without asking, for a translation that has already left the result. There is nobody to
-   * ask: the row is not on screen. Its unsaved text is kept, and comes back when it is opened
-   * again.
-   * Keeping the selection instead only meant the row sprang back open when the search was widened.
+   * ask: the row is not on screen. Its unsaved text stays in the store and comes back when it is
+   * opened again. Keeping the selection instead only meant the row sprang back open when the
+   * search was widened.
    *
    * Returns the translation if it had unsaved text, so the editor can be told where it went.
    */
   const drop = useCallback((): EditTarget | undefined => {
-    const left = selectedRef.current;
     setPending(undefined);
     setSelected(undefined);
-    return left !== undefined && drafts.current.has(targetId(left)) ? left : undefined;
-  }, []);
+    return unsaved(selected) ? selected : undefined;
+  }, [selected, unsaved]);
 
-  return {
-    selected,
-    pending,
-    onDraftChange,
-    draftFor,
-    claimFocus,
-    select,
-    close,
-    discard,
-    keepEditing,
-    drop,
-  };
+  /** The open translation, less which one it is and its neighbours, which only the list knows. */
+  const editing = useMemo(
+    () => ({ pending, drafts, claimFocus, select, close, discard, keepEditing }),
+    [pending, drafts, claimFocus, select, close, discard, keepEditing]
+  );
+
+  return { selected, editing, select, drop };
 };

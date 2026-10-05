@@ -1,0 +1,57 @@
+/* ---- Narrow ------------------------------------------------------------------------------- */
+
+@container shell (max-width: 44rem) {
+  .toolbar {
+    flex-wrap: wrap;
+  }
+  .langs {
+    flex: 1 1 100%;
+  }
+  .langs > .picker {
+    flex: 1;
+  }
+}
+
+/* Below the width where four columns can each hold a sentence, the key moves above the words and
+   the open row stacks. */
+@container board (max-width: 46rem) {
+  .grid__row:not(.grid__row--open) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    column-gap: 12px;
+  }
+  .grid__row--head .grid__cell--key {
+    display: none;
+  }
+  .grid__row:not(.grid__row--head) .grid__cell--key {
+    grid-column: 1 / -1;
+    padding-block: 8px 0;
+  }
+  .grid__row:not(.grid__row--head) .grid__cell--key + .grid__cell {
+    padding-block-start: 2px;
+  }
+  .editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor > * {
+    grid-column: 1 / -1;
+  }
+  .editor__label--stacked {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    clip-path: none;
+  }
+  .keys {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
