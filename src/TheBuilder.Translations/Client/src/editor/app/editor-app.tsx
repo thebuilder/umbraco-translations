@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
@@ -7,18 +7,16 @@ import { ListState } from "../components/list-state.js";
 import { TranslationDetail } from "../components/translation-detail.js";
 import { matchedElsewhere } from "../search/matched-in.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
-import type { EditingMode } from "../state/editing-mode.js";
 import { editingMode } from "../state/editing-mode.js";
-import { defaultFilters, type EditorFilters } from "../state/filters.js";
+import type { EditorFilters } from "../state/filters.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
 import { defaultLocale, facetFor, localeName } from "../state/locales.js";
 import { type EditTarget, sameTarget, targetId, targetOf } from "../state/target.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { ContextStrip } from "./context-strip.js";
-import { FilterBar } from "./filter-bar.js";
-import { ResultsFoot } from "./results-foot.js";
+import { Filters, SearchField } from "./filter-bar.js";
 import { ResultsHead } from "./results-head.js";
-import { useEditorSelection } from "./use-editor-selection.js";
+import { leftResult, useEditorSelection } from "./use-editor-selection.js";
 
 /**
  * The filters as the screen actually reads them.
@@ -45,38 +43,25 @@ const shownFilters = (
 });
 
 /**
- * A queue in the order the application defines its keys, which is the order it is meant to be
- * worked in and the only one that makes "the next one" mean anything.
- *
- * True only when nothing else is deciding the order or the contents: a search or another sort is
- * named in the bar above, and this one is the absence of anything there to read.
- */
-const isQueue = (mode: EditingMode, filters: EditorFilters) =>
-  mode === "queue" &&
-  filters.query === "" &&
-  filters.sort === defaultFilters.sort &&
-  filters.direction === defaultFilters.direction;
-
-/**
- * Where an open translation sits in the result, and the rows either side of it, so the pane can
- * offer them and say how much of a queue is left.
+ * The rows either side of an open translation, so the editor can step to them.
  *
  * Looked up by identity rather than remembered as a position, because the row moves underneath:
- * saving while sorted by what needs attention reorders the list while the pane is still open on the
- * row that moved.
+ * saving while sorted by what needs attention reorders the list while the editor is still open on
+ * the row that moved.
  */
-const neighbours = (keys: readonly MessageKey[], selected: EditTarget | undefined) => {
-  const index = selected
-    ? keys.findIndex((key) => sameTarget(targetOf(key, selected.locale), selected))
-    : -1;
+const neighbours = (
+  keys: readonly MessageKey[],
+  selected: EditTarget | undefined,
+  index: number
+) => {
   if (!selected || index < 0) {
-    return { index, row: undefined, previous: undefined, next: undefined };
+    return { previous: undefined, next: undefined };
   }
   const at = (offset: number) => {
     const neighbour = keys[index + offset];
     return neighbour ? targetOf(neighbour, selected.locale) : undefined;
   };
-  return { index, row: keys[index], previous: at(-1), next: at(1) };
+  return { previous: at(-1), next: at(1) };
 };
 
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
@@ -105,12 +90,22 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
   const referenceName = localeName(locales, shown.referenceLocale);
 
-  const { selected, pending, onDirtyChange, select, close, discard, keepEditing } =
-    useEditorSelection({
-      locale: shown.locale,
-      referenceLocale: shown.referenceLocale,
-      update,
-    });
+  const {
+    selected,
+    pending,
+    onDraftChange,
+    draftFor,
+    claimFocus,
+    select,
+    close,
+    discard,
+    keepEditing,
+    drop,
+  } = useEditorSelection({
+    locale: shown.locale,
+    referenceLocale: shown.referenceLocale,
+    update,
+  });
 
   /*
    * Rows that are results on the strength of a language neither column shows. Search is
@@ -131,8 +126,6 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     [rows.keys, shown.query, shown.locale, shown.referenceLocale]
   );
 
-  const queued = isQueue(mode, shown);
-
   const listState = describeListState({
     error: rows.query.error ?? undefined,
     loading: rows.query.isLoading,
@@ -141,105 +134,119 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   });
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
 
-  const { index, row, previous, next } = neighbours(rows.keys, selected);
+  // Found once and shared: the neighbours and whether the row is still a result both need it, and
+  // this component re-renders on every keystroke in the search field.
+  const openIndex = useMemo(
+    () =>
+      selected
+        ? rows.keys.findIndex((key) => sameTarget(targetOf(key, selected.locale), selected))
+        : -1,
+    [rows.keys, selected]
+  );
+  const { previous, next } = neighbours(rows.keys, selected, openIndex);
+
+  const gone = leftResult(
+    {
+      isSuccess: rows.query.isSuccess,
+      isFetching: rows.query.isFetching,
+      isPlaceholderData: rows.query.isPlaceholderData,
+      hasNextPage: rows.query.hasNextPage,
+    },
+    openIndex >= 0
+  );
+  useEffect(() => {
+    if (!gone) {
+      return;
+    }
+    const kept = drop();
+    if (kept) {
+      bridge.notify(
+        "warning",
+        "Your unsaved text was kept",
+        `${kept.namespace}.${kept.key} is no longer in the list. Open it again to carry on.`
+      );
+    }
+  }, [gone, drop, bridge]);
 
   return (
     <main className="shell">
-      <ContextStrip
-        filters={shown}
-        locales={locales}
-        mode={mode}
-        totalKeys={facets.data?.totalKeys}
-        update={update}
-      />
-
-      <FilterBar
-        filters={shown}
-        namespaces={facets.data?.namespaces ?? []}
-        searchRef={search}
-        update={update}
-      />
+      <header className="toolbar">
+        <SearchField query={shown.query} searchRef={search} update={update} />
+        <ContextStrip filters={shown} locales={locales} mode={mode} update={update} />
+      </header>
 
       <div className="board">
-        <div className="results">
-          {listState.kind === "rows" ? (
-            <ResultsHead
-              current={current}
-              elsewhere={elsewhere}
-              filters={shown}
-              mode={mode}
-              onShowAbsent={() => update({ status: "Absent" })}
-              queued={queued}
-              total={rows.total}
-            />
-          ) : null}
-
-          {listState.kind === "rows" ? (
-            <KeyGrid
-              filters={shown}
-              hasMore={rows.query.hasNextPage}
-              keys={rows.keys}
-              loadingMore={rows.query.isFetchingNextPage}
-              locales={locales}
-              mode={mode}
-              namespaceCount={facets.data?.namespaces.length ?? 0}
-              onLoadMore={() => {
-                rows.query.fetchNextPage();
-              }}
-              onSelect={select}
-              selected={selected}
-              total={rows.total}
-            />
-          ) : (
-            <ListState
-              canManageSources={permissions.data?.canManageSources ?? false}
-              filtered={hasNarrowingFilters(shown)}
-              onClear={() => update(clearedFilters())}
-              onRetry={() => {
-                rows.query.refetch();
-              }}
-              state={listState}
-              term={shown.query}
-            />
-          )}
-
-          <ResultsFoot
+        <div className="bar">
+          <ResultsHead
             current={current}
-            editing={selected !== undefined && row !== undefined}
-            namespace={shown.namespace}
+            elsewhere={elsewhere}
+            filters={shown}
+            mode={mode}
             syncing={syncing}
-            totalKeys={facets.data?.totalKeys ?? 0}
+            total={listState.kind === "rows" ? rows.total : 0}
+            totalKeys={facets.data?.totalKeys}
+            update={update}
             viewOnly={permissions.data !== undefined && !permissions.data.canEdit}
           />
+          <Filters filters={shown} namespaces={facets.data?.namespaces ?? []} update={update} />
         </div>
 
-        {selected && row && shown.locale ? (
-          <TranslationDetail
-            bridge={bridge}
-            canEdit={canEdit}
-            close={close}
-            key={targetId(selected)}
-            locales={locales}
-            mode={mode}
-            next={next}
-            onDirtyChange={onDirtyChange}
-            onDiscard={discard}
-            onKeepEditing={keepEditing}
-            pending={pending}
-            position={{ index: index + 1, total: rows.total }}
-            previous={previous}
-            reference={
-              comparing && shown.referenceLocale
-                ? { locale: shown.referenceLocale, name: referenceName }
-                : undefined
+        {listState.kind === "rows" ? (
+          <KeyGrid
+            editor={(row, columns) =>
+              selected && shown.locale ? (
+                <TranslationDetail
+                  bridge={bridge}
+                  canEdit={canEdit}
+                  claimFocus={() => claimFocus(selected)}
+                  close={close}
+                  columns={columns}
+                  initialDraft={draftFor(selected)}
+                  key={targetId(selected)}
+                  locales={locales}
+                  mode={mode}
+                  next={next}
+                  onDiscard={discard}
+                  onDraftChange={(draft) => onDraftChange(selected, draft)}
+                  onKeepEditing={keepEditing}
+                  pending={pending}
+                  previous={previous}
+                  reference={
+                    comparing && shown.referenceLocale
+                      ? { locale: shown.referenceLocale, name: referenceName }
+                      : undefined
+                  }
+                  row={row}
+                  select={select}
+                  target={selected}
+                />
+              ) : null
             }
-            row={row}
-            select={select}
-            switchLocale={(locale) => select({ ...selected, locale })}
-            target={selected}
+            filters={shown}
+            hasMore={rows.query.hasNextPage}
+            keys={rows.keys}
+            loadingMore={rows.query.isFetchingNextPage}
+            locales={locales}
+            namespaceCount={facets.data?.namespaces.length ?? 0}
+            onLoadMore={() => {
+              rows.query.fetchNextPage();
+            }}
+            onSelect={select}
+            selected={selected}
+            total={rows.total}
+          />
+        ) : (
+          <ListState
+            canManageSources={permissions.data?.canManageSources ?? false}
+            filtered={hasNarrowingFilters(shown)}
+            onClear={() => update(clearedFilters())}
+            onRetry={() => {
+              rows.query.refetch();
+            }}
+            state={listState}
             term={shown.query}
           />
-        ) : null}
+        )}
       </div>
     </main>
   );

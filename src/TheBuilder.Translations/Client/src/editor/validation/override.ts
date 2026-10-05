@@ -77,11 +77,11 @@ const explain = (
     parts.push(`is missing ${list(missing)}`);
   }
   if (unexpected.length > 0) {
-    parts.push(`uses ${list(unexpected)}, which the application does not provide`);
+    parts.push(`uses ${list(unexpected)}, which is not available here`);
   }
   for (const name of mismatched) {
     parts.push(
-      `uses {${name}} as ${describeKind(actual[name])} where the application uses it as ${describeKind(expected[name])}`
+      `uses {${name}} as ${describeKind(actual[name])} where the default text uses it as ${describeKind(expected[name])}`
     );
   }
 

@@ -85,12 +85,7 @@ const LOCALES: LocaleFacet[] = [
   },
 ];
 
-const show = (
-  keys: MessageKey[],
-  filters: Partial<EditorFilters> = {},
-  mode: "search" | "queue" = "search",
-  selected?: EditTarget
-) =>
+const show = (keys: MessageKey[], filters: Partial<EditorFilters> = {}, selected?: EditTarget) =>
   render(
     <KeyGrid
       filters={{ ...defaultFilters, locale: "da", referenceLocale: "en", ...filters }}
@@ -98,7 +93,6 @@ const show = (
       keys={keys}
       loadingMore={false}
       locales={LOCALES}
-      mode={mode}
       namespaceCount={1}
       onLoadMore={vi.fn()}
       onSelect={vi.fn()}
@@ -112,7 +106,7 @@ const show = (
  * so what it says and how loudly it says it is the whole point of the column.
  */
 describe("what a row says about itself", () => {
-  it("gives the two states that need a decision a badge, and everything ordinary a word", () => {
+  it("badges what needs a decision, gives custom text a word, and says nothing else", () => {
     const { container } = show([
       key("a", { da: cell("da", "Tekst", "NeedsReview"), en: cell("en", "Text") }),
       key("b", { da: cell("da", "Tekst", "Removed"), en: cell("en", "Text") }),
@@ -120,20 +114,21 @@ describe("what a row says about itself", () => {
       key("d", { da: cell("da", "Tekst"), en: cell("en", "Text") }),
     ]);
 
-    expect(screen.getByText("App text changed").className).toContain("badge--warning");
-    expect(screen.getByText("Gone from app").className).toContain("badge--danger");
+    expect(screen.getByText("Default changed").className).toContain("badge--warning");
+    expect(screen.getByText("No longer used").className).toContain("badge--danger");
     // Custom text is true of a great many rows: spelling it out as loudly as the two above would
     // bury exactly the rows the colour is there to surface.
     expect(container.querySelectorAll(".badge").length).toBe(2);
     expect(screen.getByText("Custom")).toBeTruthy();
-    expect(screen.getByText("App text")).toBeTruthy();
+    // Default text says nothing: it is most of any list, and the words beside it are the text.
+    expect(container.querySelectorAll(".grid__cell--status")[4]?.textContent).toBe("");
   });
 
-  it("offers the way to start on a row with nothing in the language being edited", () => {
+  it("says a row has nothing in the language being edited, in that language's column", () => {
     show([key("a", { en: cell("en", "Your basket is empty") })]);
 
-    expect(screen.getByText("Write")).toBeTruthy();
-    expect(screen.getByText("Not written in Danish")).toBeTruthy();
+    // The column heading names the language, so the absence does not have to.
+    expect(screen.getByText("Not written")).toBeTruthy();
   });
 });
 
@@ -142,19 +137,14 @@ describe("what a row says about itself", () => {
  * holds no trace of what they typed unless it says where the hit was.
  */
 describe("why a row is a result", () => {
-  it("names the language the hit was in when it is not the one leading the row", () => {
-    show(
+  it("lets the highlight say it when the hit is in a column on screen", () => {
+    const { container } = show(
       [key("a", { da: cell("da", "Velkommen tilbage"), en: cell("en", "Welcome back") }, ["en"])],
       { query: "Welcome back" }
     );
 
-    expect(screen.getByText("matched in English")).toBeTruthy();
-  });
-
-  it("says the key when that is the only thing the term is in", () => {
-    show([key("greeting", { da: cell("da", "Hej"), en: cell("en", "Hi") })], { query: "greeting" });
-
-    expect(screen.getByText("matched in the key")).toBeTruthy();
+    expect(container.querySelector(".row__source")).toBeNull();
+    expect(container.querySelector(".hit")?.textContent).toBe("Welcome back");
   });
 
   it("stays quiet when the hit is in the words already shown, which are marked", () => {
@@ -187,46 +177,58 @@ describe("why a row is a result", () => {
   });
 });
 
-describe("a language the application ships nothing for", () => {
-  it("leads with the text being written from rather than a column of absences", () => {
-    const { container } = show(
-      [key("a", { en: cell("en", "Your basket is empty") })],
-      { locale: "nb", referenceLocale: "en" },
-      "queue"
+describe("marking what the search hit in the key", () => {
+  it("shows a namespace the search hit, even where the view leaves namespaces out", () => {
+    // Scoped to one namespace the namespace is not drawn, so a hit only in it marked nothing.
+    const { container } = render(
+      <KeyGrid
+        filters={{
+          ...defaultFilters,
+          locale: "da",
+          referenceLocale: "en",
+          namespace: "website",
+          query: "website",
+        }}
+        hasMore={false}
+        keys={[key("cart.empty", { da: cell("da", "Tom"), en: cell("en", "Empty") })]}
+        loadingMore={false}
+        locales={LOCALES}
+        namespaceCount={1}
+        onLoadMore={vi.fn()}
+        onSelect={vi.fn()}
+        total={1}
+      />
     );
 
+    expect(container.querySelector(".row__namespace .hit")?.textContent).toBe("website");
+  });
+
+  it("marks a search for the whole dotted key as one piece", () => {
+    const { container } = show(
+      [key("cart.empty", { da: cell("da", "Tom"), en: cell("en", "Empty") })],
+      {
+        query: "website.cart.empty",
+      }
+    );
+
+    expect(container.querySelector(".row__key .hit")?.textContent).toBe("website.cart.empty");
+  });
+});
+
+describe("a language the application ships nothing for", () => {
+  it("keeps the language being edited next to the key, empty as it is", () => {
+    // It used to swap with the reference, which put the language somebody had just picked to edit
+    // in the second column under a heading they had not chosen.
+    const { container } = show([key("a", { en: cell("en", "Your basket is empty") })], {
+      locale: "nb",
+      referenceLocale: "en",
+    });
+
     const row = container.querySelector(".grid__row:not(.grid__row--head)");
-    expect(row).not.toBeNull();
     const values = [...(row?.querySelectorAll(".row__value") ?? [])].map(
       (value) => value.textContent
     );
-    expect(values[0]).toBe("Your basket is empty");
-    expect(values[1]).toBe("Not written");
-  });
-
-  /*
-   * Every row of a queue says the same two things, so the row being worked on has to say something
-   * else or there is nothing on a screenful of identical offers to mark where you are -- and the
-   * one offer that is no longer an offer is the one already taken.
-   */
-  it("says which row is being written rather than offering to start it again", () => {
-    const rows = [
-      key("a", { en: cell("en", "Your basket is empty") }),
-      key("b", { en: cell("en", "Continue to checkout") }),
-    ];
-
-    show(rows, { locale: "nb", referenceLocale: "en" }, "queue", {
-      sourceId: "s1",
-      namespace: "website",
-      key: "a",
-      locale: "nb",
-    });
-
-    expect(screen.getByText("Writing now…")).toBeTruthy();
-    expect(screen.getByText("Open")).toBeTruthy();
-    // The row beside it is untouched: only the open one changes what it says.
-    expect(screen.getByText("Not written")).toBeTruthy();
-    expect(screen.getByText("Write")).toBeTruthy();
+    expect(values).toEqual(["Not written", "Your basket is empty"]);
   });
 
   it("leaves a status alone in search mode, where it is the thing worth reading", () => {
@@ -234,10 +236,9 @@ describe("a language the application ships nothing for", () => {
     show(
       [key("a", { da: cell("da", "Tekst", "NeedsReview"), en: cell("en", "Text") })],
       {},
-      "search",
       { sourceId: "s1", namespace: "website", key: "a", locale: "da" }
     );
 
-    expect(screen.getByText("App text changed")).toBeTruthy();
+    expect(screen.getByText("Default changed")).toBeTruthy();
   });
 });

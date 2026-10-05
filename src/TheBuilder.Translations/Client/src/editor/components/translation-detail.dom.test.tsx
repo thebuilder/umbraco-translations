@@ -1,7 +1,7 @@
+import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api as clientApi } from "../../api/generated/client.js";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
 import type { EditTarget } from "../state/target.js";
 import { TranslationDetail } from "./translation-detail.js";
@@ -25,8 +25,6 @@ vi.mock("../../api/generated/client.js", () => ({
     resetOverride: vi.fn(async () => undefined),
   },
 }));
-
-const EDIT_KEY_BUTTON = /^Edit this key in/;
 
 const detail: MessageDetail = {
   id: "m1",
@@ -124,19 +122,28 @@ const open = (canEdit: boolean, props: Partial<Props> = {}) => {
         close={vi.fn()}
         locales={[locale("da", "Danish"), locale("en", "English")]}
         mode="search"
-        onDirtyChange={vi.fn()}
         onDiscard={vi.fn()}
+        onDraftChange={vi.fn()}
         onKeepEditing={vi.fn()}
         row={written}
         select={vi.fn()}
-        switchLocale={vi.fn()}
         target={target}
-        term=""
         {...props}
       />
     </QueryClientProvider>
   );
 };
+
+/** The editor behind a field. The field is CodeMirror, so its text is its document, not a value. */
+const fieldView = (field: HTMLElement): EditorView => {
+  const view = EditorView.findFromDOM(field);
+  if (!view) {
+    throw new Error("The field is not an editor.");
+  }
+  return view;
+};
+
+const fieldText = (field: HTMLElement) => fieldView(field).state.doc.toString();
 
 const pressEscape = () =>
   act(() => {
@@ -149,19 +156,16 @@ describe("TranslationDetail permissions", () => {
 
     expect(await screen.findByRole("textbox")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Revert to the application text" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Revert to the default text" })).toBeTruthy();
   });
 
   it("shows the custom text but no way to change it without permission", async () => {
     const { container } = open(false);
 
-    // Scoped to the block holding the editor's own text: the application's text is in a block of
-    // its own on the same screen, and the words are close enough to catch the wrong one.
+    // Scoped to the reading of the editor's own text: the application's text is on the same
+    // screen, and the words are close enough to catch the wrong one.
     await waitFor(() => {
-      const own = [...container.querySelectorAll<HTMLElement>(".pane__block")].find((block) =>
-        block.querySelector("h3")?.textContent?.includes("your text")
-      );
-      expect(own?.querySelector(".pane__reading")?.textContent).toBe("Kurven er tom");
+      expect(container.querySelector(".editor__own")?.textContent).toBe("Kurven er tom");
     });
 
     // The point of the test: the API refuses the write either way, so the only thing a field and a
@@ -169,7 +173,7 @@ describe("TranslationDetail permissions", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save & next" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Revert to the application text" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Revert to the default text" })).toBeNull();
     expect(screen.getByText("You have view-only access to translations.")).toBeTruthy();
   });
 
@@ -180,12 +184,36 @@ describe("TranslationDetail permissions", () => {
   });
 });
 
+describe("coming back to a translation", () => {
+  it("starts from the unsaved text left in it, rather than from what is saved", async () => {
+    open(true, { initialDraft: "Kurven er næsten tom" });
+
+    const field = await screen.findByRole("textbox");
+    await waitFor(() => expect(fieldText(field)).toBe("Kurven er næsten tom"));
+    expect(screen.getByText("Unsaved changes")).toBeTruthy();
+  });
+
+  it("does not take focus when it was not opened on purpose", async () => {
+    // Its row scrolling back into view, or returning to a search result, is not somebody opening
+    // it; taking the caret out of the search box then is stealing it.
+    const search = document.createElement("input");
+    document.body.append(search);
+    search.focus();
+
+    open(true, { claimFocus: () => false });
+    await screen.findByRole("textbox");
+
+    expect(document.activeElement).toBe(search);
+    search.remove();
+  });
+});
+
 describe("leaving with unsaved text", () => {
   it("asks in the footer rather than through a dialog that may never appear", async () => {
     open(true, { pending: "close" });
 
     // The native confirm() this replaced returned false when suppressed, which left Escape and the
-    // close button both silently doing nothing and no way out of the pane at all.
+    // close button both silently doing nothing and no way out of the editor at all.
     expect(await screen.findByRole("button", { name: "Discard" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Keep editing" })).toBeTruthy();
     expect(screen.getByText("Close without saving your changes?")).toBeTruthy();
@@ -222,9 +250,9 @@ describe("leaving with unsaved text", () => {
 });
 
 /**
- * The pane puts the caret straight into the field, so a bare arrow belongs to the text. Without a
+ * The editor puts the caret straight into the field, so a bare arrow belongs to the text. Without a
  * way past that, a keyboard user who opened a search result could only get to the next one by
- * closing the pane, and could not get back to the previous one at all.
+ * closing the editor, and could not get back to the previous one at all.
  */
 describe("moving between translations from the field", () => {
   const previous: EditTarget = { ...target, key: "cart.total" };
@@ -259,7 +287,7 @@ describe("moving between translations from the field", () => {
   });
 
   it("does not swallow the keystroke at either end of the result", async () => {
-    // Nowhere to go, so the field keeps whatever the platform does with it rather than the pane
+    // Nowhere to go, so the field keeps whatever the platform does with it rather than the editor
     // eating a keypress and doing nothing visible with it.
     const select = vi.fn();
     open(true, { select });
@@ -289,71 +317,13 @@ describe("moving between translations from the field", () => {
   });
 });
 
-/**
- * The section that answers what a two-language list cannot: is the wording wrong everywhere, or
- * only in the one being edited.
- */
-describe("the key in every language", () => {
-  const withCells = () => {
-    const api = vi.mocked(clientApi);
-    api.messageKeys.mockResolvedValue({
-      items: [
-        {
-          sourceId: "s1",
-          namespace: "website",
-          key: "cart.empty",
-          format: "Icu",
-          arguments: {},
-          coverage: {},
-          matchedLocales: [],
-          cells: {
-            da: written.cells.da,
-            en: written.cells.en,
-          },
-        },
-      ],
-      page: 1,
-      pageSize: 50,
-      total: 1,
-      referenceLocale: "en",
-      targetLocale: "da",
-      compareLocales: [],
-    } as never);
-    return api;
-  };
-
-  it("lists the languages the key has never been written in, not only the ones it has", async () => {
-    // Half the answer is which languages still need it, and a list of the ones that already have
-    // it cannot be read backwards to give that.
-    withCells();
-    open(true, {
-      locales: [locale("da", "Danish"), locale("en", "English"), locale("de", "German")],
-    });
-
-    expect(await screen.findByText("This key in every language")).toBeTruthy();
-    expect(screen.getByText("German")).toBeTruthy();
-    expect(screen.getByText("Not written")).toBeTruthy();
-    expect(screen.getByText("3 languages · 1 not written")).toBeTruthy();
-  });
-
-  it("is still there when no comparison language is chosen", async () => {
-    // Passing no locale pair disabled the query outright, and a disabled query is not loading, so
-    // the whole section rendered as nothing at all for anyone not comparing against a second one.
-    const api = withCells();
-    open(true, { reference: undefined });
-
-    expect(await screen.findByText("This key in every language")).toBeTruthy();
-    const query = api.messageKeys.mock.calls[0][0] as { locale: string; referenceLocale: string };
-    expect(query.locale).toBe("da");
-    expect(query.referenceLocale).toBe("da");
-  });
-});
-
 describe("saving from the keyboard", () => {
   const type = async (text: string) => {
     const field = await screen.findByRole("textbox");
     act(() => {
-      fireEvent.change(field, { target: { value: text } });
+      fieldView(field).dispatch({
+        changes: { from: 0, to: fieldView(field).state.doc.length, insert: text },
+      });
     });
     return field;
   };
@@ -393,7 +363,7 @@ describe("saving from the keyboard", () => {
 
 /**
  * The job the old editor could not do at all: a language the applications ship nothing for has no
- * message row and therefore no id, and a pane addressed by id had no way to open on one.
+ * message row and therefore no id, and an editor addressed by id had no way to open on one.
  */
 describe("a translation that does not exist yet", () => {
   const empty = row({
@@ -425,8 +395,8 @@ describe("a translation that does not exist yet", () => {
   it("opens on it and offers an empty field rather than nothing at all", async () => {
     queue();
 
-    const field = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
-    expect(field.value).toBe("");
+    const field = await screen.findByRole("textbox");
+    expect(fieldText(field)).toBe("");
     expect(screen.getByText("Nothing written here yet")).toBeTruthy();
   });
 
@@ -436,75 +406,19 @@ describe("a translation that does not exist yet", () => {
 
     // The reference reading comes before the field in the document, which is the reading order the
     // work happens in when there is nothing to correct yet.
-    const lead = container.querySelector(".pane__reading--lead");
-    const field = container.querySelector("textarea");
+    const lead = container.querySelector(".code--readonly");
+    const field = container.querySelector(".cm-content");
     expect(lead?.textContent).toBe("Your basket is empty");
     expect(field && lead?.compareDocumentPosition(field)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("offers the reference as a starting point rather than an empty box", async () => {
     queue();
-    const field = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const field = await screen.findByRole("textbox");
 
     screen.getByRole("button", { name: "Copy English in" }).click();
 
-    await waitFor(() => expect(field.value).toBe("Your basket is empty"));
-  });
-
-  /*
-   * A different question from the one the search job asks. Nobody authoring Norwegian from English
-   * wonders which languages still need this key -- every one of them does, that is what the queue is
-   * -- they wonder how the others worded it. So it is a reading, and only of the ones there is
-   * something to read in.
-   */
-  it("shows how the other languages worded it, and offers nowhere to go", async () => {
-    const swedish = {
-      ...written.cells.da,
-      id: "m3",
-      locale: "sv",
-      defaultValue: "Varukorgen är tom",
-      overrideValue: "Varukorgen är tom",
-    };
-    vi.mocked(clientApi).messageKeys.mockResolvedValue({
-      items: [
-        {
-          sourceId: "s1",
-          namespace: "website",
-          key: "cart.empty",
-          format: "Icu",
-          arguments: {},
-          coverage: {},
-          matchedLocales: [],
-          cells: { en: empty.cells.en, da: written.cells.da, sv: swedish },
-        },
-      ],
-      page: 1,
-      pageSize: 50,
-      total: 1,
-      referenceLocale: "en",
-      targetLocale: "nb",
-      compareLocales: [],
-    } as never);
-
-    const { container } = queue({
-      locales: [
-        locale("nb", "Norwegian", { messageCount: 0 }),
-        locale("en", "English"),
-        locale("da", "Danish"),
-        locale("sv", "Swedish"),
-        locale("de", "German"),
-      ],
-    });
-
-    expect(await screen.findByText("Same key elsewhere")).toBeTruthy();
-
-    // Not the two already on screen above it, and not the ones with nothing to read.
-    const named = [...container.querySelectorAll(".elsewhere dt")].map((term) => term.textContent);
-    expect(named).toEqual(["Danish", "Swedish"]);
-    expect(screen.getByText("Varukorgen är tom")).toBeTruthy();
-
-    // And nothing to click: leaving the queue to correct Danish is an offer to lose your place.
-    expect(screen.queryByRole("button", { name: EDIT_KEY_BUTTON })).toBeNull();
+    await waitFor(() => expect(fieldText(field)).toBe("Your basket is empty"));
   });
 
   it("ends on the next item, because a queue is worked down rather than closed", async () => {

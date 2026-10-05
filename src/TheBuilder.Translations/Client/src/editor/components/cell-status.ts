@@ -21,7 +21,8 @@ export interface CellStatus {
  * past it.
  *
  * The wording is the editor's, not the schema's. "Needs review" describes a workflow nobody here
- * has; "App text changed" describes what happened.
+ * has; "Default changed" describes what happened, in the editor's words for the text the site
+ * ships rather than the developer's.
  */
 export const cellStatus = (cell: MessageCell | undefined): CellStatus => {
   // Nothing to mark: the value itself renders as "Not written", which already says it.
@@ -33,12 +34,12 @@ export const cellStatus = (cell: MessageCell | undefined): CellStatus => {
     case "NeedsReview":
       return {
         custom: cell.hasOverride,
-        text: "App text changed",
+        text: "Default changed",
         warning: true,
         state: "NeedsReview",
       };
     case "Removed":
-      return { custom: cell.hasOverride, text: "Gone from app", warning: true, state: "Removed" };
+      return { custom: cell.hasOverride, text: "No longer used", warning: true, state: "Removed" };
     case "Overridden":
       return { custom: true, text: null, warning: false, state: "Overridden" };
     default:

@@ -46,7 +46,7 @@ describe("cellStatus", () => {
   });
 
   it("uses words only where the editor has something to decide", () => {
-    expect(cellStatus(cell("NeedsReview", true)).text).toBe("App text changed");
+    expect(cellStatus(cell("NeedsReview", true)).text).toBe("Default changed");
     expect(cellStatus(cell("Removed", true)).text).toBeTruthy();
   });
 
