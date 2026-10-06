@@ -1,7 +1,6 @@
 import { createContext, type ReactNode, use } from "react";
 import { type Draft, type DraftStore, useDraft } from "../state/drafts.js";
 import { type EditTarget, targetId } from "../state/target.js";
-import { Cross } from "./glyphs.js";
 
 /**
  * Unsaved translations as the list shows them: the text on the row it belongs to, and a way to save
@@ -75,11 +74,21 @@ export const UnsavedActions = ({
   const { unsaved, text } = draft;
   return (
     <span className="row__unsaved">
-      {/* An emptied field is a decision to make in the editor -- blank on the site, or back to the
-          default -- not one to take from a row. */}
-      {text === "" || !unsaved.canEdit ? (
-        <span className="row__unsaved-label">Unsaved</span>
-      ) : (
+      <button
+        className="button button--quiet button--small"
+        disabled={unsaved.saving}
+        onClick={(event) => {
+          event.stopPropagation();
+          unsaved.drafts.set(target, undefined);
+        }}
+        title="Throw the unsaved text away"
+        type="button"
+      >
+        Discard
+      </button>
+      {/* Last, where the eye ends up on a row. An emptied field is not offered it: blank on the
+          site, or back to the default, is a decision for the editor rather than for a row. */}
+      {text === "" || !unsaved.canEdit ? null : (
         <button
           className="button button--soft button--small"
           disabled={unsaved.saving}
@@ -95,19 +104,6 @@ export const UnsavedActions = ({
           Save
         </button>
       )}
-      <button
-        aria-label="Discard the unsaved text"
-        className="button button--quiet button--icon row__discard"
-        disabled={unsaved.saving}
-        onClick={(event) => {
-          event.stopPropagation();
-          unsaved.drafts.set(target, undefined);
-        }}
-        title="Discard the unsaved text"
-        type="button"
-      >
-        <Cross className="row__discard-mark" />
-      </button>
     </span>
   );
 };

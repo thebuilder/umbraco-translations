@@ -62,7 +62,7 @@ describe("a row with unsaved text", () => {
   it("throws the text away from the row, back to what is saved", () => {
     const { drafts, opened } = row();
 
-    fireEvent.click(screen.getByRole("button", { name: "Discard the unsaved text" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     expect(drafts.has(targetId(target("pay")))).toBe(false);
     expect(screen.getByText("Custom")).toBeTruthy();
