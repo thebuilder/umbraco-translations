@@ -148,6 +148,34 @@
 .langs > .picker + .picker {
   border-inline-start: 1px solid var(--line);
 }
+/* Sits on the seam between the two languages, which is what it trades. */
+.langs__swap {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 30px;
+  padding: 0;
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.langs__swap:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.langs__swap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.langs__swap + .picker {
+  border-inline-start: 1px solid var(--line);
+}
+.langs__swap-mark {
+  inline-size: 14px;
+  block-size: 12px;
+}
 .picker--lang .picker__face {
   block-size: 100%;
   padding-inline: 12px 11px;

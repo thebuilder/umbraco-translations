@@ -315,9 +315,7 @@
   overflow-wrap: anywhere;
 }
 .editor__default .button {
-  block-size: 24px;
-  padding-inline: 8px;
-  font-size: 12px;
+  align-self: center;
 }
 
 /* What the application will substitute, listed where the text that has to contain them is typed. */

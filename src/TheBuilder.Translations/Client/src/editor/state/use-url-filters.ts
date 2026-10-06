@@ -6,12 +6,14 @@ import {
   parseFilters,
   serializeFilters,
 } from "./filters.js";
+import { rememberLanguages, withRememberedLanguages } from "./remembered-languages.js";
 
 /** Typing coalesces into one history entry rather than one per keystroke. */
 const WRITE_DELAY_MS = 250;
 
 /**
- * Keeps the editor's filters in the URL so a view can be linked to and the back button works.
+ * Keeps the editor's filters in the URL so a view can be linked to and the back button works. A URL
+ * that names no language starts from the pair last used this session; see rememberLanguages.
  *
  * The backoffice router reads only `location.pathname`, so a query-only write cannot make it
  * re-navigate or unmount us. Writes still go through the patched `history` methods rather than the
@@ -22,7 +24,13 @@ export const useUrlFilters = (): [
   EditorFilters,
   (patch: Partial<EditorFilters>, navigation?: "auto" | "push" | "replace") => void,
 ] => {
-  const [filters, setFilters] = useState(() => parseFilters(location.search));
+  const [filters, setFilters] = useState(() =>
+    withRememberedLanguages(parseFilters(location.search))
+  );
+
+  useEffect(() => {
+    rememberLanguages({ locale: filters.locale, referenceLocale: filters.referenceLocale });
+  }, [filters.locale, filters.referenceLocale]);
 
   // Set while this hook is the one writing, so its own history entry does not read back as a
   // navigation and clobber a filter the user changed in the meantime.

@@ -187,7 +187,7 @@ describe("TranslationDetail permissions", () => {
 
     expect(await screen.findByRole("textbox")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Revert to the default text" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Revert to default" })).toBeTruthy();
   });
 
   it("shows the custom text but no way to change it without permission", async () => {
@@ -204,7 +204,7 @@ describe("TranslationDetail permissions", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save & next" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Revert to the default text" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Revert to default" })).toBeNull();
     expect(screen.getByText("You have view-only access to translations.")).toBeTruthy();
   });
 

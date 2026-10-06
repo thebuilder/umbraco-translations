@@ -1,4 +1,5 @@
 import type { LocaleFacet } from "../../api/generated/models.js";
+import { Swap } from "../components/glyphs.js";
 import { Caret, Picker } from "../components/picker.js";
 import type { EditingMode } from "../state/editing-mode.js";
 import { type EditorFilters, editingLocale } from "../state/filters.js";
@@ -41,6 +42,9 @@ export const ContextStrip = ({
   ];
 
   const reference = comparing ? facetFor(locales, filters.referenceLocale) : undefined;
+  // Only when the language being edited could itself be compared against, or the swap would land
+  // on a comparison the menu does not offer.
+  const swappable = reference !== undefined && Boolean(current?.messageCount);
 
   /*
    * A site with one language has made no decision for anybody to change, so the language is stated
@@ -77,6 +81,18 @@ export const ContextStrip = ({
           <Caret />
         </Picker>
       )}
+
+      {swappable && reference ? (
+        <button
+          aria-label={`Edit ${facetName(reference)} and compare against ${current ? facetName(current) : "this language"}`}
+          className="langs__swap"
+          onClick={() => update(editingLocale(filters, reference.code))}
+          title="Swap the languages"
+          type="button"
+        >
+          <Swap className="langs__swap-mark" />
+        </button>
+      ) : null}
 
       {only ? null : (
         <Picker

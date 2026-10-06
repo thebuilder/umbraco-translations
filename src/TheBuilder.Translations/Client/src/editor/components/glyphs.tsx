@@ -52,3 +52,17 @@ export const Spark = ({ className }: { className?: string }) => (
     />
   </svg>
 );
+
+/** Two arrows passing each other: the two sides trade places. */
+export const Swap = ({ className }: { className?: string }) => (
+  <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 14 12">
+    <path
+      d="M1.5 3.5h10M9 1l2.5 2.5L9 6M12.5 8.5h-10M5 6 2.5 8.5 5 11"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.3"
+    />
+  </svg>
+);
