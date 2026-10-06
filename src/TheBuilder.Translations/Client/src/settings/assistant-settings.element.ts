@@ -62,7 +62,23 @@ class TranslationAssistantSettingsElement extends LitElement {
   }
 
   render() {
-    return html`<uui-box headline="AI assistant" headline-variant="h2">${this.#renderBody()}</uui-box>`;
+    const { settings, value } = this;
+    const ready = settings.profiles.length > 0 || settings.hasDefaultProfile;
+    // On or off is the card's one decision, so it sits in the card's header rather than taking a row.
+    return html`<uui-box headline="AI assistant" headline-variant="h2">
+      ${
+        ready
+          ? html`<uui-toggle
+              slot="header-actions"
+              label="Offer AI suggestions in the translation editor"
+              ?checked=${value.enabled}
+              @change=${(event: Event) => this.#patch({ enabled: (event.target as UUIToggleElement).checked })}>
+              Offer in the editor
+            </uui-toggle>`
+          : null
+      }
+      ${this.#renderBody()}
+    </uui-box>`;
   }
 
   #renderBody() {
@@ -97,20 +113,14 @@ class TranslationAssistantSettingsElement extends LitElement {
     const unchanged = JSON.stringify(value) === JSON.stringify(assistantDraft(settings));
 
     return html`
-      <uui-form-layout-item>
-        <uui-label slot="label">Translation editor</uui-label>
-        <uui-toggle
-          label="Offer AI suggestions in the translation editor"
-          ?checked=${value.enabled}
-          @change=${(event: Event) => this.#patch({ enabled: (event.target as UUIToggleElement).checked })}>
-          Offer AI suggestions
-        </uui-toggle>
-      </uui-form-layout-item>
-      <uui-form-layout-item>
-        <uui-label slot="label" for="assistant-profile">Profile</uui-label>
-        <span slot="description">The connection, model and contexts the suggestions use.</span>
+      <div class="fields">
+        <label class="field__label" for="assistant-profile">
+          Profile
+          <small>The connection, model and contexts suggestions use.</small>
+        </label>
         <uui-select
           id="assistant-profile"
+          class="field__profile"
           label="AI profile"
           .options=${profileOptions}
           @change=${(event: Event) => {
@@ -118,12 +128,11 @@ class TranslationAssistantSettingsElement extends LitElement {
             this.#patch({ profileId: chosen === DEFAULT_PROFILE ? null : chosen });
           }}>
         </uui-select>
-      </uui-form-layout-item>
-      <uui-form-layout-item>
-        <uui-label slot="label" for="assistant-instructions">Instructions</uui-label>
-        <span slot="description">
-          How to translate, sent with every request. Leave empty to use the default shown.
-        </span>
+
+        <label class="field__label" for="assistant-instructions">
+          Instructions
+          <small>How to translate, sent with every request. Empty uses the default shown.</small>
+        </label>
         <uui-textarea
           id="assistant-instructions"
           label="Instructions for the AI"
@@ -135,7 +144,7 @@ class TranslationAssistantSettingsElement extends LitElement {
             this.#patch({ instructions: typed.trim() === "" ? null : typed });
           }}>
         </uui-textarea>
-      </uui-form-layout-item>
+      </div>
       <div class="actions">
         <uui-button
           look="primary"
@@ -154,11 +163,25 @@ class TranslationAssistantSettingsElement extends LitElement {
     UmbTextStyles,
     css`
       :host { display: block; }
-      .intro { color: var(--uui-color-text-alt); margin: 0 0 var(--uui-size-space-5); max-inline-size: 70ch; }
-      uui-form-layout-item { margin-bottom: var(--uui-size-space-5); }
-      uui-select, uui-textarea { inline-size: 100%; }
-      uui-textarea { --uui-textarea-min-height: 8rem; }
-      .actions { display: flex; justify-content: flex-end; }
+      uui-box { --uui-box-default-padding: var(--uui-size-space-4) var(--uui-size-space-5); }
+      .intro { color: var(--uui-color-text-alt); margin: 0 0 var(--uui-size-space-4); max-inline-size: 70ch; }
+      /* Labels beside their fields rather than over them: two fields do not need a column each. */
+      .fields {
+        display: grid;
+        grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr);
+        gap: var(--uui-size-space-4) var(--uui-size-space-5);
+        align-items: start;
+      }
+      .field__label { display: grid; gap: 2px; padding-block-start: 8px; font-weight: 700; }
+      .field__label small { font-weight: 400; color: var(--uui-color-text-alt); font-size: 12px; line-height: 1.4; }
+      /* As wide as a profile name needs, not the width of the page. */
+      .field__profile { inline-size: min(100%, 26rem); }
+      uui-textarea { inline-size: 100%; --uui-textarea-min-height: 6rem; }
+      .actions { display: flex; justify-content: flex-end; margin-block-start: var(--uui-size-space-4); }
+      @media (max-width: 640px) {
+        .fields { grid-template-columns: minmax(0, 1fr); gap: var(--uui-size-space-2); }
+        .field__label { padding-block-start: var(--uui-size-space-3); }
+      }
     `,
   ];
 }
