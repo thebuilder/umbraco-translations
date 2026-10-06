@@ -4,13 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/errors.js";
 import { api } from "../../api/generated/client.js";
 import type { EditTarget } from "../state/target.js";
-import { AssistantActions } from "./assistant-actions.js";
+import { RewriteMenu, TranslateOffer, useSuggestions } from "./assistant-actions.js";
 
 vi.mock("../../api/generated/client.js", () => ({
   api: { suggest: vi.fn() },
 }));
 
-const TRANSLATE = /^Translate from/;
+const TRANSLATE = /^Translate/;
 const CHANGED = /^The text changed/;
 
 const target: EditTarget = { sourceId: "s1", namespace: "checkout", key: "pay", locale: "da-DK" };
@@ -20,21 +20,40 @@ afterEach(() => {
   vi.mocked(api.suggest).mockReset();
 });
 
-const show = (props: Partial<Parameters<typeof AssistantActions>[0]> = {}) => {
+/** Both offers over one shared state, with its error where the detail draws it. */
+const Offers = ({
+  text,
+  onSuggestion,
+  reference,
+}: {
+  text: string;
+  onSuggestion: (text: string) => void;
+  reference?: { locale: string };
+}) => {
+  const suggestions = useSuggestions({ target, reference, text, onSuggestion });
+  return (
+    <>
+      {reference ? <TranslateOffer suggestions={suggestions} /> : null}
+      <RewriteMenu suggestions={suggestions} text={text} />
+      {suggestions.error ? <p role="alert">{suggestions.error}</p> : null}
+    </>
+  );
+};
+
+const show = (props: { text?: string; reference?: { locale: string } | null } = {}) => {
   const onSuggestion = vi.fn();
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  render(
+  const offers = (text: string) => (
     <QueryClientProvider client={client}>
-      <AssistantActions
+      <Offers
         onSuggestion={onSuggestion}
-        reference={{ locale: "en-US", name: "English" }}
-        target={target}
-        text="Betal {amount}"
-        {...props}
+        reference={props.reference === null ? undefined : (props.reference ?? { locale: "en-US" })}
+        text={text}
       />
     </QueryClientProvider>
   );
-  return { onSuggestion };
+  const view = render(offers(props.text ?? "Betal {amount}"));
+  return { onSuggestion, view, rerender: (text: string) => view.rerender(offers(text)) };
 };
 
 describe("the AI assistant's actions", () => {
@@ -42,7 +61,7 @@ describe("the AI assistant's actions", () => {
     vi.mocked(api.suggest).mockResolvedValue({ value: "Betal {amount}" });
     const { onSuggestion } = show();
 
-    screen.getByRole("button", { name: "Translate from English" }).click();
+    screen.getByRole("button", { name: "Translate with AI" }).click();
 
     await waitFor(() => expect(onSuggestion).toHaveBeenCalledWith("Betal {amount}"));
     expect(api.suggest).toHaveBeenCalledWith(
@@ -77,7 +96,7 @@ describe("the AI assistant's actions", () => {
   });
 
   it("offers no translation without a language to translate from", () => {
-    show({ reference: undefined });
+    show({ reference: null });
 
     expect(screen.queryByRole("button", { name: TRANSLATE })).toBeNull();
   });
@@ -97,19 +116,12 @@ describe("the AI assistant's actions", () => {
         reply = resolve;
       })
     );
-    const onSuggestion = vi.fn();
-    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-    const actions = (text: string) => (
-      <QueryClientProvider client={client}>
-        <AssistantActions onSuggestion={onSuggestion} target={target} text={text} />
-      </QueryClientProvider>
-    );
-    const { rerender } = render(actions("Betal venligst nu"));
+    const { onSuggestion, rerender } = show({ text: "Betal venligst nu" });
 
     fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
       target: { value: "Shorten" },
     });
-    rerender(actions("Betal venligst nu, tak"));
+    rerender("Betal venligst nu, tak");
     reply({ value: "Betal" });
 
     expect((await screen.findByRole("alert")).textContent).toMatch(CHANGED);
@@ -118,16 +130,12 @@ describe("the AI assistant's actions", () => {
 
   it("cancels the request when the translation is closed", async () => {
     vi.mocked(api.suggest).mockReturnValue(new Promise(() => undefined));
-    const { unmount } = render(
-      <QueryClientProvider client={new QueryClient()}>
-        <AssistantActions onSuggestion={vi.fn()} target={target} text="Betal" />
-      </QueryClientProvider>
-    );
+    const { view } = show({ text: "Betal" });
 
     fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
       target: { value: "Shorten" },
     });
-    unmount();
+    view.unmount();
 
     await waitFor(() => expect(api.suggest).toHaveBeenCalled());
     expect(vi.mocked(api.suggest).mock.calls[0]?.[1]?.aborted).toBe(true);
@@ -139,7 +147,7 @@ describe("the AI assistant's actions", () => {
     );
     const { onSuggestion } = show();
 
-    screen.getByRole("button", { name: "Translate from English" }).click();
+    screen.getByRole("button", { name: "Translate with AI" }).click();
 
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Umbraco.AI is not installed on this site."

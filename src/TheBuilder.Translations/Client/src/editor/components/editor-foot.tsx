@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "../../bridge/uui/index.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { EditorKeys } from "./shortcuts.js";
@@ -18,6 +19,7 @@ export const EditorFoot = ({
   savable,
   saving,
   commit,
+  tools,
 }: {
   open: Pick<OpenTranslation, "pending" | "next" | "select" | "close" | "discard" | "keepEditing">;
   canEdit: boolean;
@@ -32,6 +34,8 @@ export const EditorFoot = ({
   savable: boolean;
   saving: boolean;
   commit: (then: "close" | "next") => void;
+  /** Offers that work on the field rather than leave it, drawn ahead of the ways out. */
+  tools?: ReactNode;
 }) => {
   const { pending, next, select, close } = open;
   if (pending) {
@@ -74,6 +78,7 @@ export const EditorFoot = ({
       <p className={dirty ? "editor__state editor__state--dirty" : "editor__state"}>{state}</p>
       <EditorKeys next={next !== undefined} />
       <span className="editor__actions">
+        {tools ? <span className="editor__tools">{tools}</span> : null}
         {closeButton}
         {unwritten && next ? (
           <>

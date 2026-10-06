@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Umbraco.Cms.Core.Services;
 
 namespace TheBuilder.Translations.Assistant;
@@ -18,6 +19,8 @@ public sealed record AssistantSettings(bool Enabled, Guid? ProfileId, string? In
     public static AssistantSettings Default { get; } = new(Enabled: false, ProfileId: null, Instructions: null);
 
     /// <summary>The instructions actually sent: the site's own, or the default when it has none.</summary>
+    /// <remarks>Not stored: a copy of the default would stop following the default when it changes.</remarks>
+    [JsonIgnore]
     public string EffectiveInstructions =>
         string.IsNullOrWhiteSpace(Instructions) ? AssistantPrompts.DefaultInstructions : Instructions;
 }

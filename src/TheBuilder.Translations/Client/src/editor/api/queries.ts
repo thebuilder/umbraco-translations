@@ -72,8 +72,8 @@ export const useFacets = () =>
 
 /**
  * Whether to offer the AI assistant. Not asked for someone who cannot edit, who is never offered
- * it. Stale after a minute rather than kept for the session, so turning it on in the settings shows
- * up the next time an editor somebody already has open asks.
+ * it. Asked again every time the editor opens: it is switched on and off in another section, so a
+ * cached answer offered a Rewrite for an assistant that had just been turned off.
  */
 export const useAssistantStatus = (canEdit: boolean) =>
   useQuery({
@@ -81,7 +81,7 @@ export const useAssistantStatus = (canEdit: boolean) =>
     queryFn: ({ signal }) => api.assistantStatus(signal),
     enabled: canEdit,
     select: (status) => status.available,
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
 export const usePermissions = () =>

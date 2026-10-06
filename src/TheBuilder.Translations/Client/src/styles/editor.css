@@ -105,7 +105,10 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.editor__copy {
+.editor__offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-self: flex-start;
 }
 
@@ -234,33 +237,25 @@
   color: var(--accent);
 }
 
-/* The AI assistant's offers, under the field they write into: quiet enough to sit below the text,
-   marked so nobody mistakes a suggestion for something the site already says. */
-.assistant {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-}
-.assistant__mark {
-  display: inline-flex;
-  color: var(--accent);
-}
-.assistant__spark {
+/* The AI assistant's offers: Translate beside the text it translates from, Rewrite with the
+   actions. The spark marks them, so nobody mistakes a suggestion for something the site says. */
+.assistant-offer__spark {
   inline-size: 13px;
   block-size: 13px;
+  margin-inline-end: 5px;
+  color: var(--accent);
 }
-.assistant .button--soft,
-.assistant .picker--add .picker__face {
-  block-size: 26px;
-  font-size: 12.5px;
+.assistant-offer .picker__face {
+  display: inline-flex;
+  align-items: center;
 }
-.assistant__state {
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-.assistant__error {
-  flex-basis: 100%;
+/* Set apart from Close and Save by a rule: these change the text, those leave with it. */
+.editor__tools {
+  display: flex;
+  align-items: center;
+  padding-inline-end: 10px;
+  margin-inline-end: 4px;
+  border-inline-end: 1px solid var(--line);
 }
 
 /* What a revert goes back to, said once custom text has replaced it. */

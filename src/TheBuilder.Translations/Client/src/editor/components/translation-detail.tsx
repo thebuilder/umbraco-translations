@@ -15,7 +15,12 @@ import { cellOf, textOf } from "../state/cells.js";
 import { localeName } from "../state/locales.js";
 import type { EditTarget } from "../state/target.js";
 import { SyntaxText } from "../syntax/syntax-text.js";
-import { AssistantActions } from "./assistant-actions.js";
+import {
+  RewriteMenu,
+  type Suggestions,
+  TranslateOffer,
+  useSuggestions,
+} from "./assistant-actions.js";
 import { DefaultValue } from "./default-value.js";
 import { EditorFoot } from "./editor-foot.js";
 import { EditorMeta } from "./editor-meta.js";
@@ -95,6 +100,7 @@ export const TranslationDetail = ({
     target,
     message
   );
+  const suggestions = useSuggestions({ target, reference, text: value, onSuggestion: setDraft });
   /*
    * Whether this editor takes focus, decided once as it opens: only for a translation opened on
    * purpose (see OpenTranslation.claimFocus). The field takes it when it mounts, which is when the
@@ -198,13 +204,11 @@ export const TranslationDetail = ({
               setDraft={setDraft}
               value={value}
             />
-            {assistant ? (
-              <AssistantActions
-                onSuggestion={setDraft}
-                reference={reference}
-                target={target}
-                text={value}
-              />
+            {/* Only ever set by asking, which only an offered assistant can be. */}
+            {suggestions.error ? (
+              <p className="notice notice--error" role="alert">
+                {suggestions.error}
+              </p>
             ) : null}
             <DefaultValue
               canEdit={canEdit}
@@ -227,6 +231,7 @@ export const TranslationDetail = ({
             onCopy={
               canEdit && unwritten && referenceText ? () => setDraft(referenceText) : undefined
             }
+            suggestions={assistant ? suggestions : undefined}
             text={referenceText}
           />
         </div>
@@ -242,6 +247,7 @@ export const TranslationDetail = ({
         // The row's own preview until the message arrives, so the status does not change under the
         // editor's eyes when it does.
         state={describeDraftState(dirty, message ?? cell)}
+        tools={assistant ? <RewriteMenu suggestions={suggestions} text={value} /> : null}
         unwritten={unwritten}
       />
     </section>
@@ -306,12 +312,15 @@ const Reference = ({
   text,
   format,
   onCopy,
+  suggestions,
 }: {
   name: string;
   text: string | null;
   format: MessageFormat;
   /** Offered while the field is still waiting for its first text. */
   onCopy?: () => void;
+  /** The AI assistant, which can write the field from this text, when it is on. */
+  suggestions?: Suggestions;
 }) => (
   <section className="editor__block">
     <h3 className="editor__label editor__label--stacked">{name}</h3>
@@ -320,10 +329,15 @@ const Reference = ({
         {text === null ? <em>Not written</em> : <SyntaxText format={format} text={text} />}
       </p>
     </div>
-    {onCopy ? (
-      <Button className="button--soft editor__copy" onClick={onCopy}>
-        Copy {name} in
-      </Button>
+    {onCopy || (suggestions && text !== null) ? (
+      <div className="editor__offers">
+        {onCopy ? (
+          <Button className="button--soft" onClick={onCopy}>
+            Copy {name} in
+          </Button>
+        ) : null}
+        {suggestions && text !== null ? <TranslateOffer suggestions={suggestions} /> : null}
+      </div>
     ) : null}
   </section>
 );

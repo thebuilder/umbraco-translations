@@ -97,11 +97,6 @@ class TranslationAssistantSettingsElement extends LitElement {
     const unchanged = JSON.stringify(value) === JSON.stringify(assistantDraft(settings));
 
     return html`
-      <p class="intro">
-        Suggests translations and rewrites in the translation editor. Suggestions only fill the
-        field; nothing is saved until the editor saves it. Tone of voice and brand come from the
-        chosen profile's contexts in the AI section.
-      </p>
       <uui-form-layout-item>
         <uui-label slot="label">Translation editor</uui-label>
         <uui-toggle

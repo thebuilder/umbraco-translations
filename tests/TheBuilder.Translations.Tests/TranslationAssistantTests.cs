@@ -174,6 +174,15 @@ public sealed class TranslationAssistantTests
     }
 
     [Fact]
+    public void Stores_only_what_was_chosen_and_not_the_default_it_falls_back_on()
+    {
+        var values = new FakeKeyValues();
+        new AssistantSettingsStore(values).Save(On);
+
+        Assert.DoesNotContain("effectiveInstructions", values.GetValue(Constants.PackageName + ".Assistant"));
+    }
+
+    [Fact]
     public void Is_off_until_an_administrator_turns_it_on() =>
         Assert.False(new AssistantSettingsStore(new FakeKeyValues()).Get().Enabled);
 
