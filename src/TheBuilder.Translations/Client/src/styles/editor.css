@@ -245,9 +245,51 @@
   margin-inline-end: 5px;
   color: var(--accent);
 }
-.assistant-offer .picker__face {
-  display: inline-flex;
-  align-items: center;
+.assistant-offer__caret {
+  inline-size: 9px;
+  block-size: 6px;
+  margin-inline-start: 6px;
+}
+/* The rewrites, opened from the footer. In the top layer, so placed by hand: the browser's own
+   centring for a popover is undone here. */
+.rewrite-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  min-inline-size: 220px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--uui-color-text) 14%, transparent);
+}
+.rewrite-menu__item {
+  display: grid;
+  gap: 1px;
+  inline-size: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.rewrite-menu__item:hover,
+.rewrite-menu__item:focus-visible {
+  background: var(--accent-wash);
+  outline: none;
+}
+.rewrite-menu__name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.rewrite-menu__hint {
+  font-size: 12px;
+  color: var(--ink-2);
 }
 /* Set apart from Close and Save by a rule: these change the text, those leave with it. */
 .editor__tools {

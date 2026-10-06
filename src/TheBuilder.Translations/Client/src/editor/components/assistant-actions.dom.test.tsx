@@ -56,6 +56,12 @@ const show = (props: { text?: string; reference?: { locale: string } | null } = 
   return { onSuggestion, view, rerender: (text: string) => view.rerender(offers(text)) };
 };
 
+/** Opens the rewrite menu and chooses one. */
+const rewrite = async (name: string) => {
+  fireEvent.click(screen.getByRole("button", { name: "Rewrite with AI" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) }));
+};
+
 describe("the AI assistant's actions", () => {
   it("translates from the reference language and puts the result in the field", async () => {
     vi.mocked(api.suggest).mockResolvedValue({ value: "Betal {amount}" });
@@ -79,9 +85,7 @@ describe("the AI assistant's actions", () => {
     vi.mocked(api.suggest).mockResolvedValue({ value: "Betal" });
     const { onSuggestion } = show({ text: "Betal venligst nu" });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
-      target: { value: "Shorten" },
-    });
+    await rewrite("Shorten");
 
     await waitFor(() => expect(onSuggestion).toHaveBeenCalledWith("Betal"));
     expect(api.suggest).toHaveBeenCalledWith(
@@ -104,9 +108,22 @@ describe("the AI assistant's actions", () => {
   it("has nothing to rewrite in an empty field", () => {
     show({ text: "  " });
 
-    const menu = screen.getByRole("combobox", { name: "Rewrite with AI" }) as HTMLSelectElement;
-    const offered = [...menu.options].filter((option) => option.value !== "");
-    expect(offered.every((option) => option.disabled)).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Rewrite with AI" }) as HTMLButtonElement).disabled
+    ).toBe(true);
+  });
+
+  it("closes the menu on Escape without the key reaching the editor", async () => {
+    const editorKeys = vi.fn();
+    window.addEventListener("keydown", editorKeys);
+    show();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rewrite with AI" }));
+    fireEvent.keyDown(await screen.findByRole("menu"), { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(editorKeys).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", editorKeys);
   });
 
   it("drops a suggestion for text that changed while it was being written", async () => {
@@ -118,9 +135,7 @@ describe("the AI assistant's actions", () => {
     );
     const { onSuggestion, rerender } = show({ text: "Betal venligst nu" });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
-      target: { value: "Shorten" },
-    });
+    await rewrite("Shorten");
     rerender("Betal venligst nu, tak");
     reply({ value: "Betal" });
 
@@ -132,9 +147,7 @@ describe("the AI assistant's actions", () => {
     vi.mocked(api.suggest).mockReturnValue(new Promise(() => undefined));
     const { view } = show({ text: "Betal" });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Rewrite with AI" }), {
-      target: { value: "Shorten" },
-    });
+    await rewrite("Shorten");
     view.unmount();
 
     await waitFor(() => expect(api.suggest).toHaveBeenCalled());

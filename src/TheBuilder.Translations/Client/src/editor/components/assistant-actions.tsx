@@ -1,17 +1,17 @@
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../api/generated/client.js";
 import type { AssistantTask } from "../../api/generated/models.js";
 import { Button } from "../../bridge/uui/index.js";
 import type { EditTarget } from "../state/target.js";
-import { Spark } from "./glyphs.js";
-import { Caret, Picker } from "./picker.js";
+import { Chevron, Spark } from "./glyphs.js";
 
-const REWRITES: readonly { value: AssistantTask; name: string }[] = [
-  { value: "Improve", name: "Improve" },
-  { value: "Simplify", name: "Simplify" },
-  { value: "Shorten", name: "Shorten" },
-  { value: "FixSpelling", name: "Fix spelling" },
+/** Each rewrite with what it does, in a line, so choosing one is not a guess. */
+const REWRITES: readonly { task: AssistantTask; name: string; hint: string }[] = [
+  { task: "Improve", name: "Improve", hint: "Reads more naturally" },
+  { task: "Simplify", name: "Simplify", hint: "Plainer words, shorter sentences" },
+  { task: "Shorten", name: "Shorten", hint: "Fewer words, same meaning" },
+  { task: "FixSpelling", name: "Fix spelling", hint: "Spelling and grammar only" },
 ];
 
 /** The assistant's state for the open translation, shared by the offers drawn in different places. */
@@ -116,24 +116,123 @@ export const TranslateOffer = ({ suggestions }: { suggestions: Suggestions }) =>
 /**
  * Rewrites what is in the field. A menu rather than four buttons: rewriting is the less common job,
  * and four offers would outweigh the Save they sit beside.
+ *
+ * Drawn rather than a native select. A select has no way to say what each rewrite does, shows its
+ * own name as a ticked first choice, and opens the operating system's menu in the middle of a page
+ * that otherwise looks nothing like it.
+ *
+ * The list is a popover so it sits in the top layer: the open row is one of the list's rows, and
+ * anything positioned inside it is clipped by the scrolling list or painted under its neighbours.
  */
 export const RewriteMenu = ({ suggestions, text }: { suggestions: Suggestions; text: string }) => {
+  const [open, setOpen] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const writing = suggestions.pending !== null && suggestions.pending !== "Translate";
+  const empty = text.trim() === "";
+
+  useLayoutEffect(() => {
+    const list = menu.current;
+    const button = anchor.current;
+    if (!(open && list && button)) {
+      return;
+    }
+    list.showPopover();
+    // Above the button, right edges aligned, as the button sits at the foot of the row; below it
+    // when there is no room above.
+    const place = () => {
+      const box = button.getBoundingClientRect();
+      const above = box.top - list.offsetHeight - 6;
+      list.style.top = `${above < 8 ? box.bottom + 6 : above}px`;
+      list.style.left = `${Math.max(8, box.right - list.offsetWidth)}px`;
+    };
+    place();
+    list.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus();
+
+    const close = () => setOpen(false);
+    // Composed paths, because the editor lives in a shadow root and the event's target is retargeted
+    // to its host by the time it reaches the window.
+    const outside = (event: Event) => {
+      const path = event.composedPath();
+      if (!(path.includes(list) || path.includes(button))) {
+        close();
+      }
+    };
+    window.addEventListener("pointerdown", outside, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("pointerdown", outside, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+      list.hidePopover();
+    };
+  }, [open]);
+
+  const choose = (task: AssistantTask) => {
+    setOpen(false);
+    anchor.current?.focus();
+    suggestions.ask(task);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = [...(menu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? [])];
+    const at = items.findIndex((item) => item.matches(":focus"));
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      // From nothing focused, down is the first and up the last; otherwise round the ends.
+      items.at(at === -1 && step < 0 ? -1 : (at + step) % items.length)?.focus();
+    } else if (event.key === "Escape") {
+      // The menu's Escape, not the editor's: without this the same key would also close the row.
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      anchor.current?.focus();
+    } else if (event.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
   return (
-    <Picker
-      className="picker--add assistant-offer"
-      label="Rewrite with AI"
-      onChange={(task) => suggestions.ask(task as AssistantTask)}
-      options={REWRITES.map((rewrite) => ({
-        ...rewrite,
-        disabled: suggestions.pending !== null || text.trim() === "",
-      }))}
-      placeholder="Rewrite"
-      value=""
-    >
-      <Spark className="assistant-offer__spark" />
-      {writing ? "Rewriting…" : "Rewrite"}
-      <Caret />
-    </Picker>
+    <>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Rewrite with AI"
+        className="button button--quiet assistant-offer"
+        disabled={suggestions.pending !== null || empty}
+        onClick={() => setOpen((was) => !was)}
+        ref={anchor}
+        title={empty ? "Write something to rewrite first" : undefined}
+        type="button"
+      >
+        <Spark className="assistant-offer__spark" />
+        {writing ? "Rewriting…" : "Rewrite"}
+        <Chevron className="assistant-offer__caret" direction={open ? "up" : "down"} />
+      </button>
+      <div
+        aria-label="Rewrite with AI"
+        className="rewrite-menu"
+        onKeyDown={onKeyDown}
+        popover="manual"
+        ref={menu}
+        role="menu"
+      >
+        {REWRITES.map((rewrite) => (
+          <button
+            className="rewrite-menu__item"
+            key={rewrite.task}
+            onClick={() => choose(rewrite.task)}
+            role="menuitem"
+            tabIndex={-1}
+            type="button"
+          >
+            <span className="rewrite-menu__name">{rewrite.name}</span>
+            <span className="rewrite-menu__hint">{rewrite.hint}</span>
+          </button>
+        ))}
+      </div>
+    </>
   );
 };
