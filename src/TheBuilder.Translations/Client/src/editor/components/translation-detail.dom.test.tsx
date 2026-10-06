@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { createDraftStore } from "../state/drafts.js";
-import { type EditTarget, targetId } from "../state/target.js";
+import type { EditTarget } from "../state/target.js";
 import { TranslationDetail } from "./translation-detail.js";
 
 vi.mock("../../api/generated/client.js", () => ({
@@ -116,7 +116,7 @@ type Props = Parameters<typeof TranslationDetail>[0];
 
 /**
  * The editor's own props, plus the parts of the open translation a test wants to set: where it is,
- * its neighbours, the question it is asking, its ways out, and any unsaved text already in it.
+ * its neighbours, its ways out, and any unsaved text already in it.
  */
 type Options = Partial<Omit<Props, "open">> &
   Partial<Omit<OpenTranslation, "drafts">> & { initialDraft?: string };
@@ -126,17 +126,14 @@ const open = (canEdit: boolean, options: Options = {}) => {
     target: opened = target,
     previous,
     next,
-    pending,
     select = vi.fn(),
     close = vi.fn(),
-    discard = vi.fn(),
-    keepEditing = vi.fn(),
     claimFocus = () => true,
     initialDraft,
     ...props
   } = options;
-  const drafts = createDraftStore();
-  drafts.set(targetId(opened), initialDraft);
+  const drafts = createDraftStore(null);
+  drafts.set(opened, initialDraft);
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -150,13 +147,10 @@ const open = (canEdit: boolean, options: Options = {}) => {
           target: opened,
           previous,
           next,
-          pending,
           drafts,
           claimFocus,
           select,
           close,
-          discard,
-          keepEditing,
         }}
         row={written}
         {...props}
@@ -240,51 +234,27 @@ describe("coming back to a translation", () => {
 });
 
 describe("leaving with unsaved text", () => {
-  it("asks in the footer rather than through a dialog that may never appear", async () => {
-    open(true, { pending: "close" });
-
-    // The native confirm() this replaced returned false when suppressed, which left Escape and the
-    // close button both silently doing nothing and no way out of the editor at all.
-    expect(await screen.findByRole("button", { name: "Discard" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Keep editing" })).toBeTruthy();
-    expect(screen.getByText("Close without saving your changes?")).toBeTruthy();
-  });
-
-  it("says which way out is being asked about", async () => {
-    open(true, { pending: { ...target, key: "cart.checkout" } });
-
-    expect(await screen.findByText("Open another translation without saving?")).toBeTruthy();
-  });
-
-  it("answers the question with Escape instead of closing over it", async () => {
+  it("closes on Escape without asking, and keeps the text for the row to show", async () => {
     const close = vi.fn();
-    const keepEditing = vi.fn();
-    open(true, { pending: "close", close, keepEditing });
-    await screen.findByRole("button", { name: "Discard" });
-
-    pressEscape();
-
-    // Escape is what got them here, so it must not also be what throws the text away.
-    expect(keepEditing).toHaveBeenCalledOnce();
-    expect(close).not.toHaveBeenCalled();
-  });
-
-  it("closes on Escape when there is nothing to lose", async () => {
-    const close = vi.fn();
-    open(true, { close });
+    open(true, { close, initialDraft: "Halvskrevet" });
     await screen.findByRole("textbox");
 
     pressEscape();
 
     expect(close).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Close without saving your changes?")).toBeNull();
+  });
+
+  it("offers to throw the unsaved text away", async () => {
+    open(true, { initialDraft: "Halvskrevet" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Discard" })).toBeNull());
+    expect(screen.queryByText("Unsaved changes")).toBeNull();
   });
 });
 
-/**
- * The editor puts the caret straight into the field, so a bare arrow belongs to the text. Without a
- * way past that, a keyboard user who opened a search result could only get to the next one by
- * closing the editor, and could not get back to the previous one at all.
- */
 describe("moving between translations from the field", () => {
   const previous: EditTarget = { ...target, key: "cart.total" };
   const nextOne: EditTarget = { ...target, key: "cart.checkout" };
@@ -334,17 +304,6 @@ describe("moving between translations from the field", () => {
 
     expect(select).not.toHaveBeenCalled();
     expect(defaultPrevented).toBe(false);
-  });
-
-  it("stays put while it is asking about unsaved text", async () => {
-    // The question has two answers and neither of them is "somewhere else entirely".
-    const select = vi.fn();
-    open(true, { select, next: nextOne, pending: "close" });
-    await screen.findByRole("button", { name: "Discard" });
-
-    press("ArrowDown", { metaKey: true });
-
-    expect(select).not.toHaveBeenCalled();
   });
 });
 

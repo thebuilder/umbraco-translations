@@ -49,7 +49,7 @@ export const useMessageDraft = (
   const blanking = value === "" && message?.overrideValue === null;
 
   const setDraft = (text: string | undefined) =>
-    drafts.set(id, text === committed ? undefined : text);
+    drafts.set(target, text === committed ? undefined : text, message?.version ?? null);
 
   /**
    * The same rule the server applies, checked as the editor types so a mistake is answered beside

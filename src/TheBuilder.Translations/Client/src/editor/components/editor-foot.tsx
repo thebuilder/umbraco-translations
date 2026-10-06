@@ -19,9 +19,10 @@ export const EditorFoot = ({
   savable,
   saving,
   commit,
+  discard,
   tools,
 }: {
-  open: Pick<OpenTranslation, "pending" | "next" | "select" | "close" | "discard" | "keepEditing">;
+  open: Pick<OpenTranslation, "next" | "select" | "close">;
   canEdit: boolean;
   /** What the text in the field is, in a few words: saved, unsaved, the default. */
   state: string;
@@ -34,29 +35,12 @@ export const EditorFoot = ({
   savable: boolean;
   saving: boolean;
   commit: (then: "close" | "next") => void;
+  /** Throws the unsaved text away, back to what is saved. */
+  discard: () => void;
   /** Offers that work on the field rather than leave it, drawn ahead of the ways out. */
   tools?: ReactNode;
 }) => {
-  const { pending, next, select, close } = open;
-  if (pending) {
-    return (
-      <div className="editor__foot editor__foot--asking">
-        <p className="editor__state">
-          {pending === "close"
-            ? "Close without saving your changes?"
-            : "Open another translation without saving?"}
-        </p>
-        <span className="editor__actions">
-          <Button look="danger" onClick={open.discard}>
-            Discard
-          </Button>
-          <Button look="primary" onClick={open.keepEditing}>
-            Keep editing
-          </Button>
-        </span>
-      </div>
-    );
-  }
+  const { next, select, close } = open;
 
   const closeButton = (
     <Button className="button--quiet" label="Close editor" onClick={close}>
@@ -79,6 +63,12 @@ export const EditorFoot = ({
       <EditorKeys next={next !== undefined} />
       <span className="editor__actions">
         {tools ? <span className="editor__tools">{tools}</span> : null}
+        {/* Close keeps unsaved text, shown on the row; this is the way to drop it. */}
+        {dirty ? (
+          <Button className="button--quiet" onClick={discard}>
+            Discard
+          </Button>
+        ) : null}
         {closeButton}
         {unwritten && next ? (
           <>

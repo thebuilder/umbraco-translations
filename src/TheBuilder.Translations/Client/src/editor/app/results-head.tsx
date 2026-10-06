@@ -3,6 +3,7 @@ import type { EditingMode } from "../state/editing-mode.js";
 import { coverageOf } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
 import { workInList } from "../state/summary.js";
+import type { UnsavedSummary } from "./use-unsaved.js";
 
 /**
  * The shape of the result, said before it is scrolled.
@@ -21,6 +22,7 @@ export const ResultsHead = ({
   syncing,
   viewOnly,
   update,
+  unsaved,
 }: {
   total: number;
   totalKeys: number | undefined;
@@ -33,6 +35,7 @@ export const ResultsHead = ({
   /** Known to be view-only, as opposed to not yet known either way. */
   viewOnly: boolean;
   update: (patch: Partial<EditorFilters>) => void;
+  unsaved: UnsavedSummary;
 }) => {
   const { notWritten, defaultChanged } = workInList(total, current, filters);
   return (
@@ -80,6 +83,25 @@ export const ResultsHead = ({
         </span>
       ) : null}
       {viewOnly ? <span className="summary__item">View only</span> : null}
+
+      {/* Last on the line, and in the editor's own colour: the one thing here that is waiting on
+          the editor rather than describing the list. */}
+      {unsaved.count > 0 ? (
+        <span className="summary__unsaved">
+          <span aria-hidden="true" className="row__dot" />
+          {unsaved.count} unsaved
+          {unsaved.saveAll ? (
+            <button
+              className="button button--primary button--small"
+              disabled={unsaved.saving}
+              onClick={unsaved.saveAll}
+              type="button"
+            >
+              {unsaved.saving ? "Saving…" : "Save all"}
+            </button>
+          ) : null}
+        </span>
+      ) : null}
     </div>
   );
 };

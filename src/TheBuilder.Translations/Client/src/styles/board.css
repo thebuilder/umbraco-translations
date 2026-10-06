@@ -176,3 +176,12 @@
 .link:hover {
   color: var(--ink);
 }
+
+/* Unsaved text across the list, and the way to save all of it. */
+.summary__unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 500;
+}

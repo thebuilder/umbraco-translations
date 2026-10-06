@@ -9,8 +9,10 @@ import { Highlight } from "../search/highlight.js";
 import { type MatchedInOptions, matchedIn } from "../search/matched-in.js";
 import { matchesTerm } from "../search/matching.js";
 import { cellOf } from "../state/cells.js";
+import { targetOf } from "../state/target.js";
 import { cellStatus } from "./cell-status.js";
 import { StatusBadge } from "./status-badge.js";
+import { UnsavedActions, UnsavedValue } from "./unsaved.js";
 
 /**
  * What the renderer needs to know about a column that the table itself does not model: the track it
@@ -95,7 +97,15 @@ export const keyColumns = (options: KeyColumnOptions) => {
       id: "lead",
       header: () => <Heading name={options.editingName} />,
       meta: { width: "minmax(0, 1.3fr)", navigable: true },
-      cell: (info) => <Value cell={info.getValue()} term={term} />,
+      cell: (info) => {
+        const target = lead === null ? undefined : targetOf(info.row.original, lead);
+        // Unsaved text, where there is some, rather than what is saved: it is what is in hand.
+        return (
+          <UnsavedValue target={target}>
+            <Value cell={info.getValue()} term={term} />
+          </UnsavedValue>
+        );
+      },
     }),
 
     helper.accessor((key) => cellOf(key, second), {
@@ -109,7 +119,13 @@ export const keyColumns = (options: KeyColumnOptions) => {
       id: "status",
       header: () => <span className="visually-hidden">Status</span>,
       meta: { width: "7.5rem" },
-      cell: (info) => <Status cell={cellOf(info.row.original, editing)} />,
+      cell: (info) => (
+        <UnsavedActions
+          target={editing === null ? undefined : targetOf(info.row.original, editing)}
+        >
+          <Status cell={cellOf(info.row.original, editing)} />
+        </UnsavedActions>
+      ),
     }),
   ]);
 };

@@ -241,6 +241,7 @@ export const TranslationDetail = ({
         canEdit={canEdit}
         commit={commit}
         dirty={dirty}
+        discard={() => setDraft(undefined)}
         open={open}
         savable={savable}
         saving={save.isPending}
@@ -269,16 +270,10 @@ const useEditorKeys = (open: OpenTranslation, commit: (then: "close" | "next") =
       return;
     }
 
-    // While a discard is being asked about, Escape answers that instead -- dismissing the question,
-    // not the editor -- because otherwise the key that got someone into the prompt would also throw
-    // their text away. Nothing else is listened for while that question is open: the only two
-    // answers to it are its own two buttons.
+    // Escape closes, keeping any unsaved text on the row, like every other way out.
     if (shortcut.kind === "leave") {
       event.preventDefault();
-      return open.pending ? open.keepEditing() : open.close();
-    }
-    if (open.pending) {
-      return;
+      return open.close();
     }
 
     if (shortcut.kind === "move") {
