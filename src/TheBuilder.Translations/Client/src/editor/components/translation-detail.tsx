@@ -118,6 +118,17 @@ export const TranslationDetail = ({
     setDraft(undefined);
     if (saved) {
       queryClient.setQueryData(queryKeys.message(saved.id), saved);
+    } else if (id !== undefined) {
+      /*
+       * A reset answers with nothing, so the cached message still held the text it had just
+       * removed: opening the row again showed it, with Revert offered a second time. It is cleared
+       * here at once, then fetched again for the version and the rest a reset changes.
+       */
+      queryClient.setQueryData<MessageDetail>(
+        queryKeys.message(id),
+        (cached) => cached && { ...cached, overrideValue: null, needsReview: false }
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.message(id) });
     }
     // Not awaited: react-query routes a failed refetch into the query's own error state, which
     // the list already renders. The save this follows has succeeded either way.

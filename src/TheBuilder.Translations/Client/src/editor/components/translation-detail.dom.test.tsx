@@ -2,7 +2,9 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/generated/client.js";
 import type { LocaleFacet, MessageDetail, MessageKey } from "../../api/generated/models.js";
+import { queryKeys } from "../api/keys.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { createDraftStore } from "../state/drafts.js";
 import type { EditTarget } from "../state/target.js";
@@ -136,7 +138,7 @@ const open = (canEdit: boolean, options: Options = {}) => {
   drafts.set(opened, initialDraft);
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <TranslationDetail
         assistant={false}
@@ -157,6 +159,7 @@ const open = (canEdit: boolean, options: Options = {}) => {
       />
     </QueryClientProvider>
   );
+  return { ...view, client };
 };
 
 /** The editor behind a field. The field is CodeMirror, so its text is its document, not a value. */
@@ -206,6 +209,22 @@ describe("TranslationDetail permissions", () => {
     open(false);
 
     expect(await screen.findByRole("button", { name: "Close editor" })).toBeTruthy();
+  });
+});
+
+describe("reverting", () => {
+  it("forgets the custom text it removed, so the row opens on the default again", async () => {
+    const close = vi.fn();
+    const { client } = open(true, { close });
+    const revert = await screen.findByRole("button", { name: "Revert to default" });
+    // The refetch that follows is held, so what is checked is the cache, not the mock's answer.
+    vi.mocked(api.message).mockImplementationOnce(() => new Promise(() => undefined));
+    fireEvent.click(revert);
+    await waitFor(() => expect(close).toHaveBeenCalled());
+
+    // A reset answers with nothing; what is cached is all a reopened row has until it refetches.
+    const cached = client.getQueryData<MessageDetail>(queryKeys.message(detail.id));
+    expect(cached?.overrideValue).toBeNull();
   });
 });
 
