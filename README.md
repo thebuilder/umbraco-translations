@@ -167,10 +167,10 @@ keeps the history of every sync. To sync as part of a deployment, use the endpoi
 ### Syncing from a deployment
 
 A deployment can sync a source by its identifier, without a backoffice login. The endpoint is off
-until you configure a secret of at least 32 characters:
+until you configure a secret. Use a long random value; anyone who has it can start a sync.
 
 ```sh
-TheBuilder__Translations__DeploymentSync__ApiKey=replace-with-at-least-32-random-characters
+TheBuilder__Translations__DeploymentSync__ApiKey=replace-with-a-long-random-value
 ```
 
 Give your deployment pipeline the same secret, and have it call the endpoint once the new translation
@@ -235,7 +235,7 @@ load-balanced setup, Umbraco sends webhooks only from the Single or SchedulingPu
 | Setting                                                         | Default | Purpose                                                  |
 | --------------------------------------------------------------- | ------- | -------------------------------------------------------- |
 | `TheBuilder:Translations:SourceSecurity:AllowPrivateNetworkEndpoints` | `false` | Let sources read from private networks and `localhost`.  |
-| `TheBuilder:Translations:DeploymentSync:ApiKey`                 | none    | Turns on deployment-triggered sync. 32 characters or more. |
+| `TheBuilder:Translations:DeploymentSync:ApiKey`                 | none    | Turns on deployment-triggered sync. A long random value, without spaces. |
 
 Source headers read their values from the setting names you give them.
 
