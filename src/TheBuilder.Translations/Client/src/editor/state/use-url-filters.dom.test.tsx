@@ -4,6 +4,7 @@ import { useUrlFilters } from "./use-url-filters.js";
 
 beforeEach(() => {
   history.replaceState(null, "", "/umbraco/section/translation/view/overview");
+  sessionStorage.clear();
 });
 afterEach(() => {
   cleanup();
@@ -98,5 +99,31 @@ describe("useUrlFilters", () => {
 
     expect(result.current[0].locale).toBe("da-DK");
     expect(location.search).not.toContain("errors.&");
+  });
+
+  it("starts from the languages last used this session when the url names none", async () => {
+    history.replaceState(null, "", "/view?locale=da-DK&reference=en-US");
+    const first = renderHook(() => useUrlFilters());
+    await waitFor(() => expect(sessionStorage.length).toBe(1));
+    first.unmount();
+
+    history.replaceState(null, "", "/view");
+    const { result } = renderHook(() => useUrlFilters());
+
+    expect(result.current[0].locale).toBe("da-DK");
+    expect(result.current[0].referenceLocale).toBe("en-US");
+  });
+
+  it("lets a url that names a language win over the remembered pair", () => {
+    sessionStorage.setItem(
+      "thebuilder-translations:languages",
+      JSON.stringify({ locale: "da-DK", referenceLocale: "en-US" })
+    );
+    history.replaceState(null, "", "/view?locale=de-DE");
+
+    const { result } = renderHook(() => useUrlFilters());
+
+    expect(result.current[0].locale).toBe("de-DE");
+    expect(result.current[0].referenceLocale).toBeNull();
   });
 });

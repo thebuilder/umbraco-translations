@@ -70,6 +70,20 @@ export const useFacets = () =>
     staleTime: 60_000,
   });
 
+/**
+ * Whether to offer the AI assistant. Not asked for someone who cannot edit, who is never offered
+ * it. Asked again every time the editor opens: it is switched on and off in another section, so a
+ * cached answer offered a Rewrite for an assistant that had just been turned off.
+ */
+export const useAssistantStatus = (canEdit: boolean) =>
+  useQuery({
+    queryKey: queryKeys.assistant(),
+    queryFn: ({ signal }) => api.assistantStatus(signal),
+    enabled: canEdit,
+    select: (status) => status.available,
+    staleTime: 0,
+  });
+
 export const usePermissions = () =>
   useQuery({
     queryKey: queryKeys.permissions(),

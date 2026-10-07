@@ -17,6 +17,7 @@ export const queryKeys = {
 
   facets: () => [...queryKeys.all, "facets"] as const,
   permissions: () => [...queryKeys.all, "permissions"] as const,
+  assistant: () => [...queryKeys.all, "assistant"] as const,
   sources: () => [...queryKeys.all, "sources"] as const,
 
   tree: () => [...queryKeys.all, "tree"] as const,

@@ -2,6 +2,8 @@ import { unwrap } from "../errors.js";
 import { client } from "../openapi/client.gen.js";
 import { TranslationsService } from "../openapi/sdk.gen.js";
 import type {
+  AssistantSettingsRequest,
+  AssistantSuggestionRequest,
   MessageKeyQuery,
   MessageStatus,
   OverrideRequest,
@@ -29,6 +31,15 @@ export const configureApi = (configuration: ApiConfiguration): void => {
 
 export const api = {
   health: () => unwrap(TranslationsService.healthGetHealth(requestOptions)),
+  /** Whether the editor should offer the AI assistant: installed, turned on, and with a profile. */
+  assistantStatus: (signal?: AbortSignal) =>
+    unwrap(TranslationsService.assistantGetStatus({ ...requestOptions, signal })),
+  assistantSettings: () => unwrap(TranslationsService.assistantGetSettings(requestOptions)),
+  saveAssistantSettings: (body: AssistantSettingsRequest) =>
+    unwrap(TranslationsService.assistantSaveSettings({ ...requestOptions, body })),
+  /** Text for one translation, already validated like a save. Nothing is written. */
+  suggest: (body: AssistantSuggestionRequest, signal?: AbortSignal) =>
+    unwrap(TranslationsService.assistantSuggest({ ...requestOptions, body, signal })),
   facets: (signal?: AbortSignal) =>
     unwrap(TranslationsService.messagesGetMessageFacets({ ...requestOptions, signal })),
   permissions: (signal?: AbortSignal) =>

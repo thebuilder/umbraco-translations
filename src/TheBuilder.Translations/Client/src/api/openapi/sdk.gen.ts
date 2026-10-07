@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessageKeysListMessageKeyIdsData, MessageKeysListMessageKeyIdsErrors, MessageKeysListMessageKeyIdsResponses, MessageKeysListMessageKeysData, MessageKeysListMessageKeysErrors, MessageKeysListMessageKeysResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetOverrideData, MessagesResetOverrideErrors, MessagesResetOverrideResponses, MessagesSaveOverrideData, MessagesSaveOverrideErrors, MessagesSaveOverrideResponses, PermissionsGetPermissionsData, PermissionsGetPermissionsErrors, PermissionsGetPermissionsResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
+import type { AssistantGetSettingsData, AssistantGetSettingsErrors, AssistantGetSettingsResponses, AssistantGetStatusData, AssistantGetStatusErrors, AssistantGetStatusResponses, AssistantSaveSettingsData, AssistantSaveSettingsErrors, AssistantSaveSettingsResponses, AssistantSuggestData, AssistantSuggestErrors, AssistantSuggestResponses, HealthGetHealthData, HealthGetHealthErrors, HealthGetHealthResponses, MessageKeysListMessageKeyIdsData, MessageKeysListMessageKeyIdsErrors, MessageKeysListMessageKeyIdsResponses, MessageKeysListMessageKeysData, MessageKeysListMessageKeysErrors, MessageKeysListMessageKeysResponses, MessagesGetMessageData, MessagesGetMessageErrors, MessagesGetMessageFacetsData, MessagesGetMessageFacetsErrors, MessagesGetMessageFacetsResponses, MessagesGetMessageResponses, MessagesListMessagesData, MessagesListMessagesErrors, MessagesListMessagesResponses, MessagesResetOverrideData, MessagesResetOverrideErrors, MessagesResetOverrideResponses, MessagesSaveOverrideData, MessagesSaveOverrideErrors, MessagesSaveOverrideResponses, PermissionsGetPermissionsData, PermissionsGetPermissionsErrors, PermissionsGetPermissionsResponses, SourcesCreateSourceData, SourcesCreateSourceErrors, SourcesCreateSourceResponses, SourcesDeleteSourceData, SourcesDeleteSourceErrors, SourcesDeleteSourceResponses, SourcesGetSourceData, SourcesGetSourceErrors, SourcesGetSourceResponses, SourcesListSourcesData, SourcesListSourcesErrors, SourcesListSourcesResponses, SourcesListSourceSyncsData, SourcesListSourceSyncsErrors, SourcesListSourceSyncsResponses, SourcesSyncSourceData, SourcesSyncSourceErrors, SourcesSyncSourceResponses, SourcesTestSourceConfigurationData, SourcesTestSourceConfigurationErrors, SourcesTestSourceConfigurationResponses, SourcesTestSourceData, SourcesTestSourceErrors, SourcesTestSourceResponses, SourcesUpdateSourceData, SourcesUpdateSourceErrors, SourcesUpdateSourceResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,6 +19,62 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 export class TranslationsService {
+    public static assistantGetStatus<ThrowOnError extends boolean = false>(options?: Options<AssistantGetStatusData, ThrowOnError>): RequestResult<AssistantGetStatusResponses, AssistantGetStatusErrors, ThrowOnError> {
+        return (options?.client ?? client).get<AssistantGetStatusResponses, AssistantGetStatusErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/assistant',
+            ...options
+        });
+    }
+    
+    public static assistantGetSettings<ThrowOnError extends boolean = false>(options?: Options<AssistantGetSettingsData, ThrowOnError>): RequestResult<AssistantGetSettingsResponses, AssistantGetSettingsErrors, ThrowOnError> {
+        return (options?.client ?? client).get<AssistantGetSettingsResponses, AssistantGetSettingsErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/assistant/settings',
+            ...options
+        });
+    }
+    
+    public static assistantSaveSettings<ThrowOnError extends boolean = false>(options?: Options<AssistantSaveSettingsData, ThrowOnError>): RequestResult<AssistantSaveSettingsResponses, AssistantSaveSettingsErrors, ThrowOnError> {
+        return (options?.client ?? client).put<AssistantSaveSettingsResponses, AssistantSaveSettingsErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/assistant/settings',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers
+            }
+        });
+    }
+    
+    public static assistantSuggest<ThrowOnError extends boolean = false>(options?: Options<AssistantSuggestData, ThrowOnError>): RequestResult<AssistantSuggestResponses, AssistantSuggestErrors, ThrowOnError> {
+        return (options?.client ?? client).post<AssistantSuggestResponses, AssistantSuggestErrors, ThrowOnError>({
+            security: [{
+                    key: 'Backoffice-User',
+                    scheme: 'bearer',
+                    type: 'http'
+                }],
+            url: '/umbraco/management/api/v1/translations/assistant/suggestions',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers
+            }
+        });
+    }
+    
     public static messagesGetMessageFacets<ThrowOnError extends boolean = false>(options?: Options<MessagesGetMessageFacetsData, ThrowOnError>): RequestResult<MessagesGetMessageFacetsResponses, MessagesGetMessageFacetsErrors, ThrowOnError> {
         return (options?.client ?? client).get<MessagesGetMessageFacetsResponses, MessagesGetMessageFacetsErrors, ThrowOnError>({
             security: [{

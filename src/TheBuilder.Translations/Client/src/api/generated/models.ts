@@ -4,6 +4,10 @@ import type {
 } from "../openapi/types.gen.js";
 
 export type {
+  AssistantSettingsRequest,
+  AssistantSettingsResponse as AssistantSettings,
+  AssistantSuggestionRequest,
+  AssistantTask,
   // The writable shapes for anything the editor sends. `isLiteral` is the server's derived view of
   // whether a header carries its value or names a setting, so it comes back on a response and is
   // never something a client computes and submits.

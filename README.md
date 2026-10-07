@@ -62,6 +62,22 @@ inheriting the key's message format and argument signature from a shipped locale
 validation accepts the placeholders the message requires. Resetting the override removes that row
 again.
 
+## AI assistant
+
+The editor can suggest a translation from the language it is comparing against, and rewrite the
+text in the field (improve, simplify, shorten, fix spelling). It runs on
+[Umbraco.AI](https://docs.umbraco.com/umbraco-ai), which this package depends on. Install a provider
+package as well, for example `Umbraco.AI.OpenAI`, then set up a connection and a chat profile in the
+AI section. Brand voice and tone belong on that profile's contexts.
+
+The "AI assistant" card in the translation settings turns the assistant on, chooses the profile
+(the site's default chat profile when none is chosen), and holds the instructions sent with every
+request. It starts off: it sends the site's text to an AI provider, so an administrator opts in.
+
+A suggestion only fills the field. Nothing is saved until the editor saves it, and every suggestion
+is checked with the same validation a save uses: a reply that drops or renames a placeholder is sent
+back once with the reason, and refused if the second reply is no better.
+
 ## Run the sample
 
 ```sh

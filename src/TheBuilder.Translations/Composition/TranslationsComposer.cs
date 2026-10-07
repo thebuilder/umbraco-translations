@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using TheBuilder.Translations.Assistant;
 using TheBuilder.Translations.Authorization;
 using TheBuilder.Translations.Configuration;
 using TheBuilder.Translations.Core.Output;
@@ -57,6 +58,11 @@ public sealed class TranslationsComposer : IComposer
         // No caching wrapper: ILanguageService is already cached inside Umbraco, and a second layer
         // would only introduce staleness after a language is added or the default one changes.
         builder.Services.AddScoped<ITranslationLocaleCatalog, UmbracoTranslationLocaleCatalog>();
+        // The assistant runs on Umbraco.AI, which the package depends on, so its services are always
+        // there; whether the assistant is offered is a setting, and a profile, rather than an install.
+        builder.Services.AddScoped<IAssistantChat, UmbracoAiAssistantChat>();
+        builder.Services.AddScoped<AssistantSettingsStore>();
+        builder.Services.AddScoped<TranslationAssistant>();
     }
 
     private static void ConfigurePolicies(AuthorizationOptions options)

@@ -38,3 +38,31 @@ export const Cross = ({ className }: { className?: string }) => (
     />
   </svg>
 );
+
+/** The mark on the assistant's actions: a four-pointed spark, the shape AI features have settled on. */
+export const Spark = ({ className }: { className?: string }) => (
+  <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 12 12">
+    <path
+      d="M6 1.25c.35 2.45 1.3 3.4 3.75 3.75C7.3 5.35 6.35 6.3 6 8.75 5.65 6.3 4.7 5.35 2.25 5 4.7 4.65 5.65 3.7 6 1.25Z"
+      fill="currentColor"
+    />
+    <path
+      d="M9.5 8.25c.15 1 .5 1.35 1.5 1.5-1 .15-1.35.5-1.5 1.5-.15-1-.5-1.35-1.5-1.5 1-.15 1.35-.5 1.5-1.5Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+/** Two arrows passing each other: the two sides trade places. */
+export const Swap = ({ className }: { className?: string }) => (
+  <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 14 12">
+    <path
+      d="M1.5 3.5h10M9 1l2.5 2.5L9 6M12.5 8.5h-10M5 6 2.5 8.5 5 11"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.3"
+    />
+  </svg>
+);

@@ -148,3 +148,32 @@ describe("changing the language compared against", () => {
     expect(update).toHaveBeenCalledWith({ locale: "en-US", referenceLocale: "en-US" });
   });
 });
+
+describe("swapping the two languages", () => {
+  it("edits the compared language and compares against the one that was being edited", () => {
+    const { update } = strip(TWO, { locale: "en-US", referenceLocale: "da-DK" });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit Danish and compare against English (United States)",
+      })
+    );
+
+    expect(update).toHaveBeenCalledWith({ locale: "da-DK", referenceLocale: "en-US" });
+  });
+
+  it("is not offered without a comparison", () => {
+    strip(TWO, { locale: "en-US", referenceLocale: "en-US" });
+
+    expect(screen.queryByTitle("Swap the languages")).toBeNull();
+  });
+
+  it("is not offered when the language being edited has nothing to compare against", () => {
+    strip([...ONE, locale("da-DK", "Danish", { messageCount: 0 })], {
+      locale: "da-DK",
+      referenceLocale: "en-US",
+    });
+
+    expect(screen.queryByTitle("Swap the languages")).toBeNull();
+  });
+});
