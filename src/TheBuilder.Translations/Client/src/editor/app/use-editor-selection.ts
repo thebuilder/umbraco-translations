@@ -37,20 +37,12 @@ export interface OpenTranslation {
    * it was would be stealing focus.
    */
   claimFocus: () => boolean;
+  /** Closes the row. Unsaved text stays, shown on the row, until it is saved or thrown away. */
   close: () => void;
-  discard: () => void;
   /** Unsaved text, which outlives the editor. See DraftStore. */
   drafts: DraftStore;
-  keepEditing: () => void;
   /** The row after this one, so a reviewer can work down the list without returning to it. */
   next?: EditTarget;
-  /**
-   * Set when leaving has been asked for and there is unsaved text in the way: where the editor is
-   * trying to go, or "close". The question is answered in the editor's footer rather than by a
-   * native dialog -- `confirm` is suppressed in enough contexts that relying on it left the editor
-   * with no way out at all.
-   */
-  pending?: EditTarget | "close";
   previous?: EditTarget;
   select: (target: EditTarget) => void;
   target: EditTarget;
@@ -58,14 +50,13 @@ export interface OpenTranslation {
 
 /**
  * Which translation is open, and everything that follows from it: where it sits among the rows,
- * what happens when something tries to leave it, and what happens when the list moves out from
- * under it.
+ * and what happens when the list moves out from under it.
  *
- * The whole reason this is a state machine rather than a `setSelected` call is unsaved text:
- * anything that would close the open row has to ask first while there is some. Every route out --
- * another row, the close button, Escape -- goes through the same question. The one route nobody
- * can be asked about is the row leaving the result, so that one closes without asking and keeps the
- * text, and says so through `onKept`.
+ * Nothing asks before leaving. Every route out -- another row, the close button, Escape -- closes
+ * the row and keeps its unsaved text, which the row then shows as unsaved with its own Save. Asking
+ * instead meant answering a question before the next row would open, and then answering "keep
+ * editing" before the text could even be saved. The one route that needs saying is the row
+ * leaving the result, where nothing on screen would show the text was kept; that goes to `onKept`.
  */
 export const useEditorSelection = ({
   locale,
@@ -85,13 +76,7 @@ export const useEditorSelection = ({
   onKept: (target: EditTarget) => void;
 }) => {
   const [selected, setSelected] = useState<EditTarget>();
-  const [pending, setPending] = useState<EditTarget | "close">();
-  const [drafts] = useState(createDraftStore);
-
-  const unsaved = useCallback(
-    (target: EditTarget | undefined) => target !== undefined && drafts.has(targetId(target)),
-    [drafts]
-  );
+  const [drafts] = useState(() => createDraftStore());
 
   const focusFor = useRef<string | null>(null);
 
@@ -114,38 +99,7 @@ export const useEditorSelection = ({
     [locale, referenceLocale, update]
   );
 
-  const select = useCallback(
-    (target: EditTarget) => {
-      if (!unsaved(selected) || sameTarget(target, selected)) {
-        go(target);
-      } else {
-        setPending(target);
-      }
-    },
-    [selected, go, unsaved]
-  );
-
-  const close = useCallback(() => {
-    if (unsaved(selected)) {
-      setPending("close");
-    } else {
-      setSelected(undefined);
-    }
-  }, [selected, unsaved]);
-
-  const discard = useCallback(() => {
-    if (selected) {
-      drafts.set(targetId(selected), undefined);
-    }
-    if (pending === undefined || pending === "close") {
-      setSelected(undefined);
-    } else {
-      go(pending);
-    }
-    setPending(undefined);
-  }, [selected, pending, go, drafts]);
-
-  const keepEditing = useCallback(() => setPending(undefined), []);
+  const close = useCallback(() => setSelected(undefined), []);
 
   /*
    * Where the open translation sits in the list, looked up by identity rather than remembered as a
@@ -164,14 +118,13 @@ export const useEditorSelection = ({
    * row sprang back open when the search was widened.
    */
   const gone = leftResult(progress, index >= 0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: gone is the trigger. selected, unsaved and onKept are read at the moment the row leaves, and a change to any of them alone is not a reason to close anything.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: gone is the trigger. selected, drafts and onKept are read at the moment the row leaves, and a change to any of them alone is not a reason to close anything.
   useEffect(() => {
     if (!gone || selected === undefined) {
       return;
     }
-    setPending(undefined);
     setSelected(undefined);
-    if (unsaved(selected)) {
+    if (drafts.has(targetId(selected))) {
       onKept(selected);
     }
   }, [gone]);
@@ -189,7 +142,6 @@ export const useEditorSelection = ({
       target: selected,
       previous: at(-1),
       next: at(1),
-      pending,
       drafts,
       claimFocus: () => {
         if (focusFor.current !== id) {
@@ -198,12 +150,10 @@ export const useEditorSelection = ({
         focusFor.current = null;
         return true;
       },
-      select,
+      select: go,
       close,
-      discard,
-      keepEditing,
     };
-  }, [selected, index, keys, pending, drafts, select, close, discard, keepEditing]);
+  }, [selected, index, keys, drafts, go, close]);
 
-  return { selected, open, select };
+  return { selected, open, select: go, drafts };
 };

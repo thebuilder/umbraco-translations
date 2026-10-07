@@ -134,7 +134,7 @@
   inline-size: 6px;
   block-size: 6px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--dot, var(--accent));
 }
 
 /* Where the search term appears. Marked rather than recoloured, so it survives a theme and reads
@@ -195,4 +195,25 @@
   block-size: 41px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
+}
+
+/* A row with unsaved text: toned, with a rule down its leading edge, the text in hand rather than
+   what is saved, and its Discard and Save where the status would be. */
+.grid__row:has(.row__unsaved) {
+  background: var(--unsaved-wash);
+  box-shadow: inset 3px 0 0 var(--unsaved-rule);
+}
+.grid__row:not(.grid__row--head):has(.row__unsaved):hover {
+  background: var(--unsaved-wash-2);
+}
+.row__value--unsaved {
+  color: var(--ink);
+  font-weight: 500;
+}
+.row__unsaved {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  cursor: default;
 }

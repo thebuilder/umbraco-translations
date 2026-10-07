@@ -11,6 +11,7 @@ import {
 import { KeyGrid } from "../components/key-grid.js";
 import { ListState } from "../components/list-state.js";
 import { TranslationDetail } from "../components/translation-detail.js";
+import { UnsavedContext } from "../components/unsaved.js";
 import { matchedElsewhere } from "../search/matched-in.js";
 import { useSearchShortcut } from "../search/use-search-shortcut.js";
 import { editingMode } from "../state/editing-mode.js";
@@ -24,6 +25,7 @@ import { Filters } from "./filter-bar.js";
 import { ResultsHead } from "./results-head.js";
 import { SearchField } from "./search-field.js";
 import { useEditorSelection } from "./use-editor-selection.js";
+import { useUnsaved } from "./use-unsaved.js";
 
 /**
  * The filters as the screen actually reads them.
@@ -76,7 +78,7 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
   const referenceName = localeName(locales, shown.referenceLocale);
 
-  const { selected, open, select } = useEditorSelection({
+  const { selected, open, select, drafts } = useEditorSelection({
     locale: shown.locale,
     referenceLocale: shown.referenceLocale,
     update,
@@ -114,6 +116,8 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
     [rows.keys, shown.query, shown.locale, shown.referenceLocale]
   );
 
+  const unsaved = useUnsaved(drafts, bridge, canEdit);
+
   const listState = describeListState({
     error: rows.query.error ?? undefined,
     loading: rows.query.isLoading,
@@ -129,68 +133,71 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
         <ContextStrip filters={shown} locales={locales} mode={mode} update={update} />
       </header>
 
-      <div className="board">
-        <div className="bar">
-          <ResultsHead
-            current={current}
-            elsewhere={elsewhere}
-            filters={shown}
-            mode={mode}
-            syncing={syncing}
-            total={listState.kind === "rows" ? rows.total : 0}
-            totalKeys={facets.data?.totalKeys}
-            update={update}
-            viewOnly={permissions.data !== undefined && !permissions.data.canEdit}
-          />
-          <Filters filters={shown} namespaces={facets.data?.namespaces ?? []} update={update} />
-        </div>
+      <UnsavedContext value={unsaved.context}>
+        <div className="board">
+          <div className="bar">
+            <ResultsHead
+              current={current}
+              elsewhere={elsewhere}
+              filters={shown}
+              mode={mode}
+              syncing={syncing}
+              total={listState.kind === "rows" ? rows.total : 0}
+              totalKeys={facets.data?.totalKeys}
+              unsaved={unsaved.summary}
+              update={update}
+              viewOnly={permissions.data !== undefined && !permissions.data.canEdit}
+            />
+            <Filters filters={shown} namespaces={facets.data?.namespaces ?? []} update={update} />
+          </div>
 
-        {listState.kind === "rows" ? (
-          <KeyGrid
-            editor={(row) =>
-              open ? (
-                <TranslationDetail
-                  assistant={canEdit && assistant.data === true}
-                  bridge={bridge}
-                  canEdit={canEdit}
-                  key={targetId(open.target)}
-                  locales={locales}
-                  open={open}
-                  reference={
-                    comparing && shown.referenceLocale
-                      ? { locale: shown.referenceLocale, name: referenceName }
-                      : undefined
-                  }
-                  row={row}
-                />
-              ) : null
-            }
-            filters={shown}
-            hasMore={rows.query.hasNextPage}
-            keys={rows.keys}
-            loadingMore={rows.query.isFetchingNextPage}
-            locales={locales}
-            namespaceCount={facets.data?.namespaces.length ?? 0}
-            onLoadMore={() => {
-              rows.query.fetchNextPage();
-            }}
-            onSelect={select}
-            selected={selected}
-            total={rows.total}
-          />
-        ) : (
-          <ListState
-            canManageSources={permissions.data?.canManageSources ?? false}
-            filtered={hasNarrowingFilters(shown)}
-            onClear={() => update(clearedFilters())}
-            onRetry={() => {
-              rows.query.refetch();
-            }}
-            state={listState}
-            term={shown.query}
-          />
-        )}
-      </div>
+          {listState.kind === "rows" ? (
+            <KeyGrid
+              editor={(row) =>
+                open ? (
+                  <TranslationDetail
+                    assistant={canEdit && assistant.data === true}
+                    bridge={bridge}
+                    canEdit={canEdit}
+                    key={targetId(open.target)}
+                    locales={locales}
+                    open={open}
+                    reference={
+                      comparing && shown.referenceLocale
+                        ? { locale: shown.referenceLocale, name: referenceName }
+                        : undefined
+                    }
+                    row={row}
+                  />
+                ) : null
+              }
+              filters={shown}
+              hasMore={rows.query.hasNextPage}
+              keys={rows.keys}
+              loadingMore={rows.query.isFetchingNextPage}
+              locales={locales}
+              namespaceCount={facets.data?.namespaces.length ?? 0}
+              onLoadMore={() => {
+                rows.query.fetchNextPage();
+              }}
+              onSelect={select}
+              selected={selected}
+              total={rows.total}
+            />
+          ) : (
+            <ListState
+              canManageSources={permissions.data?.canManageSources ?? false}
+              filtered={hasNarrowingFilters(shown)}
+              onClear={() => update(clearedFilters())}
+              onRetry={() => {
+                rows.query.refetch();
+              }}
+              state={listState}
+              term={shown.query}
+            />
+          )}
+        </div>
+      </UnsavedContext>
     </main>
   );
 };

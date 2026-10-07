@@ -22,6 +22,10 @@
   --warn: var(--uui-color-warning-emphasis, #8a6d00);
   --warn-wash: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 40%, var(--uui-color-surface));
   --warn-line: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 85%, var(--uui-color-surface));
+  /* Unsaved text, toned apart from the selection's blue so the two never read as one state. */
+  --unsaved-wash: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 16%, var(--surface));
+  --unsaved-wash-2: color-mix(in srgb, var(--uui-color-warning, #fdf3d2) 26%, var(--surface));
+  --unsaved-rule: var(--uui-color-warning-standalone, #d9a600);
   --danger: var(--uui-color-danger);
   --danger-wash: color-mix(in srgb, var(--uui-color-danger) 7%, var(--uui-color-surface));
   --danger-line: color-mix(in srgb, var(--uui-color-danger) 28%, var(--uui-color-surface));

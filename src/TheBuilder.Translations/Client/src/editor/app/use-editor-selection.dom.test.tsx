@@ -1,8 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageKey } from "../../api/generated/models.js";
 import { type EditTarget, targetId } from "../state/target.js";
 import { type ListProgress, leftResult, useEditorSelection } from "./use-editor-selection.js";
+
+// Unsaved text is kept in session storage; each test starts without any.
+beforeEach(() => sessionStorage.clear());
 
 const target = (key: string): EditTarget => ({
   sourceId: "s1",
@@ -88,7 +91,7 @@ describe("leaving the result", () => {
   it("closes, keeps the unsaved text, and says so", () => {
     const { result, rerender, onKept } = selection();
     act(() => result.current.select(target("a")));
-    act(() => result.current.open?.drafts.set(targetId(target("a")), "Halvskrevet"));
+    act(() => result.current.open?.drafts.set(target("a"), "Halvskrevet"));
 
     rerender({ rows: [row("b")] });
 
@@ -111,17 +114,25 @@ describe("leaving the result", () => {
 });
 
 describe("unsaved text", () => {
-  it("is asked about before closing, and forgotten when it is discarded", () => {
+  it("never stands in the way: another row opens, and the text stays for the row it was typed in", () => {
     const { result } = selection();
     act(() => result.current.select(target("a")));
-    act(() => result.current.open?.drafts.set(targetId(target("a")), "Halvskrevet"));
-    act(() => result.current.open?.close());
-    expect(result.current.open?.pending).toBe("close");
+    act(() => result.current.open?.drafts.set(target("a"), "Halvskrevet"));
 
-    const drafts = result.current.open?.drafts;
-    act(() => result.current.open?.discard());
+    act(() => result.current.select(target("b")));
+
+    expect(result.current.open?.target).toEqual(target("b"));
+    expect(result.current.drafts.get(targetId(target("a")))).toBe("Halvskrevet");
+  });
+
+  it("closes without asking, and keeps the text", () => {
+    const { result } = selection();
+    act(() => result.current.select(target("a")));
+    act(() => result.current.open?.drafts.set(target("a"), "Halvskrevet"));
+
+    act(() => result.current.open?.close());
 
     expect(result.current.open).toBeUndefined();
-    expect(drafts?.get(targetId(target("a")))).toBeUndefined();
+    expect(result.current.drafts.get(targetId(target("a")))).toBe("Halvskrevet");
   });
 });
