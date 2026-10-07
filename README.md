@@ -1,100 +1,72 @@
 # TheBuilder.Translations
 
-An Umbraco 17 extension for synchronizing application-owned translation messages and managing editorial overrides.
+Let editors change the text in your application from the Umbraco backoffice, without a code change
+or a deploy.
 
-The ownership rule is intentionally simple:
+Your application keeps its own translation files. Umbraco reads them, editors change the messages
+that need changing, and your application fetches those changes and lays them over its own text.
 
-- Applications own keys, defaults, message syntax, and required arguments.
-- Umbraco stores optional overrides and their edit history.
-- Runtime consumers bundle their defaults and merge the overrides returned by Umbraco.
+- **The application owns the messages.** Keys, the default text, the message syntax and the
+  placeholders all come from the application's files, and stay there.
+- **Umbraco owns the edits.** Editors write custom text for any message in any language, with a
+  history of who changed what.
+- **The application decides what to show.** It merges the custom text over its own, or asks
+  Umbraco for the complete dictionary.
 
-One deliberate exception: a site may have more Umbraco languages than its applications ship. An
-editor can write a translation for such a locale, and because no application default exists to merge
-it over, that text is the whole message and is served from both delivery endpoints.
+A site can also translate into languages the application does not ship. Text written for such a
+language has nothing to merge over, so it is served as the whole message.
 
-## What is implemented
+Built for Umbraco 17.
 
-Phases 1–5 are represented by one vertical slice:
+## Getting started
 
-- HTTP sources with `{locale}` and `{language}` expansion, conditional request support, response limits, and server-side secret references.
-- Nested next-intl and i18next JSON v4 string-resource parsing with fixed or first-segment namespaces.
-- ICU and i18next interpolation validation with argument-signature enforcement.
-- Transactional Umbraco persistence for sources, messages, overrides, and synchronization history.
-- Server-paged Management APIs, optimistic concurrency, and an ETag-enabled next-intl Delivery API.
-- A key-centric editor API that pages over translation keys rather than key-locale pairs, so a
-  reference locale can be shown beside the one being edited and "present in English, absent in
-  Danish" is an ordinary filter.
-- A React/TanStack editor hosted behind an Umbraco custom element.
-- An administrator Settings dashboard for source setup, testing, synchronization, history, limits, and output guidance.
-- An Umbraco webhook event that announces every committed change to what a source serves, so a
-  consumer can rebuild instead of polling.
-- A runnable sample that exposes English and Danish source messages at `/sample/messages/{locale}.json`.
-- The sample also exposes i18next JSON v4 string resources at `/sample/i18next/{locale}.json`.
+1. Install the package in your Umbraco site:
 
-## Endpoint templates
+   ```sh
+   dotnet add package TheBuilder.Translations
+   ```
 
-A source's endpoint template names the locale it is fetching:
+2. Make your application's translation files reachable over HTTP, one file per language. Nested
+   JSON (as next-intl and i18next use it) and next-intl's gettext PO files are supported.
 
-```
-messages/{locale}.json     ->  messages/en-US.json
-messages/{language}.json   ->  messages/en.json
-{language}/{locale}.json   ->  en/en-US.json
-```
+3. In Umbraco, go to **Settings > Translations** and add a source: the URL of the files, the
+   languages to read, and the message syntax your application uses. **Test source** fetches it
+   without saving anything; **Sync now** reads it in.
 
-Umbraco language codes carry a region, but applications often name their message files by language
-alone. Use `{language}` when they do. Messages are stored under the full Umbraco code either way, so
-regional variants never collapse into one another and the delivery contract is unaffected.
+4. Open the **Translation** section and start editing.
 
-## Editing translations
+5. Point your application at the delivery endpoint (see
+   [Using the translations in your application](#using-the-translations-in-your-application)).
 
-Overrides are addressed by identity — source, namespace, key, and locale — rather than by message
-id:
+## Adding a source
+
+A source is one set of translation files. Its URL names the language it is fetching with a
+placeholder:
 
 ```
-PUT  /umbraco/management/api/v1/translations/messages/override
-POST /umbraco/management/api/v1/translations/messages/override/reset
+https://app.example.com/messages/{locale}.json     ->  .../messages/en-US.json
+https://app.example.com/messages/{language}.json   ->  .../messages/en.json
+https://app.example.com/{language}/{locale}.json   ->  .../en/en-US.json
 ```
 
-Both take `{ sourceId, namespace, key, locale, ... }` with an optional `expectedVersion` for
-optimistic concurrency. Identity rather than id is what allows writing a locale no source ships:
-until someone writes to it, no row exists and there is no id to address. Saving one creates the row,
-inheriting the key's message format and argument signature from a shipped locale so that argument
-validation accepts the placeholders the message requires. Resetting the override removes that row
-again.
+Umbraco's language codes carry a region (`en-US`), but many applications name their files by
+language alone (`en`). Use `{language}` when yours do. Each message is still stored under the full
+Umbraco code, so `en-US` and `en-GB` never collapse into one.
 
-## AI assistant
+The other settings:
 
-The editor can suggest a translation from the language it is comparing against, and rewrite the
-text in the field (improve, simplify, shorten, fix spelling). It runs on
-[Umbraco.AI](https://docs.umbraco.com/umbraco-ai), which this package depends on. Install a provider
-package as well, for example `Umbraco.AI.OpenAI`, then set up a connection and a chat profile in the
-AI section. Brand voice and tone belong on that profile's contexts.
+- **Message syntax**: ICU messages (next-intl, FormatJS), i18next JSON v4, or plain text. The
+  editor checks every change against it, so an edit cannot break a placeholder or a plural.
+- **Namespace handling**: use the first key of the JSON as the namespace, or put every message in
+  one namespace you name. The namespace is part of the delivery URL.
+- **Advanced**: the source identifier used by deployment-triggered sync, a request timeout, and the
+  largest response accepted.
 
-The "AI assistant" card in the translation settings turns the assistant on, chooses the profile
-(the site's default chat profile when none is chosen), and holds the instructions sent with every
-request. It starts off: it sends the site's text to an AI provider, so an administrator opts in.
+### Sources that need authentication
 
-A suggestion only fills the field. Nothing is saved until the editor saves it, and every suggestion
-is checked with the same validation a save uses: a reply that drops or renames a placeholder is sent
-back once with the reason, and refused if the second reply is no better.
-
-## Run the sample
-
-```sh
-pnpm install
-pnpm build
-dotnet run --project samples/TheBuilder.Translations.Example
-```
-
-To validate the source workflow, add a source with `https://localhost:44389/sample/messages/{locale}.json`. The sample serves both `en-US` and `da-DK` (and their neutral culture codes). The unattended sample backoffice uses `admin@example.test` and the development-only password in its `appsettings.json`.
-
-To validate i18next v4, use `https://localhost:44389/sample/i18next/{locale}.json` and select **i18next JSON v4** as the message syntax.
-
-For SSRF protection, translation sources resolve and connect only to public network addresses by default, do not follow redirects, and do not use the host proxy. The sample opts into private-network endpoints in `appsettings.Development.json` so its localhost fixtures work. Only enable `TheBuilder:Translations:SourceSecurity:AllowPrivateNetworkEndpoints` in a trusted development or private-network environment; production installations should keep the default.
-
-### Authenticated source APIs
-
-Source request headers reference server configuration rather than storing secret values in Umbraco. The configuration key is an arbitrary name chosen by the application owner; it is not generated from the source. For example, add a request header named `X-Api-Key` with the value configuration key `Translations:SourceApiKey`, then supply the value outside the source definition:
+Request headers can be added to a source, but their values are never stored in Umbraco. A header
+names a configuration setting instead, and the value comes from your site's configuration. For
+example, a header `X-Api-Key` with the setting name `Translations:SourceApiKey`:
 
 ```json
 {
@@ -104,79 +76,139 @@ Source request headers reference server configuration rather than storing secret
 }
 ```
 
-For deployed environments, use an environment variable such as `Translations__SourceApiKey` or your configured secret provider. For bearer authentication, configure a request header named `Authorization` and make the referenced configuration value the complete header value, for example `Bearer development-value-only`. Existing sources that used the earlier bearer-token convenience setting remain compatible and can remove it when editing the source.
+In a deployed environment, supply it as an environment variable (`Translations__SourceApiKey`) or
+through your secret store. For a bearer token, add an `Authorization` header and make the setting's
+value the whole header, for example `Bearer your-token`.
 
-### Deployment-triggered synchronization
+### Sources on a private network
 
-An external deployment can synchronize an enabled source by its alias without using a backoffice user token. The automation endpoint is disabled until a dedicated server-side secret of at least 32 characters is configured:
+Sources connect only to public addresses by default, do not follow redirects and do not use the
+host's proxy, so a source URL cannot be used to reach internal services. To read from a private
+network or `localhost`, turn on `TheBuilder:Translations:SourceSecurity:AllowPrivateNetworkEndpoints`.
+Only do that in development or a network you trust.
+
+## Editing translations
+
+The **Translation** section lists every message, one row per key. Choose the language you are
+editing and, optionally, a language to compare against; the ⇄ button between them swaps the two.
+The pair is remembered for the rest of the browser session.
+
+- **Search** finds text in any language, and keys.
+- **Filters** narrow the list by namespace and by status: not written, custom text, default text,
+  default changed, or no longer used.
+- **Click a row** to edit it in place. Placeholders are highlighted, and messages with plurals or
+  choices show an example of each case under the field.
+- **Save**, or **Save & next** to work down a list. Keyboard shortcuts are shown at the bottom of
+  the open row.
+- **Moving on keeps your work.** Opening another row or closing this one keeps unsaved text, marks
+  the row as unsaved, and gives it its own **Save** and **Discard**. **Save all** at the top saves
+  every unsaved row at once. Unsaved text survives a visit to another section or a reload.
+- **Revert to default** removes the custom text and goes back to what the application ships.
+- **Default changed** marks custom text whose application default has changed since it was written,
+  so it can be checked.
+
+Anyone with access to the Translation section can edit. Sources and the AI settings are managed by
+administrators.
+
+## AI suggestions
+
+With [Umbraco.AI](https://docs.umbraco.com/umbraco-ai) set up, the editor can translate a message
+from the language you are comparing against, and rewrite the text in the field: improve, simplify,
+shorten or fix spelling.
+
+1. Install an Umbraco.AI provider package, for example `Umbraco.AI.OpenAI`. Umbraco.AI itself comes
+   with this package.
+2. In the **AI** section, add a connection and a chat profile. Brand voice and tone belong on the
+   profile, as contexts, and apply to every suggestion.
+3. In **Settings > Translations**, turn on **Offer in the editor** in the AI assistant card, and
+   choose the profile. The instructions sent with every request can be changed there too.
+
+The assistant is off until an administrator turns it on, because it sends the site's text to an AI
+provider.
+
+A suggestion only fills the field. Nothing is saved until you save it, and every suggestion is
+checked the same way a save is: a reply that drops or renames a placeholder is sent back once with
+the reason, and refused if the second reply is no better.
+
+## Using the translations in your application
+
+Fetch the custom text for a language and namespace, and merge it over the messages your application
+already bundles:
+
+```http
+GET /umbraco/delivery/api/v1/translations/overrides?locale=da-DK&namespace=website&format=next-intl
+```
+
+Or fetch the complete dictionary, with custom text in place of the application's wherever there is
+some. Use this when your application does not bundle its own text:
+
+```http
+GET /umbraco/delivery/api/v1/translations/all?locale=da-DK&namespace=website&format=next-intl
+```
+
+Both answer with ETags, so a client that sends `If-None-Match` gets `304 Not Modified` until
+something changes. The exact URLs for each language and namespace are listed under **Settings >
+Translations**.
+
+For i18next, use `format=i18next-v4` and set the source's message syntax to **i18next JSON v4**.
+Nested keys, `{{variable}}` interpolation, context keys and plural suffixes (`_one`, `_other`,
+`_ordinal_one`) are kept as they are. Text is never converted between ICU and i18next syntax, so
+keep each namespace to one syntax; a namespace that mixes them is not served until they are split.
+
+## Keeping things in sync
+
+### Syncing a source
+
+Sources are read when someone presses **Sync now** in **Settings > Translations**, where the
+history of every sync is kept. To sync as part of a deployment, use the endpoint below.
+
+### Syncing from a deployment
+
+A deployment can sync a source by its identifier, without a backoffice login. The endpoint is off
+until you configure a secret of at least 32 characters:
 
 ```sh
 TheBuilder__Translations__DeploymentSync__ApiKey=replace-with-at-least-32-random-characters
 ```
 
-Keep the same secret in the deployment provider and call the source-specific endpoint after the application translation API is available:
+Give your deployment pipeline the same secret, and call the endpoint once the new translation files
+are live:
 
 ```sh
 curl --fail-with-body \
   --request POST \
   --header "Authorization: Bearer $UMBRACO_TRANSLATIONS_SYNC_KEY" \
-  "$UMBRACO_URL/umbraco/translations/api/v1/sources/translations/sync"
+  "$UMBRACO_URL/umbraco/translations/api/v1/sources/website/sync"
 ```
 
-Replace the final `translations` segment with the alias configured under the source’s Advanced settings. A successful request waits for synchronization to complete and returns the revision and added, changed, and removed counts. Missing or invalid credentials return `401`; an unconfigured endpoint returns `503`; disabled or already-synchronizing sources return `409`. Overlapping backoffice and deployment requests share the same database-backed source lease. Use HTTPS and keep both the Umbraco and deployment-provider values in their secret stores.
+Replace `website` with the source identifier from the source's **Advanced** settings. The request
+waits for the sync to finish and returns how many messages were added, changed and removed.
 
-The sample exposes this API at `/umbraco/swagger/thebuildertranslationsautomation/swagger.json`. It intentionally uses a separate bearer secret from Umbraco backoffice authentication.
+| Response | Meaning                                                  |
+| -------- | -------------------------------------------------------- |
+| `200`    | Synced.                                                  |
+| `401`    | The secret is missing or wrong.                          |
+| `404`    | No source has that identifier.                           |
+| `409`    | The source is turned off, or already syncing.            |
+| `502`    | The translation files could not be fetched or read.      |
+| `503`    | No secret is configured, so the endpoint is off.         |
 
-The backoffice client remains generated from the separate management document:
+Use HTTPS, and keep the secret in the secret stores on both sides.
 
-```sh
-pnpm --dir src/TheBuilder.Translations/Client generate-client -- https://localhost:44389/umbraco/swagger/thebuildertranslations/swagger.json
-```
+### Telling your application something changed
 
-## Delivery contract
+To drop a cached dictionary the moment it changes, add a webhook in **Settings > Webhooks** for the
+**Translations updated** event (under **Other**). Umbraco handles the URL, headers, retries and the
+request log as it does for any webhook.
 
-```http
-GET /umbraco/delivery/api/v1/translations/overrides?locale=da&namespace=website&format=next-intl
-```
+It fires once for every change that reaches the delivery endpoints:
 
-The response contains only overrides. A consumer merges it over its application-bundled defaults.
-
-Consumers that do not bundle their own defaults can request the complete effective dictionary:
-
-```http
-GET /umbraco/delivery/api/v1/translations/all?locale=da&namespace=website&format=next-intl
-```
-
-This response contains every synchronized source message for the locale and namespace, with an editorial override used in place of its source value when one exists. Removed source messages are excluded.
-
-For i18next JSON v4 consumers, select **i18next JSON v4** as the source message syntax. Umbraco then exposes the compatible output link with `format=i18next-v4`:
-
-```http
-GET /umbraco/delivery/api/v1/translations/all?locale=da&namespace=website&format=i18next-v4
-```
-
-The resource preserves nested string keys, `{{variable}}` interpolation, context keys, and CLDR plural/ordinal suffixes such as `_one`, `_other`, and `_ordinal_one`. Message values are not converted between ICU and i18next syntax; configure each source with the syntax its application uses. A locale/namespace containing mixed ICU and i18next messages is not advertised as an output endpoint and direct requests return a conflict until the syntaxes are separated into namespaces. i18next object/array return values are outside the editorial string-message model and are rejected during source validation.
-
-## Change notifications
-
-A consumer that caches the delivery response needs to know when to drop it. Rather than ship a
-second notification mechanism, this package adds one event to the ones Umbraco already offers, so a
-webhook is created the ordinary way in **Settings -> Webhooks** and Umbraco keeps ownership of the
-URL, the headers, the retries and the request log.
-
-The event is listed under **Other** as **Translations updated**, with the alias
-`TheBuilder.TranslationsUpdated`. It fires once per committed change:
-
-| `change`          | Cause                                                             |
-| ----------------- | ----------------------------------------------------------------- |
-| `Synchronized`    | A synchronization added, changed or removed at least one message. |
-| `OverrideSaved`   | An editor wrote an override.                                      |
-| `OverrideRemoved` | An editor reset one back to the value its application ships.      |
-| `SourceDeleted`   | A source was deleted, along with everything it contributed.       |
-
-A synchronization that found the application's messages exactly as it left them is not announced.
-Sources are polled on a schedule and most runs change nothing; announcing those would teach every
-subscriber to re-fetch an unchanged dictionary on a timer.
+| `change`          | When                                                     |
+| ----------------- | -------------------------------------------------------- |
+| `Synchronized`    | A sync added, changed or removed at least one message.   |
+| `OverrideSaved`   | An editor saved custom text.                             |
+| `OverrideRemoved` | An editor reverted custom text to the default.           |
+| `SourceDeleted`   | A source was deleted, along with everything it provided. |
 
 ```json
 {
@@ -189,32 +221,54 @@ subscriber to re-fetch an unchanged dictionary on a timer.
 }
 ```
 
-`message` names one message and is present only for the two override changes. Because the delivery
-endpoints are addressed by locale and namespace, those two fields are enough to purge exactly the
-dictionary that moved. `synchronization` carries `revision`, `added`, `changed` and `removed`
-instead, and is present only for `Synchronized`; a whole source moved, so no single message is
-named. Exactly one of the two is set, except on `SourceDeleted`, where neither is.
+For a saved or reverted message, `message` names it, and its locale and namespace are enough to
+purge exactly the dictionary that changed. For a sync, `synchronization` holds the revision and the
+added, changed and removed counts. A sync that found nothing new is not announced.
 
-The notification is raised after the change is committed, never before, so a subscriber that reacts
-by re-reading is not handed the snapshot it was just told had gone.
+Webhooks need to be enabled in Umbraco (`Umbraco:CMS:Webhook:Enabled`, on by default). In a
+load-balanced setup, Umbraco sends webhooks only from the Single or SchedulingPublisher server.
 
-Two limits are Umbraco's rather than this package's. Webhooks must be enabled
-(`Umbraco:CMS:Webhook:Enabled`, on by default), and in a load-balanced setup Umbraco fires webhooks
-only from the Single or SchedulingPublisher server. An override saved on a subscriber node is
-committed and served as usual, but announces nothing.
+## Configuration
 
-## Verification
+| Setting                                                         | Default | Purpose                                                  |
+| --------------------------------------------------------------- | ------- | -------------------------------------------------------- |
+| `TheBuilder:Translations:SourceSecurity:AllowPrivateNetworkEndpoints` | `false` | Let sources read from private networks and `localhost`.  |
+| `TheBuilder:Translations:DeploymentSync:ApiKey`                 | none    | Turns on deployment-triggered sync. 32 characters or more. |
+
+Source header values are read from whatever setting names you give them.
+
+## Development
+
+The repository includes a sample site with English and Danish messages to sync against.
+
+```sh
+pnpm install
+pnpm build
+dotnet run --project samples/TheBuilder.Translations.Example
+```
+
+It runs at `https://localhost:44389` and installs itself, with the backoffice login in
+`samples/TheBuilder.Translations.Example/appsettings.json`. Add a source with
+`https://localhost:44389/sample/messages/{locale}.json` (ICU) or
+`https://localhost:44389/sample/i18next/{locale}.json` (i18next JSON v4). The sample already allows
+private-network sources.
+
+Before opening a pull request:
 
 ```sh
 dotnet test TheBuilder.Translations.slnx
-pnpm check
+pnpm check   # type check, lint and dead-code check
 pnpm test
 pnpm build
-dotnet pack src/TheBuilder.Translations/TheBuilder.Translations.csproj
 ```
 
-`pnpm check` is three things: `pnpm typecheck` (`tsc --noEmit`), `pnpm lint` (Ultracite, a Biome
-preset, for lint and formatting), and `pnpm deadcode` (fallow). CI runs them as separate steps so
-one run reports all three. `pnpm fix` applies the formatting and the safe lint fixes; read the diff
-rather than trusting it, and see `src/TheBuilder.Translations/Client/CLAUDE.md` for the fixes that
-are deliberately not automatic.
+`pnpm fix` applies formatting and the safe lint fixes. The client's conventions are in
+`src/TheBuilder.Translations/Client/CLAUDE.md`.
+
+The backoffice API client is generated from a running sample:
+
+```sh
+pnpm --dir src/TheBuilder.Translations/Client generate-client -- https://localhost:44389/umbraco/swagger/thebuildertranslations/swagger.json
+```
+
+The deployment sync API is documented at `/umbraco/swagger/thebuildertranslationsautomation/swagger.json`.
