@@ -39,7 +39,7 @@ public sealed class DeploymentSyncController(
                 return Problem(
                     statusCode: StatusCodes.Status503ServiceUnavailable,
                     title: "Deployment synchronization is not configured",
-                    detail: $"Configure {DeploymentSyncOptions.ApiKeyConfigurationName} with a secret of at least 32 characters.");
+                    detail: $"Configure {DeploymentSyncOptions.ApiKeyConfigurationName} with a secret.");
             case DeploymentSyncAuthenticationResult.Unauthorized:
                 Response.Headers.WWWAuthenticate = "Bearer";
                 return Unauthorized();
