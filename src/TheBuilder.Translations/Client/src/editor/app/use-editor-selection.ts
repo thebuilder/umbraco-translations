@@ -1,7 +1,16 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MessageKey } from "../../api/generated/models.js";
 import { createDraftStore, type DraftStore } from "../state/drafts.js";
 import { type EditorFilters, editingLocale } from "../state/filters.js";
-import { type EditTarget, sameTarget, targetId } from "../state/target.js";
+import { type EditTarget, sameTarget, targetId, targetOf } from "../state/target.js";
+
+/** How far the list query has got, which decides whether a row missing from it is gone. */
+export interface ListProgress {
+  hasNextPage: boolean;
+  isFetching: boolean;
+  isPlaceholderData: boolean;
+  isSuccess: boolean;
+}
 
 /**
  * Whether the open translation has left the result, judged only when that is knowable.
@@ -10,29 +19,24 @@ import { type EditTarget, sameTarget, targetId } from "../state/target.js";
  * missing from that says nothing. Not while pages are still to come either: a row ranked past the
  * ones loaded so far is still a result, only one nobody has scrolled to yet.
  */
-export const leftResult = (
-  query: {
-    isSuccess: boolean;
-    isFetching: boolean;
-    isPlaceholderData: boolean;
-    hasNextPage: boolean;
-  },
-  found: boolean
-): boolean =>
-  !found && query.isSuccess && !query.isFetching && !query.isPlaceholderData && !query.hasNextPage;
+export const leftResult = (progress: ListProgress, found: boolean): boolean =>
+  !found &&
+  progress.isSuccess &&
+  !progress.isFetching &&
+  !progress.isPlaceholderData &&
+  !progress.hasNextPage;
 
 /**
  * Everything the editor needs from the selection, as one value: which translation it is on, what is
- * either side of it, the question it may be asking, and the ways out. Handed over whole, so the
- * editor is not a list of a dozen props each forwarded from here by hand.
+ * either side of it, the question it may be asking, and the ways out.
  */
 export interface OpenTranslation {
   /**
-   * True once, for the translation that was opened on purpose. An editor that mounts again because
-   * its row scrolled back into view, or came back into a search result, taking the caret out of
-   * wherever it was would be stealing focus.
+   * True once, for a translation opened on purpose. An editor that mounts again because its row
+   * scrolled back into view, or came back into a search result, taking the caret out of wherever
+   * it was would be stealing focus.
    */
-  claimFocus: (target: EditTarget) => boolean;
+  claimFocus: () => boolean;
   close: () => void;
   discard: () => void;
   /** Unsaved text, which outlives the editor. See DraftStore. */
@@ -53,20 +57,32 @@ export interface OpenTranslation {
 }
 
 /**
- * Which translation is open, and what happens when something tries to leave it.
+ * Which translation is open, and everything that follows from it: where it sits among the rows,
+ * what happens when something tries to leave it, and what happens when the list moves out from
+ * under it.
  *
  * The whole reason this is a state machine rather than a `setSelected` call is unsaved text:
  * anything that would close the open row has to ask first while there is some. Every route out --
- * another row, the close button, Escape -- goes through the same question.
+ * another row, the close button, Escape -- goes through the same question. The one route nobody
+ * can be asked about is the row leaving the result, so that one closes without asking and keeps the
+ * text, and says so through `onKept`.
  */
 export const useEditorSelection = ({
   locale,
   referenceLocale,
   update,
+  keys,
+  progress,
+  onKept,
 }: {
   locale: string | null;
   referenceLocale: string | null;
   update: (patch: Partial<EditorFilters>) => void;
+  /** The rows loaded so far, in the order the list shows them. */
+  keys: readonly MessageKey[];
+  progress: ListProgress;
+  /** Told when a translation with unsaved text closes because it left the result. */
+  onKept: (target: EditTarget) => void;
 }) => {
   const [selected, setSelected] = useState<EditTarget>();
   const [pending, setPending] = useState<EditTarget | "close">();
@@ -78,13 +94,6 @@ export const useEditorSelection = ({
   );
 
   const focusFor = useRef<string | null>(null);
-  const claimFocus = useCallback((target: EditTarget): boolean => {
-    if (focusFor.current !== targetId(target)) {
-      return false;
-    }
-    focusFor.current = null;
-    return true;
-  }, []);
 
   /**
    * Opening a translation, including one in another language.
@@ -138,25 +147,63 @@ export const useEditorSelection = ({
 
   const keepEditing = useCallback(() => setPending(undefined), []);
 
-  /**
-   * Closing without asking, for a translation that has already left the result. There is nobody to
-   * ask: the row is not on screen. Its unsaved text stays in the store and comes back when it is
-   * opened again. Keeping the selection instead only meant the row sprang back open when the
-   * search was widened.
-   *
-   * Returns the translation if it had unsaved text, so the editor can be told where it went.
+  /*
+   * Where the open translation sits in the list, looked up by identity rather than remembered as a
+   * position, because the row moves underneath: saving while sorted by what needs attention
+   * reorders the list while the editor is still open on the row that moved.
    */
-  const drop = useCallback((): EditTarget | undefined => {
-    setPending(undefined);
-    setSelected(undefined);
-    return unsaved(selected) ? selected : undefined;
-  }, [selected, unsaved]);
-
-  /** The open translation, less which one it is and its neighbours, which only the list knows. */
-  const editing = useMemo(
-    () => ({ pending, drafts, claimFocus, select, close, discard, keepEditing }),
-    [pending, drafts, claimFocus, select, close, discard, keepEditing]
+  const index = useMemo(
+    () =>
+      selected ? keys.findIndex((key) => sameTarget(targetOf(key, selected.locale), selected)) : -1,
+    [keys, selected]
   );
 
-  return { selected, editing, select, drop };
+  /*
+   * Closing without asking, for a translation that has left the result. Its unsaved text stays in
+   * the store and comes back when it is opened again. Keeping the selection instead only meant the
+   * row sprang back open when the search was widened.
+   */
+  const gone = leftResult(progress, index >= 0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: gone is the trigger. selected, unsaved and onKept are read at the moment the row leaves, and a change to any of them alone is not a reason to close anything.
+  useEffect(() => {
+    if (!gone || selected === undefined) {
+      return;
+    }
+    setPending(undefined);
+    setSelected(undefined);
+    if (unsaved(selected)) {
+      onKept(selected);
+    }
+  }, [gone]);
+
+  const open = useMemo((): OpenTranslation | undefined => {
+    if (selected === undefined) {
+      return undefined;
+    }
+    const at = (offset: number) => {
+      const neighbour = index >= 0 ? keys[index + offset] : undefined;
+      return neighbour ? targetOf(neighbour, selected.locale) : undefined;
+    };
+    const id = targetId(selected);
+    return {
+      target: selected,
+      previous: at(-1),
+      next: at(1),
+      pending,
+      drafts,
+      claimFocus: () => {
+        if (focusFor.current !== id) {
+          return false;
+        }
+        focusFor.current = null;
+        return true;
+      },
+      select,
+      close,
+      discard,
+      keepEditing,
+    };
+  }, [selected, index, keys, pending, drafts, select, close, discard, keepEditing]);
+
+  return { selected, open, select };
 };

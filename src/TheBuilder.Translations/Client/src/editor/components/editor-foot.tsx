@@ -1,6 +1,5 @@
 import { Button } from "../../bridge/uui/index.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
-import type { EditingMode } from "../state/editing-mode.js";
 import { EditorKeys } from "./shortcuts.js";
 
 /**
@@ -15,7 +14,7 @@ export const EditorFoot = ({
   canEdit,
   state,
   dirty,
-  mode,
+  unwritten,
   savable,
   saving,
   commit,
@@ -25,7 +24,11 @@ export const EditorFoot = ({
   /** What the text in the field is, in a few words: saved, unsaved, the default. */
   state: string;
   dirty: boolean;
-  mode: EditingMode;
+  /**
+   * Nothing written in this language yet. Writing a translation from nothing is working down a
+   * queue, so the obvious way out is on to the next row; correcting one is not.
+   */
+  unwritten: boolean;
   savable: boolean;
   saving: boolean;
   commit: (then: "close" | "next") => void;
@@ -72,7 +75,7 @@ export const EditorFoot = ({
       <EditorKeys next={next !== undefined} />
       <span className="editor__actions">
         {closeButton}
-        {mode === "queue" && next ? (
+        {unwritten && next ? (
           <>
             <Button onClick={() => select(next)}>Skip</Button>
             <Button disabled={!savable} look="primary" onClick={() => commit("next")}>

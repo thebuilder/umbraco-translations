@@ -1,7 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { MessageKey } from "../../api/generated/models.js";
 import { type EditTarget, targetId } from "../state/target.js";
-import { leftResult, useEditorSelection } from "./use-editor-selection.js";
+import { type ListProgress, leftResult, useEditorSelection } from "./use-editor-selection.js";
 
 const target = (key: string): EditTarget => ({
   sourceId: "s1",
@@ -10,7 +11,18 @@ const target = (key: string): EditTarget => ({
   locale: "da",
 });
 
-const settled = {
+const row = (key: string): MessageKey => ({
+  sourceId: "s1",
+  namespace: "website",
+  key,
+  format: "Icu",
+  arguments: {},
+  cells: {},
+  coverage: {},
+  matchedLocales: [],
+});
+
+const settled: ListProgress = {
   isSuccess: true,
   isFetching: false,
   isPlaceholderData: false,
@@ -34,58 +46,82 @@ describe("leftResult", () => {
   });
 });
 
-const selection = () =>
-  renderHook(() => useEditorSelection({ locale: "da", referenceLocale: "en", update: vi.fn() }));
+/** The hook over a list, which a test can change underneath it the way a search would. */
+const selection = (keys: MessageKey[] = [row("a"), row("b"), row("c")]) => {
+  const onKept = vi.fn();
+  const hook = renderHook(
+    ({ rows }: { rows: MessageKey[] }) =>
+      useEditorSelection({
+        locale: "da",
+        referenceLocale: "en",
+        update: vi.fn(),
+        keys: rows,
+        progress: settled,
+        onKept,
+      }),
+    { initialProps: { rows: keys } }
+  );
+  return { ...hook, onKept };
+};
 
-describe("unsaved text", () => {
-  it("is kept when the row leaves the result, and given back when it is opened again", () => {
+describe("the open translation", () => {
+  it("knows its neighbours in the list", () => {
     const { result } = selection();
-    act(() => result.current.select(target("a")));
-    act(() => result.current.editing.drafts.set(targetId(target("a")), "Halvskrevet"));
+    act(() => result.current.select(target("b")));
 
-    let kept: EditTarget | undefined;
-    act(() => {
-      kept = result.current.drop();
-    });
-
-    expect(kept).toEqual(target("a"));
-    expect(result.current.selected).toBeUndefined();
-    expect(result.current.editing.drafts.get(targetId(target("a")))).toBe("Halvskrevet");
+    expect(result.current.open?.target).toEqual(target("b"));
+    expect(result.current.open?.previous).toEqual(target("a"));
+    expect(result.current.open?.next).toEqual(target("c"));
   });
 
-  it("is forgotten when it is discarded", () => {
-    const { result } = selection();
-    act(() => result.current.select(target("a")));
-    act(() => result.current.editing.drafts.set(targetId(target("a")), "Halvskrevet"));
-    act(() => result.current.editing.close());
-    expect(result.current.editing.pending).toBe("close");
-
-    act(() => result.current.editing.discard());
-
-    expect(result.current.editing.drafts.get(targetId(target("a")))).toBeUndefined();
-  });
-
-  it("says nothing was kept when there was nothing to keep", () => {
-    const { result } = selection();
-    act(() => result.current.select(target("a")));
-
-    let kept: EditTarget | undefined = target("x");
-    act(() => {
-      kept = result.current.drop();
-    });
-
-    expect(kept).toBeUndefined();
-  });
-});
-
-describe("focus", () => {
-  it("is claimed once, by the translation that was opened", () => {
+  it("claims focus once, because it was opened on purpose", () => {
     // An editor mounting again because its row scrolled back into view must not take the caret.
     const { result } = selection();
     act(() => result.current.select(target("a")));
 
-    expect(result.current.editing.claimFocus(target("b"))).toBe(false);
-    expect(result.current.editing.claimFocus(target("a"))).toBe(true);
-    expect(result.current.editing.claimFocus(target("a"))).toBe(false);
+    expect(result.current.open?.claimFocus()).toBe(true);
+    expect(result.current.open?.claimFocus()).toBe(false);
+  });
+});
+
+describe("leaving the result", () => {
+  it("closes, keeps the unsaved text, and says so", () => {
+    const { result, rerender, onKept } = selection();
+    act(() => result.current.select(target("a")));
+    act(() => result.current.open?.drafts.set(targetId(target("a")), "Halvskrevet"));
+
+    rerender({ rows: [row("b")] });
+
+    expect(result.current.open).toBeUndefined();
+    expect(onKept).toHaveBeenCalledWith(target("a"));
+    // Still there for when it is opened again.
+    act(() => result.current.select(target("b")));
+    expect(result.current.open?.drafts.get(targetId(target("a")))).toBe("Halvskrevet");
+  });
+
+  it("closes quietly when there was nothing to keep", () => {
+    const { result, rerender, onKept } = selection();
+    act(() => result.current.select(target("a")));
+
+    rerender({ rows: [row("b")] });
+
+    expect(result.current.open).toBeUndefined();
+    expect(onKept).not.toHaveBeenCalled();
+  });
+});
+
+describe("unsaved text", () => {
+  it("is asked about before closing, and forgotten when it is discarded", () => {
+    const { result } = selection();
+    act(() => result.current.select(target("a")));
+    act(() => result.current.open?.drafts.set(targetId(target("a")), "Halvskrevet"));
+    act(() => result.current.open?.close());
+    expect(result.current.open?.pending).toBe("close");
+
+    const drafts = result.current.open?.drafts;
+    act(() => result.current.open?.discard());
+
+    expect(result.current.open).toBeUndefined();
+    expect(drafts?.get(targetId(target("a")))).toBeUndefined();
   });
 });

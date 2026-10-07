@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { LocaleFacet, MessageKey } from "../../api/generated/models.js";
+import { useCallback, useMemo, useRef } from "react";
+import type { LocaleFacet } from "../../api/generated/models.js";
 import type { BackofficeBridge } from "../../bridge/backoffice-bridge.js";
 import { useFacets, useKeyRows, usePermissions, useSyncStatus } from "../api/queries.js";
 import { KeyGrid } from "../components/key-grid.js";
@@ -11,12 +11,13 @@ import { editingMode } from "../state/editing-mode.js";
 import type { EditorFilters } from "../state/filters.js";
 import { clearedFilters, describeListState, hasNarrowingFilters } from "../state/list-state.js";
 import { defaultLocale, facetFor, localeName } from "../state/locales.js";
-import { type EditTarget, sameTarget, targetId, targetOf } from "../state/target.js";
+import { targetId } from "../state/target.js";
 import { useUrlFilters } from "../state/use-url-filters.js";
 import { ContextStrip } from "./context-strip.js";
-import { Filters, SearchField } from "./filter-bar.js";
+import { Filters } from "./filter-bar.js";
 import { ResultsHead } from "./results-head.js";
-import { leftResult, useEditorSelection } from "./use-editor-selection.js";
+import { SearchField } from "./search-field.js";
+import { useEditorSelection } from "./use-editor-selection.js";
 
 /**
  * The filters as the screen actually reads them.
@@ -41,28 +42,6 @@ const shownFilters = (
   // against, and "None" is honest where a language picked to fill the slot is not.
   referenceLocale: filters.referenceLocale || page?.referenceLocale || null,
 });
-
-/**
- * The rows either side of an open translation, so the editor can step to them.
- *
- * Looked up by identity rather than remembered as a position, because the row moves underneath:
- * saving while sorted by what needs attention reorders the list while the editor is still open on
- * the row that moved.
- */
-const neighbours = (
-  keys: readonly MessageKey[],
-  selected: EditTarget | undefined,
-  index: number
-) => {
-  if (!selected || index < 0) {
-    return { previous: undefined, next: undefined };
-  }
-  const at = (offset: number) => {
-    const neighbour = keys[index + offset];
-    return neighbour ? targetOf(neighbour, selected.locale) : undefined;
-  };
-  return { previous: at(-1), next: at(1) };
-};
 
 export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const [filters, update] = useUrlFilters();
@@ -90,10 +69,23 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   const comparing = shown.referenceLocale !== null && shown.referenceLocale !== shown.locale;
   const referenceName = localeName(locales, shown.referenceLocale);
 
-  const { selected, editing, select, drop } = useEditorSelection({
+  const { selected, open, select } = useEditorSelection({
     locale: shown.locale,
     referenceLocale: shown.referenceLocale,
     update,
+    keys: rows.keys,
+    progress: {
+      isSuccess: rows.query.isSuccess,
+      isFetching: rows.query.isFetching,
+      isPlaceholderData: rows.query.isPlaceholderData,
+      hasNextPage: rows.query.hasNextPage,
+    },
+    onKept: (kept) =>
+      bridge.notify(
+        "warning",
+        "Your unsaved text was kept",
+        `${kept.namespace}.${kept.key} is no longer in the list. Open it again to carry on.`
+      ),
   });
 
   /*
@@ -123,40 +115,6 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
   });
   const syncing = sync.data?.some((source) => source.syncInProgress) ?? false;
 
-  // Found once and shared: the neighbours and whether the row is still a result both need it, and
-  // this component re-renders on every keystroke in the search field.
-  const openIndex = useMemo(
-    () =>
-      selected
-        ? rows.keys.findIndex((key) => sameTarget(targetOf(key, selected.locale), selected))
-        : -1,
-    [rows.keys, selected]
-  );
-  const { previous, next } = neighbours(rows.keys, selected, openIndex);
-
-  const gone = leftResult(
-    {
-      isSuccess: rows.query.isSuccess,
-      isFetching: rows.query.isFetching,
-      isPlaceholderData: rows.query.isPlaceholderData,
-      hasNextPage: rows.query.hasNextPage,
-    },
-    openIndex >= 0
-  );
-  useEffect(() => {
-    if (!gone) {
-      return;
-    }
-    const kept = drop();
-    if (kept) {
-      bridge.notify(
-        "warning",
-        "Your unsaved text was kept",
-        `${kept.namespace}.${kept.key} is no longer in the list. Open it again to carry on.`
-      );
-    }
-  }, [gone, drop, bridge]);
-
   return (
     <main className="shell">
       <header className="toolbar">
@@ -183,14 +141,13 @@ export const EditorApp = ({ bridge }: { bridge: BackofficeBridge }) => {
         {listState.kind === "rows" ? (
           <KeyGrid
             editor={(row) =>
-              selected ? (
+              open ? (
                 <TranslationDetail
                   bridge={bridge}
                   canEdit={canEdit}
-                  key={targetId(selected)}
+                  key={targetId(open.target)}
                   locales={locales}
-                  mode={mode}
-                  open={{ ...editing, target: selected, previous, next }}
+                  open={open}
                   reference={
                     comparing && shown.referenceLocale
                       ? { locale: shown.referenceLocale, name: referenceName }

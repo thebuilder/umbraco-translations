@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type Ref, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/generated/client.js";
 import type {
   LocaleFacet,
-  MessageCell,
   MessageDetail,
   MessageFormat,
   MessageKey,
@@ -13,20 +12,16 @@ import { Button } from "../../bridge/uui/index.js";
 import { queryKeys } from "../api/keys.js";
 import type { OpenTranslation } from "../app/use-editor-selection.js";
 import { cellOf, textOf } from "../state/cells.js";
-import { type DraftStore, useDraft } from "../state/drafts.js";
-import type { EditingMode } from "../state/editing-mode.js";
 import { localeName } from "../state/locales.js";
-import { type EditTarget, fullKey, targetId } from "../state/target.js";
-import type { FieldHandle } from "../syntax/message-field.js";
+import type { EditTarget } from "../state/target.js";
 import { SyntaxText } from "../syntax/syntax-text.js";
-import { describeOverride } from "../validation/override.js";
-import { cellStatus } from "./cell-status.js";
 import { DefaultValue } from "./default-value.js";
 import { EditorFoot } from "./editor-foot.js";
+import { EditorMeta } from "./editor-meta.js";
 import { shortcutFor } from "./editor-shortcut.js";
+import { describeDraftState, useMessageDraft } from "./message-draft.js";
 import { MessageNotices } from "./message-notices.js";
 import { OverrideField } from "./override-field.js";
-import { StatusBadge } from "./status-badge.js";
 
 /**
  * The editor for one translation, drawn in place of the row it was opened from.
@@ -49,7 +44,6 @@ export const TranslationDetail = ({
   bridge,
   locales,
   reference,
-  mode,
   canEdit,
 }: {
   open: OpenTranslation;
@@ -59,7 +53,6 @@ export const TranslationDetail = ({
   locales: readonly LocaleFacet[];
   /** The language being compared against or written from, when one is chosen. */
   reference?: { locale: string; name: string };
-  mode: EditingMode;
   /**
    * Whether this user may write translations. The API enforces it either way; without it here the
    * editor offers a field to type in and a Save button that can only ever fail.
@@ -91,16 +84,19 @@ export const TranslationDetail = ({
   });
 
   const message: MessageDetail | undefined =
-    id === undefined ? unwritten(target, row) : detail.data;
+    id === undefined ? unwrittenMessage(target, row) : detail.data;
 
   const { draft, setDraft, value, dirty, blanking, problem } = useMessageDraft(
     open.drafts,
     target,
     message
   );
-  const field = useRef<FieldHandle>(null);
-  const heading = useRef<HTMLButtonElement>(null);
-  useOpeningFocus(open, canEdit, message !== undefined, field, heading);
+  /*
+   * Whether this editor takes focus, decided once as it opens: only for a translation opened on
+   * purpose (see OpenTranslation.claimFocus). The field takes it when it mounts, which is when the
+   * message arrives; until then, or without permission to edit, the key holds it.
+   */
+  const [takesFocus] = useState(() => open.claimFocus());
 
   /**
    * The list and the counts have to be refetched, but the message itself does not: the write
@@ -161,12 +157,18 @@ export const TranslationDetail = ({
   useEditorKeys(open, commit);
 
   const referenceText = reference ? textOf(cellOf(row, reference.locale)) : null;
-  // Nothing written here yet, so the text being translated from is the starting point on offer.
-  const startsFromReference = referenceText !== null && (mode === "queue" || cell === undefined);
+  // Nothing written in this language yet: the reference is the starting point on offer, and the
+  // natural way out is on to the next row rather than back to the list.
+  const unwritten = cell === undefined;
 
   return (
     <section aria-label="Edit translation" className="editor">
-      <EditorMeta bridge={bridge} cell={cell} heading={heading} target={target} />
+      <EditorMeta
+        bridge={bridge}
+        cell={cell}
+        focusOnMount={takesFocus && (!canEdit || message === undefined)}
+        target={target}
+      />
 
       <div className="editor__cell editor__field">
         {/* The field's own box, holding what the row already shows, while the whole message is
@@ -184,7 +186,7 @@ export const TranslationDetail = ({
             <MessageNotices message={message} />
             <OverrideField
               canEdit={canEdit}
-              field={field}
+              focusOnMount={takesFocus}
               language={localeName(locales, target.locale)}
               locale={target.locale}
               message={message}
@@ -211,9 +213,7 @@ export const TranslationDetail = ({
             // to an empty box, and retyping a key name or a placeholder by hand is how a save fails
             // validation for a reason nobody meant.
             onCopy={
-              canEdit && startsFromReference && referenceText
-                ? () => setDraft(referenceText)
-                : undefined
+              canEdit && unwritten && referenceText ? () => setDraft(referenceText) : undefined
             }
             text={referenceText}
           />
@@ -224,106 +224,16 @@ export const TranslationDetail = ({
         canEdit={canEdit}
         commit={commit}
         dirty={dirty}
-        mode={mode}
         open={open}
         savable={savable}
         saving={save.isPending}
         // The row's own preview until the message arrives, so the status does not change under the
         // editor's eyes when it does.
         state={describeDraftState(dirty, message ?? cell)}
+        unwritten={unwritten}
       />
     </section>
   );
-};
-
-/**
- * What the footer says before anything is pressed. An override the server has never been given is
- * absent rather than empty, and it arrives as either `null` or `undefined` depending on which
- * endpoint answered, so both mean "nothing written here yet".
- */
-const describeDraftState = (
-  dirty: boolean,
-  saved: Pick<MessageCell, "overrideValue" | "defaultValue"> | undefined
-): string => {
-  if (dirty) {
-    return "Unsaved changes";
-  }
-  if (saved?.overrideValue !== null && saved?.overrideValue !== undefined) {
-    return "Your text is saved";
-  }
-  // The field starts from the default text, so where there is some, that is what it holds.
-  return saved?.defaultValue ? "Default text" : "Nothing written here yet";
-};
-
-/**
- * The text being typed, measured against what is saved and against the server's rule.
- *
- * Kept in the draft store rather than here, so it survives this editor unmounting, and only while
- * it differs from what is saved: typing back to the saved text forgets it, which is what makes
- * "is there unsaved text" the same question as "is there an entry".
- */
-const useMessageDraft = (
-  drafts: DraftStore,
-  target: EditTarget,
-  message: MessageDetail | undefined
-) => {
-  const id = targetId(target);
-  const draft = useDraft(drafts, id);
-  /*
-   * The field starts from the text the site serves now: the editor's own, or the default where
-   * there is none. Correcting a typo is editing the sentence that has it, and an empty box beside
-   * it asked for the whole thing to be retyped.
-   */
-  const committed = message?.overrideValue ?? message?.defaultValue ?? "";
-  const value = draft ?? committed;
-  const dirty = draft !== undefined && draft !== committed;
-  // Emptying the default text is not a translation. Saved, it would blank the string on the site
-  // rather than leave it alone, which is never what clearing the field to start again meant.
-  const blanking = value === "" && message?.overrideValue === null;
-
-  const setDraft = (text: string | undefined) =>
-    drafts.set(id, text === committed ? undefined : text);
-
-  /**
-   * The same rule the server applies, checked as the editor types so a mistake is answered beside
-   * the field instead of by a failed save. Blank is exempt: an empty draft means "go back to the
-   * default text", which is a reset rather than a translation missing its placeholders.
-   */
-  const problem = message && value !== "" ? describeOverride(value, message) : null;
-
-  return { draft, setDraft, value, dirty, blanking, problem };
-};
-
-/**
- * Focus goes to the field being filled in, not the key: the editor exists to be typed into. Only
- * for a translation opened on purpose, though -- see OpenTranslation.claimFocus. Until the message
- * arrives there is no field, so the key holds focus and hands it on when it does, which is why the
- * claim is remembered rather than spent on the first run.
- */
-const useOpeningFocus = (
-  open: OpenTranslation,
-  canEdit: boolean,
-  loaded: boolean,
-  field: { current: FieldHandle | null },
-  heading: { current: HTMLButtonElement | null }
-) => {
-  const wantsFocus = useRef<boolean | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loaded is a trigger rather than a read. The message arriving is what puts the field there to be focused; the claim is read once, on the first run.
-  useEffect(() => {
-    if (wantsFocus.current === null) {
-      wantsFocus.current = open.claimFocus(open.target);
-    }
-    if (!wantsFocus.current) {
-      return;
-    }
-    // The field puts the caret at the end of what is already there rather than selecting it, so a
-    // keystroke does not wipe an existing translation.
-    const element = canEdit ? (field.current ?? heading.current) : heading.current;
-    element?.focus();
-    if (!canEdit || field.current) {
-      wantsFocus.current = false;
-    }
-  }, [canEdit, loaded]);
 };
 
 /** The editor's keys, listened for on the window so they work from anywhere in the open row. */
@@ -376,81 +286,6 @@ const useEditorKeys = (open: OpenTranslation, commit: (then: "close" | "next") =
 };
 
 /**
- * The key the open row is about, and what is known about the text written under it.
- *
- * Said plainly rather than folded away behind a disclosure, and taken from the row rather than the
- * fetched message, so it is all there on the first frame: facts that arrived with the message made
- * this column, and with it the open row, grow a moment after opening. The format and the source
- * revision are left out: both are set once on the source, so they say nothing about this key.
- */
-const EditorMeta = ({
-  target,
-  cell,
-  heading,
-  bridge,
-}: {
-  target: EditTarget;
-  /** The row's own cell for this language, which carries its status and who last edited it. */
-  cell: MessageCell | undefined;
-  /** Focused instead of the field when there is nothing to type into. */
-  heading: Ref<HTMLButtonElement>;
-  bridge: BackofficeBridge;
-}) => {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) {
-      return;
-    }
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  /**
-   * The clipboard is refused outside a secure context and while the document is unfocused, and the
-   * backoffice is served over plain HTTP often enough for that to be the normal case rather than
-   * the exceptional one. Unanswered, the button looks like it worked and the paste is whatever was
-   * copied before it, so a failure still says so. Success is said in place, where the click was.
-   */
-  const copyKey = async () => {
-    try {
-      await navigator.clipboard.writeText(fullKey(target));
-      setCopied(true);
-    } catch {
-      bridge.notify("danger", "Could not copy the key", "Select the key and copy it manually.");
-    }
-  };
-
-  return (
-    <div className="editor__cell editor__meta">
-      {/* The key is the copy button: it is the thing being copied, and a separate button beside it
-          sat closer to the language heading than to the key it was for. */}
-      <button
-        className="editor__key"
-        onClick={() => {
-          copyKey();
-        }}
-        ref={heading}
-        title="Copy the full key"
-        type="button"
-      >
-        <span className="editor__namespace">{target.namespace}.</span>
-        {target.key}
-        <span aria-live="polite" className="editor__copied">
-          {copied ? "Copied" : "Copy"}
-        </span>
-      </button>
-      <StatusBadge status={cellStatus(cell)} />
-      {cell?.updatedAt ? (
-        <p className="editor__note">
-          Edited {new Date(cell.updatedAt).toLocaleDateString()}
-          {cell.updatedBy ? ` by ${cell.updatedBy}` : ""}
-        </p>
-      ) : null}
-    </div>
-  );
-};
-
-/**
  * The text being compared against or written from, in full rather than as the row's preview, set
  * level with the field and in the same type, so the two read as a pair.
  */
@@ -489,7 +324,7 @@ const Reference = ({
  * to satisfy, and those come from the row the editor was opened from. Everything else is honestly
  * empty rather than absent, which keeps one shape for the editor to render.
  */
-const unwritten = (target: EditTarget, row: MessageKey): MessageDetail => ({
+const unwrittenMessage = (target: EditTarget, row: MessageKey): MessageDetail => ({
   id: "",
   sourceId: target.sourceId,
   namespace: target.namespace,
